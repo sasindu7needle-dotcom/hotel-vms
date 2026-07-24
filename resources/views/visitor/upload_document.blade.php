@@ -13,7 +13,7 @@
     <section class="hero">
         <div class="hero-content">
             <div style="margin-bottom: 12px;">
-                <a href="{{ route('visitor.create') }}" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #555; text-decoration: none;">
+                <a href="{{ route('visitor.create') }}" class="btn-back-nav">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
                     Back to Privacy Notice
                 </a>
@@ -21,11 +21,11 @@
 
             <div class="tagline">Step 2 of 2</div>
             <h1 class="headline">Upload your document<span class="dot">.</span></h1>
-            <p style="font-size: 14px; color: #555; margin-bottom: 20px; line-height: 1.5;">
+            <p class="description upload-doc-intro">
                 Select your document type and upload or capture a clear photo of your identity document.
             </p>
 
-            <div class="verification-consent-card" style="padding: 24px;">
+            <div class="verification-consent-card upload-doc-card">
                 
                 <!-- Document Type Selector — matches form-control-premium theme -->
                 <div style="text-align: left; margin-bottom: 20px;">
@@ -131,9 +131,18 @@
 
     <style>
         /* ─── Document Type Dropdown ─── */
-        body.landing-page.upload-document-page .verification-consent-card {
+        body.landing-page.upload-document-page .upload-doc-card {
             overflow: visible;
+            width: 100%;
             max-width: 600px;
+            padding: 24px;
+        }
+
+        body.landing-page.upload-document-page .upload-doc-intro {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.55;
         }
 
         body.landing-page.upload-document-page .document-sides {
@@ -378,7 +387,9 @@
         }
 
         @media (max-width: 640px) {
-            body.landing-page.upload-document-page .document-sides { grid-template-columns: 1fr; }
+            body.landing-page.upload-document-page .upload-doc-card { padding: 18px 14px; }
+            body.landing-page.upload-document-page .document-sides { grid-template-columns: 1fr; gap: 12px; }
+            body.landing-page.upload-document-page .doc-dropzone { min-height: 160px; padding: 18px 10px; }
         }
     </style>
 
@@ -506,7 +517,7 @@
         updateDocumentSides();
 
         // Toast Notification System
-        function showToast(message, type = 'info') {
+        function showToast(message, type = 'info', title = null) {
             let container = document.querySelector('.toast-container');
             if (!container) {
                 container = document.createElement('div');
@@ -517,20 +528,26 @@
             const toast = document.createElement('div');
             toast.className = `toast show toast-${type}`;
             
+            let defaultTitle = type === 'success' ? 'Document Verified' : (type === 'error' ? 'Verification Notice' : 'System Notice');
+            let toastTitle = title || defaultTitle;
+
             let iconSvg = '';
             if (type === 'error') {
-                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e85d5d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+                iconSvg = `<div class="toast-icon-badge toast-icon-error"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div>`;
             } else if (type === 'success') {
-                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#688009" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+                iconSvg = `<div class="toast-icon-badge toast-icon-success"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>`;
             } else {
-                iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+                iconSvg = `<div class="toast-icon-badge toast-icon-info"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></div>`;
             }
 
             toast.innerHTML = `
                 ${iconSvg}
-                <div class="toast-message">${message}</div>
-                <button class="toast-close" onclick="this.parentElement.remove()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <div class="toast-body-content">
+                    <span class="toast-title">${toastTitle}</span>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()" aria-label="Close notice">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             `;
             
@@ -538,9 +555,9 @@
             
             setTimeout(() => {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-10px)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
+                toast.style.transform = 'translateY(-12px) scale(0.96)';
+                setTimeout(() => toast.remove(), 320);
+            }, 4500);
         }
 
         verifyBtn.addEventListener('click', async function(e) {

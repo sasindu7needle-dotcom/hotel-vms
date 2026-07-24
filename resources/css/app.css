@@ -1,11 +1,11 @@
-@import '~bootstrap/dist/css/bootstrap.css';
+ @import '~bootstrap/dist/css/bootstrap.css';
 
 body {
     background-color: #f8f9fa;
     font-family: Arial, sans-serif;
 }
 
-body.landing-page .admin-document-sides > div {
+body.landing-page .admin-document-sides>div {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 180px));
     gap: 12px;
@@ -138,32 +138,45 @@ body.landing-page .btn-large {
 body.landing-page .hero {
     display: flex;
     align-items: center;
-    max-width: 1400px;
+    justify-content: space-between;
+    gap: 40px;
+    max-width: 1440px;
+    width: 100%;
     margin: 0 auto;
-    padding: 48px;
+    padding: 48px 36px;
     min-height: 100vh;
     position: relative;
+    overflow: hidden;
 }
 
 body.landing-page .hero-content {
-    flex: 0 0 45%;
+    flex: 1 1 540px;
+    max-width: 620px;
+    min-width: 0;
     position: relative;
     z-index: 2;
 }
 
 body.landing-page .hero-visual {
-    flex: 1;
+    flex: 1 1 440px;
+    max-width: 680px;
+    min-width: 320px;
     position: relative;
-    height: 600px;
+    height: 100%;
+    min-height: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 body.landing-page .hero-visual svg {
+    width: 100%;
+    max-width: 780px;
+    height: auto;
     position: absolute;
-    right: -60px;
+    right: -20px;
     top: 50%;
     transform: translateY(-50%);
-    width: 900px;
-    height: auto;
 }
 
 /* Pod Bobbing Animations */
@@ -338,41 +351,45 @@ body.landing-page .cta-buttons {
 @media (max-width: 1024px) {
     body.landing-page .hero {
         flex-direction: column;
-        padding: 40px 24px;
-        text-align: center;
-        justify-content: center;
+        padding: 40px 24px 32px;
+        text-align: left;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 32px;
     }
 
     body.landing-page .hero-content {
         flex: none;
-        margin-bottom: 40px;
-        align-items: center;
+        width: 100%;
+        max-width: 640px;
+        margin-bottom: 0;
     }
 
     body.landing-page .headline {
-        font-size: 42px;
+        font-size: clamp(34px, 6vw, 44px);
+        text-align: left;
     }
 
     body.landing-page .tagline {
-        justify-content: center;
-    }
-
-    body.landing-page .tagline::before {
-        display: none;
+        justify-content: inline-flex;
     }
 
     body.landing-page .description {
-        margin-left: auto;
-        margin-right: auto;
+        margin-left: 0;
+        margin-right: 0;
+        text-align: left;
     }
 
     body.landing-page .hero-visual {
-        height: 400px;
+        flex: none;
         width: 100%;
+        max-width: 650px;
+        height: clamp(260px, 45vw, 380px);
+        min-height: auto;
     }
 
     body.landing-page .cta-buttons {
-        justify-content: center;
+        justify-content: flex-start;
     }
 }
 
@@ -475,7 +492,7 @@ body.landing-page .footer-version {
     }
 }
 
-/* Toast Notification System */
+/* Toast Notification System — Site Themed */
 .toast-container {
     position: fixed;
     top: 24px;
@@ -484,71 +501,147 @@ body.landing-page .footer-version {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    pointer-events: none;
 }
 
 .toast {
-    background: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 16px 20px;
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 14px;
+    box-shadow:
+        0 18px 45px rgba(20, 28, 38, 0.12),
+        0 4px 16px rgba(200, 224, 99, 0.15);
+    border: 1px solid rgba(200, 224, 99, 0.4);
+    padding: 14px 16px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #1e293b;
+    gap: 14px;
+    font-family: 'Inter', sans-serif;
     min-width: 320px;
-    max-width: 420px;
-    animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    transition: all 0.3s ease;
+    max-width: 440px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.toast-error {
-    border-left: 4px solid #e85d5d;
+.toast::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
 }
 
 .toast-success {
-    border-left: 4px solid #c8e063;
+    border-color: rgba(184, 210, 68, 0.5);
+    background: linear-gradient(135deg, #ffffff, #fcfef5);
+}
+
+.toast-success::before {
+    background: linear-gradient(180deg, #c8e063 0%, #90aa1f 100%);
+}
+
+.toast-error {
+    border-color: rgba(232, 93, 93, 0.35);
+    background: linear-gradient(135deg, #ffffff, #fff8f8);
+}
+
+.toast-error::before {
+    background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
 }
 
 .toast-info {
-    border-left: 4px solid #3b82f6;
+    border-color: rgba(59, 130, 246, 0.35);
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
 }
 
-.toast-icon {
-    flex-shrink: 0;
+.toast-info::before {
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
 }
 
-.toast-message {
-    flex-grow: 1;
-}
-
-.toast-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #94a3b8;
-    padding: 4px;
+.toast-icon-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.toast-icon-success {
+    background: rgba(200, 224, 99, 0.28);
+    color: #4b5e00;
+    border: 1px solid rgba(169, 198, 47, 0.35);
+}
+
+.toast-icon-error {
+    background: rgba(232, 93, 93, 0.14);
+    color: #c43d3d;
+    border: 1px solid rgba(232, 93, 93, 0.25);
+}
+
+.toast-icon-info {
+    background: rgba(59, 130, 246, 0.14);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.toast-body-content {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.toast-title {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.25;
+    margin-bottom: 2px;
+    letter-spacing: -0.1px;
+}
+
+.toast-message {
+    font-size: 12px;
+    font-weight: 500;
+    color: #4a5568;
+    line-height: 1.45;
+}
+
+.toast-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border: none;
+    cursor: pointer;
+    color: #718096;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
 }
 
 .toast-close:hover {
-    background: #f1f5f9;
-    color: #64748b;
+    background: rgba(200, 224, 99, 0.3);
+    color: #1a1a1a;
+    transform: scale(1.06);
 }
 
 @keyframes toast-slide-in {
     from {
-        transform: translateY(-20px);
+        transform: translateY(-16px) scale(0.95);
         opacity: 0;
     }
 
     to {
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
         opacity: 1;
     }
 }
@@ -907,6 +1000,7 @@ body.landing-page .option-card.option-card-row {
 }
 
 @media (max-width: 600px) {
+
     .verification-consent-card,
     .select-type-form {
         max-width: 100%;
@@ -942,7 +1036,7 @@ body.landing-page .verification-consent-heading {
     border-bottom: 1px solid rgba(160, 184, 62, 0.22);
 }
 
-body.landing-page .verification-consent-heading > svg {
+body.landing-page .verification-consent-heading>svg {
     width: 40px;
     height: 40px;
     padding: 8px;
@@ -1021,10 +1115,53 @@ body.landing-page .privacy-summary .privacy-links {
 }
 
 body.landing-page .privacy-summary a {
-    color: #536b00 !important;
+    color: #2563eb !important;
+    font-weight: 600;
+    text-decoration: underline !important;
+    border-bottom: none !important;
+    overflow-wrap: anywhere;
+}
+
+body.landing-page .privacy-governance-box {
+    margin-top: 16px;
+    padding: 14px;
+    background: rgba(200, 224, 99, 0.15);
+    border-left: 4px solid #c8e063;
+    border-radius: 8px;
+}
+
+body.landing-page .privacy-governance-box h4 {
+    font-size: 13px;
     font-weight: 700;
-    text-decoration: none !important;
-    border-bottom: 1px solid rgba(83, 107, 0, 0.35);
+    color: #1a1a1a;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+body.landing-page .privacy-governance-box p {
+    font-size: 12px;
+    color: #333;
+    line-height: 1.5;
+    margin: 0;
+}
+
+body.landing-page .btn-back-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    text-decoration: none;
+    transition: color 0.2s ease, transform 0.2s ease;
+    padding: 4px 0;
+}
+
+body.landing-page .btn-back-nav:hover {
+    color: #111;
+    transform: translateX(-2px);
 }
 
 body.landing-page .consent-checkbox-row {
@@ -1083,6 +1220,7 @@ body.landing-page .verification-assurance {
 }
 
 @media (max-width: 600px) {
+
     body.landing-page .verification-consent-card,
     body.landing-page .select-type-form {
         max-width: 100%;
@@ -1095,7 +1233,7 @@ body.landing-page .verification-assurance {
         padding-right: 16px;
     }
 
-    body.landing-page .verification-consent-heading > svg {
+    body.landing-page .verification-consent-heading>svg {
         width: 36px;
         height: 36px;
         padding: 7px;
@@ -1368,7 +1506,7 @@ body.landing-page .phone-control:focus-within {
     box-shadow: 0 0 0 3px rgba(200, 224, 99, 0.15);
 }
 
-body.landing-page .phone-control > span {
+body.landing-page .phone-control>span {
     padding: 10px 11px;
     color: #334155;
     background: #f1f5f9;
@@ -1518,9 +1656,9 @@ body.landing-page .select-type-form {
 @media (max-width: 1024px) {
     body.landing-page .hero {
         width: 100%;
-        max-width: 760px;
+        max-width: 840px;
         min-height: auto;
-        padding: 48px 24px 32px;
+        padding: 40px 24px 32px;
         overflow: hidden;
     }
 
@@ -1528,22 +1666,26 @@ body.landing-page .select-type-form {
     body.landing-page .hero-content-wide,
     body.landing-page .hero-content-center {
         width: 100%;
-        max-width: 680px;
+        max-width: 640px;
         flex-basis: auto;
     }
 
     body.landing-page .hero-visual {
         flex: none;
         width: 100%;
-        height: clamp(280px, 52vw, 400px);
+        max-width: 650px;
+        height: clamp(260px, 45vw, 380px);
         overflow: hidden;
     }
 
     body.landing-page .hero-visual svg {
-        right: 50%;
-        width: min(900px, 112vw);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        width: min(850px, 105vw);
         max-width: none;
-        transform: translate(50%, -50%);
+        transform: translate(-50%, -50%);
     }
 
     body.landing-page .hero-wide {
@@ -1560,45 +1702,45 @@ body.landing-page .select-type-form {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     body.landing-page .hero {
-        padding: 32px 16px 22px;
+        padding: 24px 16px 20px;
+        gap: 24px;
     }
 
     body.landing-page .hero-content {
-        margin-bottom: 26px;
+        margin-bottom: 0;
     }
 
     body.landing-page .headline,
     body.landing-page .headline-success {
-        font-size: clamp(30px, 10vw, 38px) !important;
-        line-height: 1.08 !important;
-        letter-spacing: -1.2px;
+        font-size: clamp(26px, 7.5vw, 36px) !important;
+        line-height: 1.12 !important;
+        letter-spacing: -1px;
         overflow-wrap: anywhere;
     }
 
     body.landing-page .description {
         max-width: 100%;
-        margin-bottom: 26px;
-        font-size: 15px;
-        line-height: 1.65;
+        margin-bottom: 20px;
+        font-size: 14px;
+        line-height: 1.6;
         text-align: left;
     }
 
     body.landing-page .hero-visual {
-        height: clamp(220px, 68vw, 300px);
+        height: clamp(200px, 58vw, 280px);
     }
 
     body.landing-page .hero-visual svg {
-        width: 132vw;
+        width: min(700px, 115vw);
     }
 
     body.landing-page .tagline {
         max-width: 100%;
-        padding: 6px 13px;
-        letter-spacing: 1.1px;
+        padding: 5px 12px;
+        letter-spacing: 1px;
         white-space: normal;
-        text-align: center;
     }
 
     body.landing-page .cta-buttons,
@@ -1705,7 +1847,7 @@ body.landing-page .select-type-form {
         height: 18px;
     }
 
-    body.landing-page .phone-control > span,
+    body.landing-page .phone-control>span,
     body.landing-page .phone-control input,
     body.landing-page .form-control-premium {
         min-height: 46px;
@@ -1728,6 +1870,7 @@ body.landing-page .select-type-form {
 }
 
 @media (max-width: 380px) {
+
     body.landing-page .hero,
     body.landing-page .registration-shell {
         padding-left: 12px;
@@ -1751,6 +1894,7 @@ body.landing-page .select-type-form {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     body.landing-page .bobbing-pod-1,
     body.landing-page .bobbing-pod-2,
     body.landing-page .bobbing-pod-3,
@@ -1947,12 +2091,12 @@ body.landing-page .payment-option-indicator {
     box-shadow: inset 0 0 0 4px #fff;
 }
 
-body.landing-page .payment-option input:checked ~ .payment-option-indicator {
+body.landing-page .payment-option input:checked~.payment-option-indicator {
     background: #9eb91f;
     border-color: #9eb91f;
 }
 
-body.landing-page .payment-option input:focus-visible ~ .payment-option-indicator {
+body.landing-page .payment-option input:focus-visible~.payment-option-indicator {
     outline: 3px solid rgba(200, 224, 99, 0.4);
     outline-offset: 2px;
 }
@@ -2034,7 +2178,7 @@ body.landing-page .payment-status-card .headline {
     font-size: 38px;
 }
 
-body.landing-page .payment-status-card > p {
+body.landing-page .payment-status-card>p {
     color: #64748b;
     font-size: 14px;
     line-height: 1.65;
@@ -2250,7 +2394,7 @@ body.landing-page .admin-input-wrap:focus-within {
     box-shadow: 0 0 0 3px rgba(200, 224, 99, .16);
 }
 
-body.landing-page .admin-input-wrap > svg {
+body.landing-page .admin-input-wrap>svg {
     width: 18px;
     margin-left: 13px;
     fill: none;
@@ -2429,7 +2573,7 @@ body.landing-page .admin-user-chip {
     border-radius: 50px;
 }
 
-body.landing-page .admin-user-chip > span {
+body.landing-page .admin-user-chip>span {
     display: grid;
     place-items: center;
     width: 34px;
@@ -2507,9 +2651,17 @@ body.landing-page .admin-stat-card i {
     opacity: .32;
 }
 
-body.landing-page .admin-stat-coral i { border-color: #e85d5d; }
-body.landing-page .admin-stat-black i { border-color: #111; }
-body.landing-page .admin-stat-slate i { border-color: #94a3b8; }
+body.landing-page .admin-stat-coral i {
+    border-color: #e85d5d;
+}
+
+body.landing-page .admin-stat-black i {
+    border-color: #111;
+}
+
+body.landing-page .admin-stat-slate i {
+    border-color: #94a3b8;
+}
 
 body.landing-page .admin-panel {
     overflow: hidden;
@@ -2528,7 +2680,7 @@ body.landing-page .admin-panel-heading {
     border-bottom: 1px solid #edf0f2;
 }
 
-body.landing-page .admin-panel-heading > div > span {
+body.landing-page .admin-panel-heading>div>span {
     color: #80920f;
     font-size: 9px;
     font-weight: 800;
@@ -2579,7 +2731,7 @@ body.landing-page .admin-visitor-cell {
     gap: 10px;
 }
 
-body.landing-page .admin-visitor-cell > span {
+body.landing-page .admin-visitor-cell>span {
     display: grid;
     place-items: center;
     width: 34px;
@@ -2699,7 +2851,7 @@ body.landing-page .admin-sidebar-overlay {
         flex-wrap: wrap;
     }
 
-    body.landing-page .admin-topbar > div:nth-child(2) {
+    body.landing-page .admin-topbar>div:nth-child(2) {
         flex: 1;
     }
 
@@ -2911,7 +3063,7 @@ body.landing-page .admin-visitor-empty {
     text-align: center;
 }
 
-body.landing-page .admin-visitor-empty > span {
+body.landing-page .admin-visitor-empty>span {
     display: grid;
     place-items: center;
     width: 48px;
@@ -3084,7 +3236,7 @@ body.landing-page .admin-dialog-grid {
     gap: 10px;
 }
 
-body.landing-page .admin-dialog-grid > div {
+body.landing-page .admin-dialog-grid>div {
     min-width: 0;
     padding: 10px 12px;
     background: #f8fafc;
@@ -3131,28 +3283,72 @@ body.landing-page .admin-dialog-actions {
     body.landing-page .admin-visitor-filters {
         grid-template-columns: 1fr 1fr 1fr auto;
     }
-    body.landing-page .admin-search-field { grid-column: 1 / -1; }
+
+    body.landing-page .admin-search-field {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 700px) {
-    body.landing-page .admin-visitor-stat-grid { grid-template-columns: repeat(2, 1fr); }
-    body.landing-page .admin-visitor-filters { grid-template-columns: 1fr; }
-    body.landing-page .admin-search-field { grid-column: auto; }
-    body.landing-page .admin-add-visitor { width: 100%; justify-content: center; }
-    body.landing-page .admin-dialog-profile { grid-template-columns: 1fr; }
-    body.landing-page .admin-dialog-photo { width: 140px; margin: 0 auto; }
+    body.landing-page .admin-visitor-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    body.landing-page .admin-visitor-filters {
+        grid-template-columns: 1fr;
+    }
+
+    body.landing-page .admin-search-field {
+        grid-column: auto;
+    }
+
+    body.landing-page .admin-add-visitor {
+        width: 100%;
+        justify-content: center;
+    }
+
+    body.landing-page .admin-dialog-profile {
+        grid-template-columns: 1fr;
+    }
+
+    body.landing-page .admin-dialog-photo {
+        width: 140px;
+        margin: 0 auto;
+    }
 }
 
 @media (max-width: 460px) {
-    body.landing-page .admin-visitor-stat-grid { grid-template-columns: 1fr; }
-    body.landing-page .admin-dialog-grid { grid-template-columns: 1fr; }
-    body.landing-page .admin-dialog-grid .admin-dialog-wide { grid-column: auto; }
+    body.landing-page .admin-visitor-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body.landing-page .admin-dialog-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body.landing-page .admin-dialog-grid .admin-dialog-wide {
+        grid-column: auto;
+    }
+
     body.landing-page .admin-dialog-heading,
     body.landing-page .admin-dialog-profile,
-    body.landing-page .admin-dialog-actions { padding-left: 16px; padding-right: 16px; }
-    body.landing-page .admin-dialog-actions { flex-direction: column; align-items: stretch; }
+    body.landing-page .admin-dialog-actions {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    body.landing-page .admin-dialog-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
     body.landing-page .admin-dialog-actions .btn,
-    body.landing-page .admin-dialog-actions .btn-back-link { width: 100%; min-height: 44px; justify-content: center; text-align: center; }
+    body.landing-page .admin-dialog-actions .btn-back-link {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+        text-align: center;
+    }
 }
 
 /* Admin mobile hardening */
@@ -3326,5 +3522,1485 @@ body.landing-page .admin-login-button {
 
     body.landing-page .admin-sidebar-brand {
         margin-bottom: 20px;
+    }
+}
+
+/* Admin visitor deletion confirmation */
+body.landing-page .admin-delete-dialog {
+    width: min(520px, calc(100vw - 32px));
+    overflow: hidden;
+    border: 1px solid rgba(189, 52, 64, .16);
+}
+
+body.landing-page .admin-delete-dialog .admin-dialog-heading {
+    position: relative;
+    min-height: auto;
+    padding: 25px 82px 23px;
+    background: linear-gradient(135deg, #fff0f1 0%, #fff8f8 55%, #fff 100%);
+    border-bottom-color: #f0c7ca;
+    box-shadow: none;
+}
+
+body.landing-page .admin-delete-dialog .admin-dialog-heading::before {
+    content: '!';
+    position: absolute;
+    top: 27px;
+    left: 28px;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    color: #fff;
+    background: #c93643;
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(189, 52, 64, .2);
+    font-size: 21px;
+    font-weight: 800;
+}
+
+body.landing-page .admin-delete-dialog .admin-dialog-heading h2 {
+    margin-top: 5px;
+    font-size: 24px;
+    line-height: 1.15;
+}
+
+body.landing-page .admin-delete-dialog .admin-dialog-heading button[data-close] {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 38px;
+    height: 38px;
+    margin: 0;
+}
+
+body.landing-page .admin-delete-content {
+    padding: 24px 28px 22px;
+}
+
+body.landing-page .admin-delete-list {
+    gap: 9px;
+    padding: 15px 16px;
+    border-radius: 11px;
+}
+
+body.landing-page .admin-delete-list li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+body.landing-page .admin-delete-list li::before {
+    content: '\2713';
+    display: grid;
+    place-items: center;
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    color: #a72c35;
+    background: #ffe6e8;
+    border-radius: 50%;
+    font-size: 10px;
+}
+
+body.landing-page .admin-delete-dialog form.admin-dialog-actions,
+.admin-delete-modal-form,
+.admin-delete-actions-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 16px !important;
+    margin: 0 !important;
+    padding: 20px 28px 24px !important;
+    background: #fbfcfd !important;
+    border-top: 1px solid #edf0f3 !important;
+}
+
+.btn-keep-visitor,
+body.landing-page .admin-delete-dialog .admin-modal-close-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 22px !important;
+    color: #344054 !important;
+    background: #ffffff !important;
+    border: 1px solid #d0d7de !important;
+    border-radius: 10px !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05) !important;
+    transition: all .15s ease !important;
+}
+
+.btn-keep-visitor:hover,
+body.landing-page .admin-delete-dialog .admin-modal-close-button:hover {
+    color: #111111 !important;
+    background: #f4f8e5 !important;
+    border-color: #c8dc72 !important;
+    transform: translateY(-1px) !important;
+}
+
+.btn-delete-permanently,
+body.landing-page .admin-delete-dialog .admin-confirm-delete-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 24px !important;
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+    border: 1px solid #b91c1c !important;
+    border-radius: 10px !important;
+    font-family: Inter, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: .01em !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3) !important;
+    transition: all .15s ease !important;
+}
+
+.btn-delete-permanently:hover,
+body.landing-page .admin-delete-dialog .admin-confirm-delete-button:hover {
+    background: linear-gradient(135deg, #be123c 0%, #9f1239 100%) !important;
+    box-shadow: 0 6px 18px rgba(190, 18, 60, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+@media (max-width: 520px) {
+    body.landing-page .admin-delete-dialog .admin-dialog-heading {
+        padding: 22px 70px 20px;
+    }
+
+    body.landing-page .admin-delete-dialog .admin-dialog-heading::before {
+        top: 23px;
+        left: 20px;
+    }
+
+    body.landing-page .admin-delete-dialog .admin-dialog-heading button[data-close] {
+        top: 21px;
+        right: 18px;
+    }
+
+    body.landing-page .admin-delete-content {
+        padding: 21px 20px;
+    }
+
+    body.landing-page .admin-delete-dialog form.admin-dialog-actions {
+        align-items: stretch !important;
+        flex-direction: column-reverse !important;
+        gap: 12px !important;
+        padding: 18px 20px 24px !important;
+    }
+
+    body.landing-page .admin-delete-dialog form.admin-dialog-actions button {
+        width: 100%;
+    }
+}
+
+/* Identity verification consent page */
+body.verification-consent-page .hero {
+    display: grid;
+    grid-template-columns: minmax(520px, 560px) minmax(0, 1fr);
+    gap: clamp(32px, 5vw, 88px);
+    width: 100%;
+    max-width: 1620px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(32px, 5vw, 72px);
+}
+
+body.verification-consent-page .hero-content {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+}
+
+body.verification-consent-page .headline {
+    font-size: clamp(44px, 3.5vw, 56px);
+    text-wrap: balance;
+}
+
+body.verification-consent-page .verification-consent-card,
+body.verification-consent-page .select-type-form,
+body.verification-consent-page .verification-assurance,
+body.verification-consent-page .verification-error-message {
+    width: 100%;
+    max-width: none;
+}
+
+body.verification-consent-page .hero-visual {
+    width: 100%;
+    min-width: 0;
+    height: clamp(460px, 45vw, 650px);
+    overflow: hidden;
+}
+
+body.verification-consent-page .hero-visual svg {
+    right: auto;
+    left: 50%;
+    width: min(900px, 62vw);
+    max-width: none;
+    transform: translate(-50%, -50%);
+}
+
+@media (max-width: 1200px) {
+    body.verification-consent-page .hero {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 36px;
+        max-width: 760px;
+        min-height: auto;
+        padding: 48px 24px 32px;
+        text-align: left;
+    }
+
+    body.verification-consent-page .hero-content {
+        width: min(100%, 600px);
+        max-width: none;
+        margin: 0 auto;
+    }
+
+    body.verification-consent-page .tagline {
+        justify-content: flex-start;
+    }
+
+    body.verification-consent-page .headline {
+        font-size: clamp(40px, 7vw, 50px);
+    }
+
+    body.verification-consent-page .hero-visual {
+        width: min(100%, 680px);
+        height: clamp(300px, 52vw, 400px);
+        margin: 0 auto;
+    }
+
+    body.verification-consent-page .hero-visual svg {
+        width: min(900px, 112vw);
+    }
+}
+
+@media (max-width: 600px) {
+    body.verification-consent-page .hero {
+        gap: 24px;
+        padding: 28px 16px 20px;
+    }
+
+    body.verification-consent-page .hero-content {
+        margin-bottom: 0;
+    }
+
+    body.verification-consent-page .tagline {
+        margin-bottom: 18px;
+    }
+
+    body.verification-consent-page .headline {
+        margin-bottom: 20px;
+        font-size: clamp(30px, 10vw, 38px) !important;
+    }
+
+    body.verification-consent-page .verification-consent-card {
+        margin-bottom: 16px;
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(20, 28, 38, 0.07);
+    }
+
+    body.verification-consent-page .verification-consent-heading {
+        gap: 12px;
+        padding: 18px 16px 16px;
+    }
+
+    body.verification-consent-page .privacy-summary {
+        padding: 18px 16px;
+    }
+
+    body.verification-consent-page .consent-checkbox-row {
+        padding: 15px 16px;
+    }
+
+    body.verification-consent-page .hero-visual {
+        height: clamp(210px, 64vw, 290px);
+    }
+
+    body.verification-consent-page .hero-visual svg {
+        width: 132vw;
+    }
+}
+
+@media (max-width: 380px) {
+    body.verification-consent-page .hero {
+        padding-inline: 12px;
+    }
+
+    body.verification-consent-page .verification-consent-heading {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        padding-inline: 14px;
+    }
+
+    body.verification-consent-page .privacy-summary,
+    body.verification-consent-page .consent-checkbox-row {
+        padding-inline: 14px;
+    }
+}
+
+@media (max-width: 1200px) and (max-height: 600px) and (orientation: landscape) {
+    body.verification-consent-page .hero {
+        padding-top: 24px;
+    }
+
+    body.verification-consent-page .hero-visual {
+        display: none;
+    }
+}
+
+/* Verified visitor details page */
+body.landing-page.visitor-registration-page {
+    min-height: auto;
+}
+
+body.visitor-registration-page .registration-shell {
+    width: 100%;
+    max-width: 1120px;
+    min-height: auto;
+    padding: clamp(32px, 4vw, 48px) 24px 16px;
+    justify-content: flex-start;
+}
+
+body.visitor-registration-page .registration-card {
+    width: min(100%, 880px);
+    min-width: 0;
+    padding: clamp(32px, 4vw, 42px);
+}
+
+body.visitor-registration-page .registration-heading .headline {
+    font-size: clamp(34px, 4vw, 38px);
+    line-height: 1.12;
+    text-wrap: balance;
+}
+
+body.visitor-registration-page .registration-heading p {
+    max-width: 760px;
+    margin-inline: auto;
+    line-height: 1.6;
+}
+
+body.visitor-registration-page .registration-trust {
+    margin-top: 12px;
+}
+
+body.visitor-registration-page .registration-grid,
+body.visitor-registration-page .registration-grid .form-group,
+body.visitor-registration-page .phone-control,
+body.visitor-registration-page .field-label-row {
+    min-width: 0;
+}
+
+body.visitor-registration-page .form-control-premium,
+body.visitor-registration-page .phone-control input,
+body.visitor-registration-page .registration-address {
+    max-width: 100%;
+}
+
+@media (max-width: 1024px) {
+    body.visitor-registration-page .registration-shell {
+        max-width: 920px;
+        padding: 32px 24px 16px;
+    }
+
+    body.visitor-registration-page .registration-card {
+        padding: clamp(30px, 4.5vw, 38px);
+    }
+
+    body.visitor-registration-page .registration-background-art {
+        right: -360px;
+        width: 680px;
+        opacity: 0.1;
+    }
+
+    body.visitor-registration-page .registration-accent-lime {
+        right: -30px;
+        bottom: 3%;
+    }
+}
+
+@media (max-width: 760px) {
+    body.visitor-registration-page .registration-shell {
+        max-width: 680px;
+        padding: 24px 16px 14px;
+        justify-content: flex-start;
+    }
+
+    body.visitor-registration-page .registration-card {
+        padding: 30px 24px;
+    }
+
+    body.visitor-registration-page .registration-card::before {
+        left: 24px;
+        width: 96px;
+    }
+
+    body.visitor-registration-page .registration-heading {
+        margin-bottom: 24px;
+    }
+
+    body.visitor-registration-page .registration-heading .headline {
+        margin-top: 14px;
+        font-size: clamp(30px, 7vw, 36px);
+    }
+
+    body.visitor-registration-page .registration-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 17px;
+    }
+
+    body.visitor-registration-page .form-group-wide {
+        grid-column: auto;
+    }
+
+    body.visitor-registration-page .field-label-row {
+        min-height: 0;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    body.visitor-registration-page .registration-next {
+        min-height: 50px;
+        margin-top: 22px;
+    }
+
+    body.visitor-registration-page .registration-background-art {
+        right: -330px;
+        width: 560px;
+        opacity: 0.07;
+    }
+
+    body.visitor-registration-page .registration-accent-coral {
+        top: 5%;
+        left: -4px;
+        opacity: 0.55;
+    }
+}
+
+@media (max-width: 480px) {
+    body.visitor-registration-page .registration-shell {
+        padding: 16px 10px;
+    }
+
+    body.visitor-registration-page .registration-card {
+        padding: 26px 16px;
+        border-radius: 12px;
+        box-shadow: 0 16px 42px rgba(20, 28, 38, 0.1);
+    }
+
+    body.visitor-registration-page .registration-card::before {
+        left: 18px;
+        width: 76px;
+    }
+
+    body.visitor-registration-page .registration-heading {
+        margin-bottom: 22px;
+    }
+
+    body.visitor-registration-page .registration-heading .headline {
+        margin: 12px 0 9px;
+        font-size: clamp(27px, 8.5vw, 32px) !important;
+        letter-spacing: -1px;
+    }
+
+    body.visitor-registration-page .registration-heading p {
+        font-size: 13px;
+    }
+
+    body.visitor-registration-page .registration-grid {
+        gap: 15px;
+    }
+
+    body.visitor-registration-page .form-control-premium,
+    body.visitor-registration-page .phone-control input,
+    body.visitor-registration-page .phone-control > span {
+        min-height: 46px;
+        font-size: 16px !important;
+    }
+
+    body.visitor-registration-page .same-number-label {
+        min-height: 28px;
+        align-items: center;
+    }
+
+    body.visitor-registration-page .same-number-label input {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+    }
+
+    body.visitor-registration-page .registration-address {
+        min-height: 82px;
+    }
+
+    body.visitor-registration-page .registration-background-art,
+    body.visitor-registration-page .registration-accent-lime {
+        display: none;
+    }
+
+    body.visitor-registration-page .registration-trust {
+        max-width: 320px;
+        margin: 14px auto 0;
+        line-height: 1.5;
+    }
+}
+
+@media (max-width: 900px) and (max-height: 600px) and (orientation: landscape) {
+    body.visitor-registration-page .registration-shell {
+        padding-top: 16px;
+    }
+
+    body.visitor-registration-page .registration-background-art,
+    body.visitor-registration-page .registration-accent {
+        display: none;
+    }
+}
+
+/* ─── Live Face Check Responsiveness ─── */
+body.landing-page.live-face-page .hero-content {
+    max-width: 560px;
+}
+
+body.landing-page.live-face-page .face-card {
+    width: 100%;
+    max-width: 540px;
+    padding: 24px;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 20px 45px rgba(17, 17, 17, 0.08);
+}
+
+body.landing-page.live-face-page .face-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 18px;
+    color: #555;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s, transform 0.2s;
+}
+
+body.landing-page.live-face-page .face-back:hover {
+    color: #111;
+    transform: translateX(-2px);
+}
+
+@media (max-width: 640px) {
+    body.landing-page.live-face-page .face-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    body.landing-page.live-face-page .camera-placeholder {
+        padding: 14px;
+    }
+
+    body.landing-page.live-face-page .camera-placeholder strong {
+        font-size: 14px;
+    }
+}
+
+/* ─── Confirmation & Payment Choice Responsiveness ─── */
+body.landing-page .confirmation-card {
+    max-width: 840px;
+    width: 100%;
+}
+
+body.landing-page .confirmation-profile {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+body.landing-page .visitor-photo-frame {
+    flex: 0 0 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+body.landing-page .visitor-photo-frame img {
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 3px solid #c8e063;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+body.landing-page .visitor-photo-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+}
+
+body.landing-page .visitor-photo-placeholder svg {
+    width: 48px;
+    height: 48px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+}
+
+body.landing-page .verified-photo-badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #536b00;
+    background: rgba(200, 224, 99, 0.25);
+    padding: 3px 8px;
+    border-radius: 50px;
+}
+
+body.landing-page .confirmation-details-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 18px;
+}
+
+body.landing-page .confirmation-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+body.landing-page .confirmation-detail-wide {
+    grid-column: 1 / -1;
+}
+
+body.landing-page .confirmation-detail span {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+}
+
+body.landing-page .confirmation-detail strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    overflow-wrap: anywhere;
+}
+
+body.landing-page .payment-choice-form fieldset {
+    border: none;
+    padding: 0;
+    margin: 0 0 24px;
+}
+
+body.landing-page .payment-choice-form legend {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 4px;
+}
+
+body.landing-page .payment-help {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+body.landing-page .payment-option-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+body.landing-page .payment-option {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+body.landing-page .payment-option:hover {
+    border-color: #c8e063;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(200, 224, 99, 0.15);
+}
+
+body.landing-page .payment-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+body.landing-page .payment-option-indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e0;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
+body.landing-page .payment-option input[type="radio"]:checked+.payment-option-indicator,
+body.landing-page .payment-option input[type="radio"]:checked~.payment-option-indicator {
+    border-color: #c8e063;
+    background: #c8e063;
+    box-shadow: inset 0 0 0 3px #fff;
+}
+
+body.landing-page .payment-option:has(input[type="radio"]:checked) {
+    border-color: #c8e063;
+    background: rgba(200, 224, 99, 0.06);
+}
+
+body.landing-page .payment-option-copy strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+}
+
+body.landing-page .payment-option-copy small {
+    display: block;
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+body.landing-page .card-marks,
+body.landing-page .amex-mark,
+body.landing-page .cash-mark {
+    display: inline-flex;
+    gap: 4px;
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #475569;
+}
+
+body.landing-page .card-marks b {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+body.landing-page .confirmation-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+body.landing-page .confirmation-pay-button {
+    flex: 1;
+    max-width: 280px;
+}
+
+@media (max-width: 768px) {
+    body.landing-page .confirmation-profile {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    body.landing-page .confirmation-details-grid {
+        grid-template-columns: 1fr;
+        width: 100%;
+        text-align: left;
+    }
+
+    body.landing-page .payment-option-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body.landing-page .confirmation-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    body.landing-page .confirmation-pay-button {
+        max-width: 100%;
+        width: 100%;
+    }
+}
+
+/* ─── Payment Status (Card / Cash Gateway Hand-off) ─── */
+body.landing-page .payment-status-card {
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+    text-align: center;
+    padding: 36px 28px;
+}
+
+body.landing-page .payment-status-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(200, 224, 99, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: #4d5d08;
+}
+
+body.landing-page .payment-status-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+body.landing-page .payment-amount {
+    margin: 20px 0;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+body.landing-page .payment-amount span {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+body.landing-page .payment-amount strong {
+    font-size: 18px;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+body.landing-page .payment-provider-note {
+    display: block;
+    margin-top: 12px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+/* Final visitor confirmation page */
+body.visitor-confirmation-page .confirmation-shell {
+    width: 100%;
+    max-width: 1240px;
+    min-height: auto;
+    padding: clamp(28px, 4vw, 48px) 24px 16px;
+}
+
+body.visitor-confirmation-page .confirmation-card {
+    width: min(100%, 1040px);
+    max-width: 1040px;
+    padding: clamp(30px, 4vw, 42px);
+}
+
+body.visitor-confirmation-page .confirmation-heading {
+    margin-bottom: 30px;
+}
+
+body.visitor-confirmation-page .confirmation-heading .headline {
+    max-width: 820px;
+    margin: 16px auto 10px;
+    font-size: clamp(34px, 3.4vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -1.5px;
+    text-wrap: balance;
+}
+
+body.visitor-confirmation-page .confirmation-heading p {
+    max-width: 680px;
+    margin-inline: auto;
+}
+
+body.visitor-confirmation-page .confirmation-profile {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+    margin: 0;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(200, 224, 99, 0.13), rgba(248, 250, 252, 0.88));
+    border: 1px solid rgba(168, 190, 75, 0.3);
+    border-radius: 14px;
+}
+
+body.visitor-confirmation-page .visitor-photo-frame {
+    position: relative;
+    display: block;
+    width: 150px;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    padding: 6px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #dce3e8;
+    border-radius: 13px;
+    box-shadow: 0 12px 28px rgba(20, 28, 38, 0.12);
+}
+
+body.visitor-confirmation-page .visitor-photo-frame img,
+body.visitor-confirmation-page .visitor-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 9px;
+    object-fit: cover;
+}
+
+body.visitor-confirmation-page .verified-photo-badge {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: block;
+    margin: 0;
+    padding: 6px 8px;
+    color: #536b00;
+    background: rgba(244, 250, 215, 0.94);
+    border: 1px solid rgba(168, 190, 75, 0.5);
+    border-radius: 50px;
+    font-size: 9px;
+    line-height: 1.2;
+    text-align: center;
+    backdrop-filter: blur(4px);
+}
+
+body.visitor-confirmation-page .confirmation-details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+}
+
+body.visitor-confirmation-page .confirmation-detail {
+    display: flex;
+    min-width: 0;
+    min-height: 72px;
+    padding: 12px 14px;
+    justify-content: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+body.visitor-confirmation-page .confirmation-detail-wide {
+    grid-column: 1 / -1;
+}
+
+body.visitor-confirmation-page .confirmation-detail span {
+    margin: 0;
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+body.visitor-confirmation-page .confirmation-detail strong {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+body.visitor-confirmation-page .payment-choice-form {
+    margin-top: 28px;
+}
+
+body.visitor-confirmation-page .payment-choice-form fieldset {
+    margin: 0;
+}
+
+body.visitor-confirmation-page .payment-choice-form legend {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.35;
+}
+
+body.visitor-confirmation-page .payment-help {
+    margin: 5px 0 16px;
+    font-size: 13px;
+}
+
+body.visitor-confirmation-page .payment-option-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+body.visitor-confirmation-page .payment-option {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 84px;
+    padding: 14px;
+}
+
+body.visitor-confirmation-page .payment-option-indicator {
+    margin: 0;
+}
+
+body.visitor-confirmation-page .payment-option-copy {
+    min-width: 0;
+}
+
+body.visitor-confirmation-page .payment-option-copy strong,
+body.visitor-confirmation-page .payment-option-copy small {
+    overflow-wrap: anywhere;
+}
+
+body.visitor-confirmation-page .card-marks,
+body.visitor-confirmation-page .amex-mark,
+body.visitor-confirmation-page .cash-mark {
+    margin-top: 0;
+    white-space: nowrap;
+}
+
+body.visitor-confirmation-page .confirmation-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #edf0f4;
+}
+
+body.visitor-confirmation-page .confirmation-actions .btn-back-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+
+body.visitor-confirmation-page .confirmation-pay-button {
+    flex: 0 1 280px;
+    width: 100%;
+    max-width: 280px;
+    min-height: 50px;
+    color: #111;
+}
+
+@media (max-width: 900px) {
+    body.visitor-confirmation-page .confirmation-shell {
+        max-width: 840px;
+        padding: 28px 20px 16px;
+    }
+
+    body.visitor-confirmation-page .confirmation-card {
+        padding: 32px 28px;
+    }
+
+    body.visitor-confirmation-page .confirmation-heading .headline {
+        font-size: clamp(32px, 5vw, 40px);
+    }
+
+    body.visitor-confirmation-page .confirmation-profile {
+        grid-template-columns: 130px minmax(0, 1fr);
+        gap: 20px;
+        padding: 20px;
+    }
+
+    body.visitor-confirmation-page .visitor-photo-frame {
+        width: 130px;
+    }
+
+    body.visitor-confirmation-page .payment-option {
+        grid-template-columns: 18px minmax(0, 1fr);
+    }
+
+    body.visitor-confirmation-page .card-marks,
+    body.visitor-confirmation-page .amex-mark,
+    body.visitor-confirmation-page .cash-mark {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
+
+@media (max-width: 700px) {
+    body.visitor-confirmation-page .confirmation-shell {
+        padding: 20px 14px 14px;
+    }
+
+    body.visitor-confirmation-page .confirmation-card {
+        padding: 28px 20px;
+    }
+
+    body.visitor-confirmation-page .confirmation-heading {
+        margin-bottom: 24px;
+    }
+
+    body.visitor-confirmation-page .confirmation-profile {
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+
+    body.visitor-confirmation-page .visitor-photo-frame {
+        width: 120px;
+    }
+
+    body.visitor-confirmation-page .confirmation-details-grid,
+    body.visitor-confirmation-page .payment-option-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.visitor-confirmation-page .confirmation-detail-wide {
+        grid-column: auto;
+    }
+
+    body.visitor-confirmation-page .payment-option {
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        min-height: 72px;
+    }
+
+    body.visitor-confirmation-page .card-marks,
+    body.visitor-confirmation-page .amex-mark,
+    body.visitor-confirmation-page .cash-mark {
+        grid-column: auto;
+        justify-self: end;
+    }
+}
+
+@media (max-width: 520px) {
+    body.visitor-confirmation-page .confirmation-shell {
+        padding: 14px 10px 12px;
+    }
+
+    body.visitor-confirmation-page .confirmation-card {
+        padding: 26px 14px;
+        border-radius: 12px;
+    }
+
+    body.visitor-confirmation-page .confirmation-heading .headline {
+        margin-top: 12px;
+        font-size: clamp(28px, 9vw, 34px) !important;
+        letter-spacing: -1px;
+    }
+
+    body.visitor-confirmation-page .confirmation-heading p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    body.visitor-confirmation-page .confirmation-profile {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 14px;
+    }
+
+    body.visitor-confirmation-page .visitor-photo-frame {
+        width: 140px;
+        margin: 0 auto;
+    }
+
+    body.visitor-confirmation-page .confirmation-detail {
+        min-height: 66px;
+        padding: 11px 12px;
+        text-align: left;
+    }
+
+    body.visitor-confirmation-page .payment-choice-form {
+        margin-top: 24px;
+    }
+
+    body.visitor-confirmation-page .payment-choice-form legend {
+        font-size: 17px;
+    }
+
+    body.visitor-confirmation-page .payment-option {
+        min-height: 68px;
+        padding: 12px;
+    }
+
+    body.visitor-confirmation-page .confirmation-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    body.visitor-confirmation-page .confirmation-pay-button,
+    body.visitor-confirmation-page .confirmation-actions .btn-back-link {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+        min-height: 48px;
+        justify-content: center;
+    }
+
+    body.visitor-confirmation-page .confirmation-pay-button {
+        height: 48px;
+        padding-block: 0;
+    }
+
+    body.visitor-confirmation-page .registration-trust {
+        padding-inline: 8px;
+    }
+}
+
+/* Cash payment counter hand-off */
+body.landing-page.cash-payment-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+body.cash-payment-page .cash-payment-shell {
+    width: 100%;
+    max-width: 1200px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(28px, 4vw, 48px) 24px 18px;
+    justify-content: center;
+}
+
+body.cash-payment-page .cash-payment-card {
+    width: min(100%, 600px);
+    max-width: 600px;
+    padding: clamp(34px, 4vw, 44px);
+    overflow: hidden;
+}
+
+body.cash-payment-page .cash-payment-card::before {
+    left: 46px;
+    width: 140px;
+}
+
+body.cash-payment-page .payment-status-icon-cash {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 22px;
+    color: #536b00;
+    background: linear-gradient(145deg, rgba(220, 240, 132, 0.5), rgba(200, 224, 99, 0.18));
+    box-shadow: 0 14px 30px rgba(131, 158, 25, 0.18);
+}
+
+body.cash-payment-page .payment-status-icon-cash svg {
+    width: 34px;
+    height: 34px;
+}
+
+body.cash-payment-page .cash-payment-card .tagline {
+    margin-bottom: 0 !important;
+}
+
+body.cash-payment-page .cash-payment-card .headline {
+    margin: 20px 0 12px;
+    font-size: clamp(34px, 4vw, 42px);
+    line-height: 1.08;
+    letter-spacing: -1.4px;
+    text-wrap: balance;
+}
+
+body.cash-payment-page .cash-payment-card > p {
+    max-width: 480px;
+    margin: 0 auto;
+    color: #64748b;
+    font-size: 15px;
+    line-height: 1.65;
+}
+
+body.cash-payment-page .payment-amount {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    margin: 26px 0 0;
+    padding: 18px 20px;
+    text-align: left;
+    background: linear-gradient(135deg, #f8fafc, #fbfdf3);
+    border-color: #dce6b6;
+}
+
+body.cash-payment-page .payment-amount span {
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .55px;
+    text-transform: uppercase;
+}
+
+body.cash-payment-page .payment-amount strong {
+    color: #18202b;
+    font-size: 20px;
+    line-height: 1.25;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+body.cash-payment-page .cash-reference {
+    margin-top: 14px;
+    padding: 17px 20px;
+    text-align: left;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+body.cash-payment-page .cash-reference span {
+    margin-bottom: 5px;
+    font-size: 10px;
+}
+
+body.cash-payment-page .cash-reference strong {
+    color: #18202b;
+    font-size: 15px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+body.cash-payment-page .registration-trust {
+    max-width: 560px;
+    margin: 14px auto 0;
+    padding-inline: 12px;
+    line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+    body.cash-payment-page .cash-payment-shell {
+        max-width: 680px;
+        padding: 24px 16px 14px;
+    }
+
+    body.cash-payment-page .cash-payment-card {
+        padding: 34px 26px;
+    }
+
+    body.cash-payment-page .registration-background-art {
+        right: -340px;
+        width: 560px;
+        opacity: .07;
+    }
+}
+
+@media (max-width: 520px) {
+    body.cash-payment-page .cash-payment-shell {
+        width: 100vw;
+        max-width: 100vw;
+        min-width: 0;
+        min-height: 100dvh;
+        padding: 16px 10px 12px;
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    body.cash-payment-page .cash-payment-card {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        min-width: 0;
+        margin-inline: auto;
+        padding: 28px 16px 24px;
+        border-radius: 12px;
+    }
+
+    body.cash-payment-page .cash-payment-card::before {
+        left: 20px;
+        width: 90px;
+    }
+
+    body.cash-payment-page .payment-status-icon-cash {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 18px;
+    }
+
+    body.cash-payment-page .payment-status-icon-cash svg {
+        width: 29px;
+        height: 29px;
+    }
+
+    body.cash-payment-page .cash-payment-card .headline {
+        max-width: 100%;
+        margin: 16px 0 10px;
+        font-size: clamp(29px, 9vw, 34px);
+        letter-spacing: -1px;
+        overflow-wrap: anywhere;
+    }
+
+    body.cash-payment-page .cash-payment-card > p {
+        width: 100%;
+        max-width: 100%;
+        font-size: 14px;
+        line-height: 1.6;
+        overflow-wrap: anywhere;
+    }
+
+    body.cash-payment-page .payment-amount,
+    body.cash-payment-page .cash-reference {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    body.cash-payment-page .payment-amount {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+        margin-top: 22px;
+        padding: 16px;
+        text-align: center;
+    }
+
+    body.cash-payment-page .payment-amount strong {
+        font-size: 19px;
+        text-align: center;
+    }
+
+    body.cash-payment-page .cash-reference {
+        padding: 15px 16px;
+        text-align: center;
+    }
+
+    body.cash-payment-page .registration-background-art {
+        display: none;
+    }
+
+    body.cash-payment-page .registration-trust {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        margin-inline: auto;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 900px) and (max-height: 600px) and (orientation: landscape) {
+    body.cash-payment-page .cash-payment-shell {
+        min-height: auto;
+        padding-top: 16px;
+        justify-content: flex-start;
+    }
+
+    body.cash-payment-page .cash-payment-card {
+        padding-block: 26px;
+    }
+
+    body.cash-payment-page .payment-status-icon-cash {
+        width: 54px;
+        height: 54px;
+        margin-bottom: 12px;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\LocalFaceVerificationService;
 use App\Services\TesseractOcrService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -19,7 +20,11 @@ class VisitorCheckinController extends Controller
      * @param  \App\Services\TesseractOcrService  $tesseract
      * @return \Illuminate\Http\JsonResponse
      */
-    public function verifyVision(Request $request, TesseractOcrService $tesseract)
+    public function verifyVision(
+        Request $request,
+        TesseractOcrService $tesseract,
+        LocalFaceVerificationService $faceVerifier
+    )
     {
         $request->validate([
             'document_type' => 'required|in:nic,driving_license,passport',
@@ -97,7 +102,14 @@ class VisitorCheckinController extends Controller
             }
         }
 
-        // Parse extracted text (or perform smart document parsing)
+        if (blank($rawOcrText)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'No readable identity details were found. Retake the document photo in even lighting and keep all text in focus.',
+            ], 422);
+        }
+
+        // Parse the text extracted from the identity document.
         $parsed = $this->parseDocumentText($rawOcrText, $docType);
         if ($ocrProvider === 'local_tesseract_engine') {
             $frontParsed = $this->parseDocumentText($frontOcr, $docType);
@@ -111,8 +123,31 @@ class VisitorCheckinController extends Controller
             ];
         }
 
-        // Build face landmark signature locally for document portrait check
-        $documentFaceSignature = $this->generateLocalFaceSignature($imageBytes);
+        if (blank($parsed['document_number']) && blank($parsed['full_name'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'The identity number and name could not be read. Retake the document photo closer and in sharper focus.',
+            ], 422);
+        }
+
+        try {
+            $documentFace = $faceVerifier->inspectDocument($file->getRealPath());
+        } catch (\RuntimeException $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Local face verification is temporarily unavailable. Please contact reception.',
+            ], 503);
+        }
+
+        if (! data_get($documentFace, 'success')) {
+            return response()->json([
+                'success' => false,
+                'error' => data_get($documentFace, 'message', 'No clear portrait was detected on the identity document.'),
+                'code' => data_get($documentFace, 'code'),
+            ], 422);
+        }
 
         $verificationId = (string) Str::uuid();
         $photoPath = "verified-visitors/{$verificationId}.{$extension}";
@@ -144,8 +179,8 @@ class VisitorCheckinController extends Controller
             'back_photo_mime' => $backPhotoMime,
             'ocr_text' => $rawOcrText,
             'provider' => $ocrProvider,
-            'document_face_signature' => $documentFaceSignature,
-            'document_face_confidence' => 95.0,
+            'document_face_detected' => true,
+            'document_face_confidence' => data_get($documentFace, 'detection_confidence'),
             'face_verification_status' => 'pending',
         ];
 
@@ -162,11 +197,11 @@ class VisitorCheckinController extends Controller
         ]);
     }
 
-    /** Verify a camera-captured face against the detected portrait geometry on the ID. */
-    public function verifyLiveFace(Request $request)
+    /** Verify a camera-captured face against the identity-document portrait. */
+    public function verifyLiveFace(Request $request, LocalFaceVerificationService $faceVerifier)
     {
         $verification = $request->session()->get('verification', []);
-        if (! is_array($verification) || blank(data_get($verification, 'document_face_signature'))) {
+        if (! is_array($verification) || blank(data_get($verification, 'photo_path'))) {
             return response()->json(['error' => 'The document verification session has expired. Please upload the document again.'], 422);
         }
 
@@ -177,14 +212,42 @@ class VisitorCheckinController extends Controller
         $file = $request->file('selfie');
         $bytes = file_get_contents($file->getRealPath());
 
-        // Perform local face landmark feature extraction & consistency match
-        $liveSignature = $this->generateLocalFaceSignature($bytes);
+        $documentPath = Storage::disk('local')->path(data_get($verification, 'photo_path'));
+        try {
+            $faceResult = $faceVerifier->compare($documentPath, $file->getRealPath());
+        } catch (\RuntimeException $exception) {
+            report($exception);
 
-        $docSignature = data_get($verification, 'document_face_signature', []);
-        $score = $this->faceConsistencyScore($docSignature, $liveSignature);
+            return response()->json([
+                'success' => false,
+                'error' => 'Local face verification is temporarily unavailable. Please contact reception.',
+            ], 503);
+        }
 
-        if ($score < 50) {
-            $score = 88.5; // Ensure valid score for local face match
+        if (! data_get($faceResult, 'success')) {
+            return response()->json([
+                'success' => false,
+                'error' => data_get($faceResult, 'message', 'The live face could not be verified.'),
+                'code' => data_get($faceResult, 'code'),
+            ], 422);
+        }
+
+        $score = (float) data_get($faceResult, 'similarity_percent', 0);
+        if (! data_get($faceResult, 'matched')) {
+            $request->session()->put('verification', array_merge($verification, [
+                'face_verification_status' => 'rejected',
+                'face_match_score' => $score,
+                'face_detection_confidence' => data_get($faceResult, 'live_detection_confidence'),
+                'face_provider' => 'opencv_yunet_sface',
+            ]));
+            $request->session()->save();
+
+            return response()->json([
+                'success' => false,
+                'error' => data_get($faceResult, 'message'),
+                'code' => 'face_mismatch',
+                'score' => $score,
+            ], 422);
         }
 
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
@@ -196,9 +259,9 @@ class VisitorCheckinController extends Controller
             'selfie_mime' => $file->getMimeType() ?: 'image/jpeg',
             'face_verification_status' => 'verified',
             'face_match_score' => $score,
-            'face_detection_confidence' => 95.5,
+            'face_detection_confidence' => data_get($faceResult, 'live_detection_confidence'),
             'face_verified_at' => now()->toIso8601String(),
-            'face_provider' => 'tesseract_local_face_landmarks',
+            'face_provider' => 'opencv_yunet_sface',
         ]));
         $request->session()->save();
 
@@ -207,64 +270,6 @@ class VisitorCheckinController extends Controller
             'score' => $score,
             'redirect_url' => route('visitor.create', ['type' => data_get($verification, 'document_type', 'nic')]),
         ]);
-    }
-
-    /** Generate face landmarks signature locally from image bytes. */
-    private function generateLocalFaceSignature(string $imageBytes): array
-    {
-        $hash = md5($imageBytes);
-        $val1 = hexdec(substr($hash, 0, 4)) / 65535;
-        $val2 = hexdec(substr($hash, 4, 4)) / 65535;
-
-        return [
-            'nose_eye' => round(0.55 + ($val1 * 0.10), 4),
-            'mouth_eye' => round(1.10 + ($val2 * 0.10), 4),
-            'nose_mouth' => round(0.52 + ($val1 * 0.08), 4),
-            'mouth_width' => round(0.85 + ($val2 * 0.08), 4),
-        ];
-    }
-
-    private function faceSignature(array $face): array
-    {
-        $points = collect(data_get($face, 'landmarks', []))->keyBy('type');
-        $point = fn (string $type) => [
-            (float) data_get($points->get($type), 'position.x', 0),
-            (float) data_get($points->get($type), 'position.y', 0),
-        ];
-        $leftEye = $point('LEFT_EYE');
-        $rightEye = $point('RIGHT_EYE');
-        $nose = $point('NOSE_TIP');
-        $mouth = $point('MOUTH_CENTER');
-        $mouthLeft = $point('MOUTH_LEFT');
-        $mouthRight = $point('MOUTH_RIGHT');
-        foreach ([$leftEye, $rightEye, $nose, $mouth, $mouthLeft, $mouthRight] as $requiredPoint) {
-            if ($requiredPoint[0] <= 0 || $requiredPoint[1] <= 0) return [];
-        }
-        $eyeMid = [($leftEye[0] + $rightEye[0]) / 2, ($leftEye[1] + $rightEye[1]) / 2];
-        $eyeDistance = max($this->pointDistance($leftEye, $rightEye), 0.001);
-
-        return [
-            'nose_eye' => round($this->pointDistance($nose, $eyeMid) / $eyeDistance, 4),
-            'mouth_eye' => round($this->pointDistance($mouth, $eyeMid) / $eyeDistance, 4),
-            'nose_mouth' => round($this->pointDistance($nose, $mouth) / $eyeDistance, 4),
-            'mouth_width' => round($this->pointDistance($mouthLeft, $mouthRight) / $eyeDistance, 4),
-        ];
-    }
-
-    private function pointDistance(array $a, array $b): float
-    {
-        return sqrt((($a[0] - $b[0]) ** 2) + (($a[1] - $b[1]) ** 2));
-    }
-
-    private function faceConsistencyScore(array $document, array $live): float
-    {
-        $differences = [];
-        foreach (['nose_eye', 'mouth_eye', 'nose_mouth', 'mouth_width'] as $key) {
-            if (! isset($document[$key], $live[$key])) return 0;
-            $differences[] = abs((float) $document[$key] - (float) $live[$key]);
-        }
-
-        return round(max(0, min(100, 100 - ((array_sum($differences) / count($differences)) * 120))), 2);
     }
 
     /**

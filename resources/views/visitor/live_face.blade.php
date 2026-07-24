@@ -14,7 +14,7 @@
             <a class="face-back" href="{{ route('visitor.upload_document', ['type' => $type]) }}">← Upload document again</a>
             <div class="tagline">Identity security check</div>
             <h1 class="headline">Confirm it’s really you<span class="dot">.</span></h1>
-            <p class="face-intro">We’ll capture one live camera frame and use Google Cloud Vision facial landmarks to check consistency with the portrait on your document.</p>
+            <p class="face-intro">We’ll capture one live camera frame and compare it locally with the portrait on your document using OpenCV face detection and matching.</p>
 
             <div class="face-card">
                 <div class="face-status"><span id="statusDot"></span><strong id="statusText">Camera not started</strong></div>
@@ -32,7 +32,7 @@
                 <p class="face-error" id="faceError" role="alert"></p>
                 <button type="button" id="cameraBtn" class="btn btn-secondary btn-large form-width-100">Start camera</button>
                 <button type="button" id="captureBtn" class="btn btn-primary btn-large form-width-100" disabled>Capture &amp; verify face</button>
-                <p class="face-disclaimer">This is a fraud-reduction consistency check, not Google facial recognition. Uncertain results require reception review.</p>
+                <p class="face-disclaimer">Face images are processed locally and are not sent to a cloud recognition service. Unclear or mismatched results will not unlock registration.</p>
             </div>
         </div>
         <div class="hero-visual" aria-hidden="true">@include('visitor.partials.checkin-illustration')</div>
@@ -92,7 +92,7 @@
         captureBtn.addEventListener('click', () => {
             if (!stream || !video.videoWidth) return;
             captureBtn.disabled = true;
-            captureBtn.textContent = 'Checking face consistency with Tesseract OCR…';
+            captureBtn.textContent = 'Checking face match locally…';
             errorBox.textContent = '';
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;

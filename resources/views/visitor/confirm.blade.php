@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
-<body class="landing-page visitor-registration-page">
+<body class="landing-page visitor-registration-page visitor-confirmation-page">
     <main class="registration-shell confirmation-shell">
         <div class="registration-background" aria-hidden="true">
             <div class="registration-background-glow"></div>
@@ -20,7 +20,7 @@
         <section class="registration-card confirmation-card" aria-labelledby="confirmation-title">
             <div class="registration-heading confirmation-heading">
                 <span class="tagline no-margin">FINAL REVIEW</span>
-                <h1 id="confirmation-title" class="headline">Please Confirm Your Details to Proceed<span class="dot">.</span></h1>
+                <h1 id="confirmation-title" class="headline">Confirm your details<span class="dot">.</span></h1>
                 <p>Review your verified information and choose how you would like to pay.</p>
             </div>
 
@@ -68,8 +68,8 @@
             <form action="{{ route('visitor.payment-method') }}" method="POST" class="payment-choice-form">
                 @csrf
                 <fieldset>
-                    <legend>Do you want to make the payment by Card or Cash?</legend>
-                    <p class="payment-help">Select one payment method to continue.</p>
+                    <legend>Choose a payment method</legend>
+                    <p class="payment-help">Select how you would like to pay.</p>
 
                     <div class="payment-option-grid">
                         <label class="payment-option">
@@ -96,7 +96,7 @@
 
                 <div class="confirmation-actions">
                     <a href="{{ route('visitor.create', ['type' => $details['document_type'], 'verified' => 'true']) }}" class="btn-back-link">Back to edit</a>
-                    <button type="submit" class="btn btn-primary btn-large confirmation-pay-button">Pay</button>
+                    <button type="submit" class="btn btn-primary btn-large confirmation-pay-button">Continue to payment</button>
                 </div>
             </form>
         </section>

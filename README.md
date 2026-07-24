@@ -6,9 +6,11 @@ The Visitor Management System is a web application built with Laravel that allow
 
 Make sure you have the following software installed on your local machine:
 
-- PHP (version 7.3 or higher)
+- PHP 8.4 or higher
 - Composer
 - MySQL
+- Python 3 with OpenCV and NumPy (for local face verification)
+- Tesseract OCR (for local identity-document text extraction)
 
 ## Getting Started
 
@@ -38,33 +40,40 @@ Follow these steps to set up and run the project on your local machine:
    composer install
    ```
 
-4. Create a copy of the `.env.example` file and rename it to `.env`:
+5. Install the local face-verification dependencies:
+
+   ```bash
+   python -m pip install -r requirements-face.txt
+   ```
+
+6. Create a copy of the `.env.example` file and rename it to `.env`:
 
    ```bash
    cp .env.example .env
    ```
 
-5. Generate the application key:
+7. Generate the application key:
 
    ```bash
    php artisan key:generate
    ```
 
-6. Update the `.env` file with your database credentials.
+8. Update the `.env` file with your database credentials. Set
+   `FACE_PYTHON_PATH` when the web server uses a different Python executable.
 
-7. Run the database migrations:
+9. Run the database migrations:
 
    ```bash
    php artisan migrate
    ```
 
-8. Start the local development server:
+10. Start the local development server:
 
    ```bash
    php artisan serve
    ```
 
-9. Access the application in your web browser at `http://localhost:8000`.
+11. Access the application in your web browser at `http://localhost:8000`.
 
 ## Additional Configuration
 

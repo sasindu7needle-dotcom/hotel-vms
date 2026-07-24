@@ -35,7 +35,7 @@
         }
     </style>
 </head>
-<body class="landing-page">
+<body class="landing-page verification-consent-page">
 
     <section class="hero">
         <div class="hero-content">
@@ -63,18 +63,18 @@
                         <li>Encrypted session signals and check-in verification result.</li>
                     </ul>
                     
-                    <div style="margin-top: 16px; padding: 14px; background: rgba(200, 224, 99, 0.15); border-left: 4px solid #c8e063; border-radius: 6px;">
-                        <h4 style="font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <div class="privacy-governance-box">
+                        <h4>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#688009" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                             Google Tesseract OCR Privacy & Data Governance
                         </h4>
-                        <p style="font-size: 12px; color: #333; line-height: 1.5; margin: 0;">
+                        <p>
                             Your document images and personal data are processed locally and securely solely to perform text extraction for check-in verification. <strong>Google Tesseract OCR operates 100% locally on system servers and NEVER transmits, stores, or uses your photos or extracted personal data to train AI models, machine learning algorithms, or share with third parties.</strong>
                         </p>
                     </div>
 
-                    <p class="privacy-links" style="margin-top: 14px; font-size: 12px; color: #555;">
-                        Read Google Tesseract’s official <a href="https://github.com/tesseract-ocr/tesseract" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline; font-weight: 600;">Google Tesseract OCR Documentation & Policy</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline; font-weight: 600;">Google Open Source Privacy Policy</a>.
+                    <p class="privacy-links">
+                        Read Google Tesseract’s official <a href="https://github.com/tesseract-ocr/tesseract" target="_blank" rel="noopener noreferrer">Google Tesseract OCR Documentation & Policy</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Open Source Privacy Policy</a>.
                     </p>
                 </div>
 
@@ -229,8 +229,10 @@
         function updateBtnState() {
             if (consentCheckbox.checked) {
                 continueBtn.classList.remove('disabled-link');
+                continueBtn.removeAttribute('aria-disabled');
             } else {
                 continueBtn.classList.add('disabled-link');
+                continueBtn.setAttribute('aria-disabled', 'true');
             }
         }
 

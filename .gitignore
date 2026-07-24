@@ -16,3 +16,6 @@ yarn-error.log
 .php-cs-fixer.cache
 google-credentials.json
 storage/app/google-credentials.json
+
+# Large model files
+resources/face-models/*.onnx
