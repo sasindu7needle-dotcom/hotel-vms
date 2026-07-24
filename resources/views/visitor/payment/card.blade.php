@@ -17,8 +17,11 @@
             <h1 class="headline">Ready for payment<span class="dot">.</span></h1>
             <p>You selected {{ $details['payment_method'] === 'amex' ? 'American Express' : 'Visa / Master' }}. Continue through the configured payment provider to complete your entrance-fee payment.</p>
             <div class="payment-amount"><span>Amount due</span><strong>{{ $details['entrance_fee'] !== null ? 'LKR '.number_format((float) $details['entrance_fee'], 2) : 'Not assigned' }}</strong></div>
-            <button type="button" class="btn btn-primary btn-large registration-next" disabled>Continue to Gateway</button>
-            <small class="payment-provider-note">Connect your card gateway provider to enable this hand-off.</small>
+            <form action="{{ route('visitor.payment.confirm') }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-primary btn-large registration-next">Confirm Payment</button>
+            </form>
+            <small class="payment-provider-note">This confirmation continues from your configured secure payment provider.</small>
         </section>
         <footer class="registration-trust">Card information will be handled by the secure payment provider.</footer>
     </main>

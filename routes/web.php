@@ -19,6 +19,8 @@ Route::post('/visitor/confirm', [VisitorController::class, 'confirm'])->name('vi
 Route::post('/visitor/payment-method', [VisitorController::class, 'selectPaymentMethod'])->name('visitor.payment-method');
 Route::get('/visitor/payment/card', [VisitorController::class, 'cardGateway'])->name('visitor.payment.card');
 Route::get('/visitor/payment/cash', [VisitorController::class, 'cashConfirmation'])->name('visitor.payment.cash');
+Route::post('/visitor/payment/confirm', [VisitorController::class, 'confirmPayment'])->name('visitor.payment.confirm');
+Route::get('/visitor/thank-you', [VisitorController::class, 'thankYou'])->name('visitor.thank-you');
 Route::get('/visitor/list', fn () => redirect()->route('admin.visitors.index'))->name('visitor.list');
 Route::post('/visitor', [VisitorController::class, 'store'])->name('visitor.store');
 Route::delete('/visitor/{visitorId}', [VisitorController::class, 'checkout'])->name('visitor.checkout');

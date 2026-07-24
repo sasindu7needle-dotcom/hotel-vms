@@ -7,6 +7,8 @@ use App\Models\Visitor;
 use App\Models\VerifiedVisitor;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use F9WebLtd\QrCode\Facades\QrCode;
 
 class VisitorController extends Controller
 {
@@ -112,7 +114,8 @@ class VisitorController extends Controller
             'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
             'address' => $validated['address'],
             'address_latin' => $validated['address'],
-            'photo_url' => route('visitor.session_photo', ['type' => data_get($verification, 'selfie_path') ? 'selfie' : 'photo']),
+            'photo_url' => data_get($verification, 'photo_url')
+                ?: route('visitor.session_photo', ['type' => data_get($verification, 'selfie_path') ? 'selfie' : 'photo']),
             'photo_path' => data_get($verification, 'photo_path'),
             'photo_mime' => data_get($verification, 'photo_mime'),
             'back_photo_path' => data_get($verification, 'back_photo_path'),
@@ -218,7 +221,86 @@ class VisitorController extends Controller
             return redirect()->route('visitor.create');
         }
 
+        // Cash payments are completed by reception. Once the admin marks this
+        // record paid, send the visitor straight to the badge on the next poll.
+        $visitor = VerifiedVisitor::find(data_get($details, 'record_id'));
+        if ($visitor && $visitor->payment_status === 'paid') {
+            $paymentReference = data_get($details, 'payment_reference')
+                ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT);
+
+            $request->session()->put('visitor_registration.payment_reference', $paymentReference);
+            $request->session()->put('visitor_registration.payment_status', 'paid');
+
+            return redirect()->route('visitor.thank-you');
+        }
+
         return view('visitor.payment.cash', compact('details'));
+    }
+
+    /**
+     * Record a successful payment hand-off and continue to the printable badge.
+     */
+    public function confirmPayment(Request $request)
+    {
+        $details = $request->session()->get('visitor_registration');
+        if (! is_array($details) || blank(data_get($details, 'payment_method'))) {
+            return redirect()->route('visitor.create');
+        }
+
+        if (data_get($details, 'payment_method') === 'cash') {
+            return redirect()->route('visitor.payment.cash');
+        }
+
+        $visitor = VerifiedVisitor::find(data_get($details, 'record_id'));
+        if (! $visitor) {
+            return redirect()->route('visitor.create')->withErrors([
+                'registration' => 'Your registration session has expired. Please register again.',
+            ]);
+        }
+
+        $paymentReference = data_get($details, 'payment_reference')
+            ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT);
+
+        $visitor->update([
+            'payment_status' => 'paid',
+            'registration_status' => 'registered',
+        ]);
+
+        $request->session()->put('visitor_registration.payment_reference', $paymentReference);
+        $request->session()->put('visitor_registration.payment_status', 'paid');
+
+        return redirect()->route('visitor.thank-you');
+    }
+
+    /** Display the final visitor badge after payment confirmation. */
+    public function thankYou(Request $request)
+    {
+        $details = $request->session()->get('visitor_registration');
+        if (! is_array($details) || data_get($details, 'payment_status') !== 'paid') {
+            return redirect()->route('visitor.create');
+        }
+
+        $visitor = VerifiedVisitor::find(data_get($details, 'record_id'));
+        if (! $visitor || $visitor->payment_status !== 'paid') {
+            return redirect()->route('visitor.create');
+        }
+
+        $eventName = config('vms.event_name');
+        $paymentReference = data_get($details, 'payment_reference');
+        $qrPayload = (string) ($visitor->verification_id ?: $paymentReference ?: Str::uuid());
+        $qrCode = QrCode::format('svg')
+            ->size(220)
+            ->margin(1)
+            ->errorCorrection('H')
+            ->generate($qrPayload);
+
+        return view('visitor.thank_you', compact(
+            'details',
+            'eventName',
+            'paymentReference',
+            'qrCode',
+            'qrPayload'
+        ));
     }
 
     /**
@@ -285,7 +367,8 @@ class VisitorController extends Controller
 
     private function persistVerifiedVisitor(array $details, array $overrides = []): VerifiedVisitor
     {
-        $verificationId = data_get($details, 'verification_id', data_get($details, 'didit_session_id', data_get($details, 'session_id')));
+        $verificationId = data_get($details, 'verification_id', data_get($details, 'didit_session_id', data_get($details, 'session_id')))
+            ?: (string) Str::uuid();
         $values = array_merge([
             'document_type' => data_get($details, 'document_type'),
             'document_number' => data_get($details, 'document_number'),

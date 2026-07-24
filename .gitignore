@@ -17,5 +17,4 @@ yarn-error.log
 google-credentials.json
 storage/app/google-credentials.json
 
-# Large model files
-resources/face-models/*.onnx
+

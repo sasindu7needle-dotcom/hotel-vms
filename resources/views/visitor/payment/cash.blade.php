@@ -5,6 +5,11 @@
     <title>Cash Payment Confirmation — Traction Guest</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <style>
+        body.cash-payment-page .cash-pending-notice { display:grid; gap:5px; margin-top:18px; padding:15px 17px; color:#52601f; background:#f4f8df; border:1px solid #dce6b6; border-radius:12px; text-align:left; }
+        body.cash-payment-page .cash-pending-notice strong { font-size:13px; }
+        body.cash-payment-page .cash-pending-notice span { color:#68734a; font-size:12px; line-height:1.5; }
+    </style>
 </head>
 <body class="landing-page visitor-registration-page cash-payment-page">
     <main class="registration-shell payment-status-shell cash-payment-shell">
@@ -18,8 +23,15 @@
             <p>Your details are confirmed. Please present this screen at the entrance counter and make the cash payment to complete check-in.</p>
             <div class="payment-amount"><span>Cash amount due</span><strong>{{ $details['entrance_fee'] !== null ? 'LKR '.number_format((float) $details['entrance_fee'], 2) : 'Confirm at counter' }}</strong></div>
             <div class="cash-reference"><span>Visitor</span><strong>{{ $details['full_name'] ?: 'Verified visitor' }}</strong></div>
+            <div class="cash-pending-notice" role="status">
+                <strong>Waiting for payment confirmation</strong>
+                <span>Reception will update your payment. This page will continue automatically once payment is marked paid.</span>
+            </div>
         </section>
         <footer class="registration-trust">Please collect an official receipt after making your payment.</footer>
     </main>
+    <script>
+        window.setTimeout(() => window.location.reload(), 10000);
+    </script>
 </body>
 </html>

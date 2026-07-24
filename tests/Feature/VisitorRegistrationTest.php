@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\VerifiedVisitor;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class VisitorRegistrationTest extends TestCase
@@ -58,7 +60,7 @@ class VisitorRegistrationTest extends TestCase
             ->assertSee('LKR 1,500.00')
             ->assertSee('+94 771234567')
             ->assertSee('https://example.test/verified-photo.jpg')
-            ->assertSee('Do you want to make the payment by Card or Cash?');
+            ->assertSee('Choose a payment method');
 
         $this->assertDatabaseHas('verified_visitors', [
             'verification_id' => $this->verification['session_id'],
@@ -72,21 +74,26 @@ class VisitorRegistrationTest extends TestCase
     public function test_card_and_cash_methods_route_to_the_correct_next_step(): void
     {
         $registration = [
+            'verification_id' => 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff',
             'full_name' => 'Nimal Perera',
             'entrance_fee' => 1500,
         ];
 
-        $this->withSession(['visitor_registration' => $registration])
-            ->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
-            ->assertRedirect(route('visitor.payment.card'));
+        try {
+            $this->withSession(['visitor_registration' => $registration])
+                ->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
+                ->assertRedirect(route('visitor.payment.card'));
 
-        $this->withSession(['visitor_registration' => $registration])
-            ->post(route('visitor.payment-method'), ['payment_method' => 'amex'])
-            ->assertRedirect(route('visitor.payment.card'));
+            $this->withSession(['visitor_registration' => $registration])
+                ->post(route('visitor.payment-method'), ['payment_method' => 'amex'])
+                ->assertRedirect(route('visitor.payment.card'));
 
-        $this->withSession(['visitor_registration' => $registration])
-            ->post(route('visitor.payment-method'), ['payment_method' => 'cash'])
-            ->assertRedirect(route('visitor.payment.cash'));
+            $this->withSession(['visitor_registration' => $registration])
+                ->post(route('visitor.payment-method'), ['payment_method' => 'cash'])
+                ->assertRedirect(route('visitor.payment.cash'));
+        } finally {
+            VerifiedVisitor::where('verification_id', $registration['verification_id'])->delete();
+        }
     }
 
     public function test_phone_numbers_must_contain_nine_digits_after_country_prefix(): void
@@ -107,5 +114,51 @@ class VisitorRegistrationTest extends TestCase
                 'company' => 'Acme',
             ])->assertRedirect()
             ->assertSessionHasErrors(['mobile_number', 'whatsapp_number']);
+    }
+
+    public function test_payment_confirmation_displays_the_server_generated_visitor_badge(): void
+    {
+        $visitor = VerifiedVisitor::updateOrCreate(
+            ['verification_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],
+            array_merge([
+                'full_name' => 'Nimal Perera',
+                'category' => 'Adult',
+                'payment_method' => 'visa_master',
+                'payment_status' => 'card_pending',
+                'registration_status' => 'payment_pending',
+            ], Schema::hasColumn('verified_visitors', 'didit_session_id') ? [
+                'didit_session_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            ] : [])
+        );
+
+        try {
+            $registration = [
+                'record_id' => $visitor->id,
+                'full_name' => 'Nimal Perera',
+                'category' => 'Adult',
+                'payment_method' => 'visa_master',
+            ];
+
+            $this->withSession(['visitor_registration' => $registration])
+                ->post(route('visitor.payment.confirm'))
+                ->assertRedirect(route('visitor.thank-you'));
+
+            $this->get(route('visitor.thank-you'))
+                ->assertOk()
+                ->assertSee('Thank you for registering')
+                ->assertSee('Nimal Perera')
+                ->assertSee('Adult')
+                ->assertSee('Printing Booth')
+                ->assertSee('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
+                ->assertSee('<svg', false);
+
+            $this->assertDatabaseHas('verified_visitors', [
+                'id' => $visitor->id,
+                'payment_status' => 'paid',
+                'registration_status' => 'registered',
+            ]);
+        } finally {
+            $visitor->delete();
+        }
     }
 }

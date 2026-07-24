@@ -14893,6 +14893,49 @@ body.visitor-registration-page .registration-address {
     }
 }
 
+/* Final registration badge */
+body.thank-you-page { min-height: 100vh; min-height: 100dvh; background: #f3f5ee; }
+body.thank-you-page .thank-you-shell { width: 100%; max-width: 1180px; min-height: 100vh; min-height: 100dvh; padding: clamp(24px, 3vw, 42px) 20px; justify-content: center; }
+body.thank-you-page .thank-you-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; }
+body.thank-you-page .thank-you-heading { margin-bottom: 22px; text-align: center; }
+body.thank-you-page .success-check { display: grid; width: 52px; height: 52px; margin: 0 auto 14px; place-items: center; color: #18202b; background: #c8e063; border-radius: 50%; box-shadow: 0 10px 26px rgba(115, 143, 16, .24); }
+body.thank-you-page .success-check svg { width: 26px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+body.thank-you-page .thank-you-heading .headline { margin: 12px 0 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.05; letter-spacing: -1.6px; }
+body.thank-you-page .entrance-badge { position: relative; width: min(100%, 350px); overflow: hidden; color: #18202b; background: #fff; border: 1px solid rgba(24, 32, 43, .08); border-radius: 22px; box-shadow: 0 26px 70px rgba(28, 38, 22, .18); }
+body.thank-you-page .entrance-badge::after { position: absolute; right: -58px; bottom: -58px; width: 150px; height: 150px; content: ''; background: #c8e063; border-radius: 50%; opacity: .2; }
+body.thank-you-page .badge-topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; color: #fff; background: #1a1a1a; font-size: 10px; font-weight: 800; letter-spacing: 1.2px; }
+body.thank-you-page .badge-status { padding: 5px 8px; color: #1a1a1a; background: #c8e063; border-radius: 999px; font-size: 8px; }
+body.thank-you-page .badge-event { padding: 20px 22px 14px; text-align: center; }
+body.thank-you-page .badge-event span, body.thank-you-page .badge-identity > span, body.thank-you-page .badge-category span, body.thank-you-page .badge-qr span { display: block; color: #829049; font-size: 8px; font-weight: 800; letter-spacing: 1.15px; }
+body.thank-you-page .badge-event h2 { margin: 6px 0 0; font-size: 18px; line-height: 1.25; }
+body.thank-you-page .badge-photo { width: 142px; height: 164px; margin: 0 auto; overflow: hidden; background: #eef1e8; border: 5px solid #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(24, 32, 43, .16); }
+body.thank-you-page .badge-photo img { width: 100%; height: 100%; object-fit: cover; }
+body.thank-you-page .badge-photo-placeholder { display: grid; width: 100%; height: 100%; place-items: center; color: #89918a; }
+body.thank-you-page .badge-photo-placeholder svg { width: 62px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+body.thank-you-page .badge-identity { padding: 18px 24px 16px; text-align: center; }
+body.thank-you-page .badge-identity h3 { margin: 5px 0 13px; font-size: 22px; line-height: 1.2; overflow-wrap: anywhere; }
+body.thank-you-page .badge-category { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; background: #f1f6da; border-radius: 999px; }
+body.thank-you-page .badge-category span { color: #829049; font-size: 7px; }
+body.thank-you-page .badge-category strong { font-size: 11px; }
+body.thank-you-page .badge-qr { position: relative; z-index: 1; padding: 16px 22px 22px; text-align: center; border-top: 1px dashed #d8ded0; }
+body.thank-you-page .badge-qr-code { width: 132px; height: 132px; margin: 0 auto 9px; }
+body.thank-you-page .badge-qr-code svg { display: block; width: 100%; height: 100%; }
+body.thank-you-page .badge-qr strong { display: block; margin-top: 4px; font-size: 10px; letter-spacing: .6px; }
+body.thank-you-page .printing-instruction { max-width: 520px; margin: 22px 0 0; color: #52606d; font-size: 16px; line-height: 1.55; text-align: center; }
+body.thank-you-page .printing-instruction strong { color: #18202b; }
+body.payment-status-shell .payment-status-card form, body.cash-payment-page .cash-payment-card form { margin-top: 22px; }
+body.payment-status-shell .payment-status-card form .registration-next, body.cash-payment-page .cash-payment-card form .registration-next { width: 100%; }
+@media (max-width: 520px) {
+    body.thank-you-page .thank-you-shell { padding: 18px 12px 24px; justify-content: flex-start; }
+    body.thank-you-page .registration-background-art { display: none; }
+    body.thank-you-page .thank-you-heading { margin-bottom: 18px; }
+    body.thank-you-page .success-check { width: 46px; height: 46px; margin-bottom: 11px; }
+    body.thank-you-page .thank-you-heading .headline { font-size: clamp(28px, 9vw, 36px) !important; letter-spacing: -1px; }
+    body.thank-you-page .entrance-badge { width: min(100%, 330px); border-radius: 18px; }
+    body.thank-you-page .badge-photo { width: 126px; height: 144px; }
+    body.thank-you-page .printing-instruction { margin-top: 18px; font-size: 14px; }
+}
+
 /* ─── Live Face Check Responsiveness ─── */
 body.landing-page.live-face-page .hero-content {
     max-width: 560px;

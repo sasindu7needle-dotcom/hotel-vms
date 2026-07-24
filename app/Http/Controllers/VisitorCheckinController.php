@@ -103,6 +103,14 @@ class VisitorCheckinController extends Controller
         }
 
         if (blank($rawOcrText)) {
+            if ((! $tesseract->findExecutable() || ! function_exists('imagecreatefromstring')) && blank($accessToken) && blank($apiKey)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'OCR is not configured on this server. Install Tesseract and enable PHP GD, or configure GOOGLE_VISION_API_KEY / GOOGLE_APPLICATION_CREDENTIALS before verifying documents.',
+                    'code' => 'ocr_not_configured',
+                ], 503);
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => 'No readable identity details were found. Retake the document photo in even lighting and keep all text in focus.',

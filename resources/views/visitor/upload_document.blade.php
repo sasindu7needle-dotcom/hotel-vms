@@ -113,13 +113,13 @@
                 </div>
 
                 <!-- Submit Button -->
-                <button type="button" id="verifyBtn" class="btn btn-primary btn-large form-width-100" style="margin-top: 10px;" disabled>Verify with Google Tesseract OCR</button>
+                <button type="button" id="verifyBtn" class="btn btn-primary btn-large form-width-100" style="margin-top: 10px;" disabled>Verify document</button>
 
             </div>
 
             <div class="verification-assurance" style="margin-top: 16px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                <span>Encrypted connection · Google Tesseract OCR</span>
+                <span>Encrypted connection · Secure document OCR</span>
             </div>
         </div>
 
@@ -570,7 +570,7 @@
             }
 
             const originalText = this.innerText;
-            this.innerText = "Extracting text via Google Tesseract OCR...";
+            this.innerText = "Extracting text from document...";
             this.disabled = true;
 
             try {
@@ -591,7 +591,7 @@
                 const data = await response.json().catch(() => ({}));
 
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || "Google Tesseract OCR verification failed.");
+                    throw new Error(data.error || "Document OCR verification failed.");
                 }
 
                 showToast('Document verified successfully! Redirecting...', 'success');

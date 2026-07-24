@@ -78,3 +78,14 @@ Follow these steps to set up and run the project on your local machine:
 ## Additional Configuration
 
 - If you want to use a different web server (e.g., Apache or Nginx), configure it to point to the `public` directory of the project.
+
+## Hosting checklist
+
+The document-verification endpoint needs server-side OCR and face-verification dependencies; uploading only the Laravel files is not sufficient.
+
+- Install Tesseract OCR and PHP GD, then set `TESSERACT_PATH` to the server executable (for example `/usr/bin/tesseract`), or configure Google Vision with `GOOGLE_VISION_API_KEY` or `GOOGLE_APPLICATION_CREDENTIALS`.
+- Install Python 3, OpenCV, and NumPy from `requirements-face.txt`; set `FACE_PYTHON_PATH` if Python is not on the web server's PATH.
+- Point the web server document root at `public`, make `storage` and `bootstrap/cache` writable, and run `php artisan storage:link`.
+- After changing production `.env` values, run `php artisan config:clear` followed by `php artisan config:cache`.
+
+If neither Tesseract nor Google Vision is configured, the upload endpoint returns an `ocr_not_configured` error instead of attempting verification without an OCR engine.
