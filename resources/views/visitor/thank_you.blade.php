@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <meta http-equiv="refresh" content="5;url={{ url('/') }}">
 </head>
 <body class="landing-page visitor-registration-page thank-you-page">
     <main class="registration-shell thank-you-shell">
@@ -58,7 +59,23 @@
             </article>
 
             <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
+            <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Redirecting to home page in <span id="redirectCountdown">5</span> seconds...</p>
         </section>
     </main>
+
+    <script>
+        (function() {
+            let secondsLeft = 5;
+            const countdownEl = document.getElementById('redirectCountdown');
+            const timer = setInterval(() => {
+                secondsLeft--;
+                if (countdownEl) countdownEl.textContent = secondsLeft;
+                if (secondsLeft <= 0) {
+                    clearInterval(timer);
+                    window.location.href = "{{ url('/') }}";
+                }
+            }, 1000);
+        })();
+    </script>
 </body>
 </html>

@@ -13,6 +13,22 @@ use F9WebLtd\QrCode\Facades\QrCode;
 class VisitorController extends Controller
 {
     /**
+     * Begin a completely new registration without reusing the previous
+     * visitor's document, live photo, category, or payment state.
+     */
+    public function startNew(Request $request)
+    {
+        $request->session()->forget([
+            'verification',
+            'didit_verification',
+            'visitor_registration',
+            'visitor_category',
+        ]);
+
+        return redirect()->route('visitor.create');
+    }
+
+    /**
      * Display the visitor registration form.
      *
      * @param  \Illuminate\Http\Request  $request

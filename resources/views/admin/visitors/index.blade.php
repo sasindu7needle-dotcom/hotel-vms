@@ -12,6 +12,9 @@
     body.landing-page .admin-document-sides small { display:block; margin-top:5px; font-size:10px; font-weight:800; text-transform:uppercase; }
     body.landing-page .admin-row-actions { display:flex; gap:6px; }
     body.landing-page .admin-edit-button { padding:7px 11px; border:1px solid #c7da6a; border-radius:7px; background:#fff; color:#4e5c0d; font-size:11px; font-weight:800; cursor:pointer; }
+    body.landing-page .admin-print-button { display:inline-flex; align-items:center; justify-content:center; padding:7px 11px; border:1px solid #aeca37; border-radius:7px; background:#c8e063; color:#273000; font-size:11px; font-weight:800; text-decoration:none; white-space:nowrap; }
+    body.landing-page .admin-print-disabled { border-color:#d9dfe4; background:#eef1f3; color:#929ba5; cursor:not-allowed; }
+    body.landing-page .admin-header-print-button { position:absolute; top:72px; right:88px; z-index:2; min-height:34px; padding:0 13px; border:1px solid #aeca37; border-radius:8px; background:#c8e063; color:#273000; font-size:10px; font-weight:800; line-height:32px; text-decoration:none; white-space:nowrap; }
     body.landing-page .admin-edit-dialog { width:min(760px,calc(100vw - 28px)); }
     body.landing-page .admin-edit-form { padding:20px 24px 24px; }
     body.landing-page .admin-edit-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
@@ -72,11 +75,16 @@
     body.landing-page .admin-preview-dialog .admin-dialog-photo { position:sticky; top:136px; }
     body.landing-page .admin-preview-dialog .admin-dialog-grid > div { padding:12px 13px; background:#fbfcfd; }
     body.landing-page .admin-preview-dialog .admin-dialog-actions { position:sticky; bottom:0; z-index:4; box-shadow:0 -8px 24px rgba(20,28,38,.05); }
+    body.landing-page .admin-activity-section { grid-column:1/-1; margin-top:10px; }
+    body.landing-page .admin-activity-section > span { display:block; margin-bottom:9px; color:#667085; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    body.landing-page .admin-activity-table { width:100%; border-collapse:collapse; font-size:11px; }
+    body.landing-page .admin-activity-table th, body.landing-page .admin-activity-table td { padding:9px 8px; border-bottom:1px solid #e8edf1; text-align:left; white-space:nowrap; }
+    body.landing-page .admin-activity-table th { color:#75808e; font-size:9px; letter-spacing:.05em; text-transform:uppercase; }
     body.landing-page .admin-preview-dialog .admin-dialog-heading::after { content:'READ ONLY'; position:absolute; top:35px; right:88px; margin:0; padding:6px 10px; color:#596c08; background:#f0f7cf; border:1px solid #d8e89a; border-radius:999px; font-size:9px; font-weight:800; letter-spacing:.09em; white-space:nowrap; }
     body.landing-page dialog[open] { animation:adminDialogIn .18s cubic-bezier(.2,.8,.2,1); }
     @keyframes adminDialogIn { from { opacity:0; transform:translateY(12px) scale(.985); } to { opacity:1; transform:none; } }
     @media(max-width:640px){ body.landing-page .admin-edit-grid{grid-template-columns:1fr} body.landing-page .admin-edit-grid .wide{grid-column:auto} body.landing-page .admin-edit-actions{align-items:stretch;flex-direction:column-reverse} }
-    @media(max-width:700px){ body.landing-page .admin-preview-dialog .admin-dialog-profile{grid-template-columns:1fr} body.landing-page .admin-preview-dialog .admin-dialog-photo{position:relative;top:auto;width:150px} body.landing-page .admin-preview-dialog .admin-dialog-heading{padding-right:86px} body.landing-page .admin-preview-dialog .admin-dialog-heading::after{display:none} body.landing-page .admin-preview-dialog .admin-dialog-heading button[data-close]{top:22px;right:20px} }
+    @media(max-width:700px){ body.landing-page .admin-preview-dialog .admin-dialog-profile{grid-template-columns:1fr} body.landing-page .admin-preview-dialog .admin-dialog-photo{position:relative;top:auto;width:150px} body.landing-page .admin-preview-dialog .admin-dialog-heading{padding-right:86px;padding-bottom:62px} body.landing-page .admin-preview-dialog .admin-dialog-heading::after{display:none} body.landing-page .admin-preview-dialog .admin-dialog-heading button[data-close]{top:22px;right:20px} body.landing-page .admin-header-print-button{top:auto;right:auto;bottom:14px;left:20px} }
 
 </style>
 </head>
@@ -87,6 +95,14 @@
             <nav aria-label="Admin navigation">
                 <a href="{{ route('admin.dashboard') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
                 <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
+                        <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.92V21h-4v-.08A1.7 1.7 0 0 0 9 19.37l-1.94.4-2.83-2.83.4-1.94A1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9l-.4-1.94 2.83-2.83L9 4.63A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63l1.94-.4 2.83 2.83-.4 1.94A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
+                        <span>Master Configurations</span>
+                        <svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                    <div class="admin-nav-subtabs"><a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a><a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a><a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a><a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a></div>
+                </div>
             </nav>
             <form action="{{ route('admin.logout') }}" method="POST" class="admin-logout-form">@csrf<button type="submit" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg><span>Sign Out</span></button></form>
         </aside>
@@ -95,11 +111,14 @@
             <header class="admin-topbar">
                 <button id="adminMenuToggle" class="admin-menu-toggle" aria-label="Open navigation" aria-controls="adminSidebar" aria-expanded="false"><span></span><span></span><span></span></button>
                 <div><span class="tagline no-margin">VERIFIED DIRECTORY</span><h1>Visitor Records<span>.</span></h1><p>Verified identity and registration data in one secure view</p></div>
-                <a href="{{ route('visitor.create') }}" class="btn btn-primary admin-add-visitor">+ New Check-in</a>
+                <a href="{{ route('visitor.start') }}" class="btn btn-primary admin-add-visitor">+ New Check-in</a>
             </header>
 
             @if(session('status'))<div class="admin-page-alert">{{ session('status') }}</div>@endif
             @error('delete')<div class="admin-page-alert" style="color:#9f252e;background:#fff0f1;border-color:#efc3c6">{{ $message }}</div>@enderror
+            @error('checkin')<div class="admin-page-alert" style="color:#9f252e;background:#fff0f1;border-color:#efc3c6">{{ $message }}</div>@enderror
+            @error('badge')<div class="admin-page-alert" style="color:#9f252e;background:#fff0f1;border-color:#efc3c6">{{ $message }}</div>@enderror
+            @if($errors->any())<div class="admin-page-alert" style="color:#9f252e;background:#fff0f1;border-color:#efc3c6"><ul style="margin:0;padding-left:18px">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
             <section class="admin-visitor-stat-grid">
                 @foreach([
@@ -126,10 +145,13 @@
                         <thead><tr><th class="admin-index-column">#</th><th>Verified Visitor</th><th>Contact</th><th>Category & Fee</th><th>Payment</th><th>Face Check</th><th>Verified</th><th></th></tr></thead>
                         <tbody>
                             @forelse($visitors as $visitor)
+                                @php
+                                    $mediaVersion = $visitor->updated_at?->format('Uu') ?: $visitor->id;
+                                @endphp
                                 <tr>
-                                    <td class="admin-record-index">{{ $visitors->firstItem() + $loop->index }}</td>
+                                    <td class="admin-record-index">{{ ($visitors->firstItem() ?: 1) + $loop->index }}</td>
                                     <td><div class="admin-visitor-cell">
-                                        @if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', $visitor) }}" alt="">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', $visitor) }}" alt="">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif
+                                        @if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif
                                         <div><strong>{{ $visitor->full_name ?: 'Unnamed visitor' }}</strong><small>{{ strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Document')) }} · {{ $visitor->document_number ?: '—' }}</small></div>
                                     </div></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
@@ -137,88 +159,116 @@
                                     <td><div class="admin-status-stack"><span class="admin-payment-badge admin-payment-{{ $visitor->payment_status }}">{{ strtoupper(str_replace('_', ' ', $visitor->payment_status)) }}</span><small class="admin-status-detail">{{ strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: 'Not selected')) }}</small></div></td>
                                     <td><div class="admin-status-stack"><span class="admin-face-badge admin-face-status-{{ $visitor->face_verification_status ?: 'pending' }}">{{ ['verified'=>'Face verified','pending'=>'Pending','review_required'=>'Review required','rejected'=>'Rejected'][$visitor->face_verification_status] ?? 'Pending' }}</span><small class="admin-status-detail">{{ $visitor->face_match_score !== null ? number_format((float)$visitor->face_match_score, 1).'% consistency' : 'No live check' }}</small></div></td>
                                     <td>{{ ($visitor->verified_at ?: $visitor->created_at)?->format('M j, Y') }}<small class="admin-cell-secondary">{{ ($visitor->verified_at ?: $visitor->created_at)?->format('g:i A') }}</small></td>
-                                    <td><div class="admin-row-actions"><button type="button" class="admin-view-button" data-dialog="visitor-{{ $visitor->id }}">View</button><button type="button" class="admin-edit-button" data-dialog="edit-visitor-{{ $visitor->id }}">Edit</button><button type="button" class="admin-row-delete-button" data-dialog="delete-visitor-{{ $visitor->id }}" aria-label="Delete {{ $visitor->full_name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg></button></div></td>
+                                    <td><div class="admin-row-actions"><button type="button" class="admin-view-button" data-dialog="visitor-{{ $visitor->id }}">View</button>@if($visitor->face_verification_status === 'verified' && $visitor->selfie_path)<a class="admin-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print</a>@else<span class="admin-print-button admin-print-disabled" title="A verified live photo is required">Print</span>@endif<button type="button" class="admin-edit-button" data-dialog="edit-visitor-{{ $visitor->id }}">Edit</button><button type="button" class="admin-row-delete-button" data-dialog="delete-visitor-{{ $visitor->id }}" aria-label="Delete {{ $visitor->full_name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg></button></div></td>
                                 </tr>
-
-                                <dialog id="visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-preview-dialog">
-                                    <div class="admin-dialog-heading"><div><span>VISITOR PROFILE</span><h2>{{ $visitor->full_name ?: 'Visitor details' }}</h2></div><button type="button" data-close aria-label="Close">×</button></div>
-                                    <div class="admin-dialog-profile">
-                                        <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', $visitor) }}" alt="Live camera photo of {{ $visitor->full_name }}">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', $visitor) }}" alt="Document photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Verified photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->face_verification_status === 'verified' ? 'FACE VERIFIED' : 'REVIEW' }}</i></div>
-                                        <div class="admin-dialog-grid">
-                                            @foreach([
-                                                'Sinhala / Preferred Name' => $visitor->full_name,
-                                                'Latin Name' => $visitor->full_name_latin,
-                                                'Document Type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: '')),
-                                                'NIC / Passport' => $visitor->document_number,
-                                                'Mobile Number' => $visitor->mobile_number,
-                                                'WhatsApp Number' => $visitor->whatsapp_number,
-                                                'Occupation' => $visitor->occupation,
-                                                'Company' => $visitor->company,
-                                                'Category' => $visitor->category,
-                                                'Entrance Fee' => $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : null,
-                                                'Payment Method' => strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: '')),
-                                                'Payment Status' => strtoupper(str_replace('_', ' ', $visitor->payment_status)),
-                                                'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
-                                                'Face Check' => strtoupper(str_replace('_', ' ', $visitor->face_verification_status ?: 'pending')),
-                                                'Face Consistency' => $visitor->face_match_score !== null ? number_format((float)$visitor->face_match_score, 2).'%' : null,
-                                                'Detection Confidence' => $visitor->face_detection_confidence !== null ? number_format((float)$visitor->face_detection_confidence, 2).'%' : null,
-                                                'Face Checked At' => $visitor->face_verified_at?->format('M j, Y · g:i A'),
-                                                'Face Provider' => $visitor->face_provider ? strtoupper(str_replace('_', ' ', $visitor->face_provider)) : null,
-                                                'OCR Provider' => $visitor->ocr_provider ? strtoupper(str_replace('_', ' ', $visitor->ocr_provider)) : null,
-                                                'Identity Reviewed' => $visitor->identity_reviewed_at?->format('M j, Y · g:i A'),
-                                            ] as $label => $value)<div><span>{{ $label }}</span><strong>{{ filled($value) ? $value : '—' }}</strong></div>@endforeach
-                                            <div class="admin-dialog-wide"><span>Address</span><strong>{{ $visitor->address ?: '—' }}</strong></div>
-                                            @if($visitor->address_latin && $visitor->address_latin !== $visitor->address)<div class="admin-dialog-wide"><span>Latin Address</span><strong>{{ $visitor->address_latin }}</strong></div>@endif
-                                            <div class="admin-dialog-wide admin-document-sides">
-                                                <span>Stored document images</span>
-                                                <div>
-                                                    @if($visitor->photo_path)<a href="{{ route('admin.visitors.photo', $visitor) }}" target="_blank" rel="noopener"><img src="{{ route('admin.visitors.photo', $visitor) }}" alt="Front of document"><small>{{ $visitor->document_type === 'passport' ? 'Identity page' : 'Front' }}</small></a>@endif
-                                                    @if($visitor->back_photo_path)<a href="{{ route('admin.visitors.back_photo', $visitor) }}" target="_blank" rel="noopener"><img src="{{ route('admin.visitors.back_photo', $visitor) }}" alt="Back of document"><small>Back</small></a>@endif
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="admin-dialog-actions"><form method="POST" action="{{ route('admin.visitors.checkin', $visitor) }}">@csrf @method('PATCH')<button class="btn {{ $visitor->checkin_status ? 'btn-secondary' : 'btn-primary' }}" type="submit">{{ $visitor->checkin_status ? 'Check Out Visitor' : 'Check In Visitor' }}</button></form><button type="button" class="admin-edit-button" data-dialog-switch="edit-visitor-{{ $visitor->id }}">Edit record</button><button type="button" class="admin-modal-close-button" data-close>Close</button></div>
-                                </dialog>
-
-                                <dialog id="edit-visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-edit-dialog">
-                                    <div class="admin-dialog-heading"><div><span>ADMIN CONTROLS</span><h2>Edit visitor record</h2></div><button type="button" data-close aria-label="Close">×</button></div>
-                                    <form class="admin-edit-form" method="POST" action="{{ route('admin.visitors.update', $visitor) }}">
-                                        @csrf @method('PATCH')
-                                        <div class="admin-edit-grid">
-                                            <label>Full name<input name="full_name" value="{{ $visitor->full_name }}" required></label>
-                                            <label>Document type<select name="document_type" required>@foreach(['nic'=>'NIC','driving_license'=>'Driving Licence','passport'=>'Passport'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->document_type===$value)>{{ $label }}</option>@endforeach</select></label>
-                                            <label>Document number<input name="document_number" value="{{ $visitor->document_number }}" required></label>
-                                            <label>Face verification<select name="face_verification_status" required>@foreach(['pending'=>'Pending','verified'=>'Verified','review_required'=>'Review required','rejected'=>'Rejected'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->face_verification_status===$value)>{{ $label }}</option>@endforeach</select></label>
-                                            <label class="wide">Address<textarea name="address" required>{{ $visitor->address }}</textarea></label>
-                                            <label>Mobile number<input name="mobile_number" value="{{ $visitor->mobile_number }}"></label>
-                                            <label>WhatsApp number<input name="whatsapp_number" value="{{ $visitor->whatsapp_number }}"></label>
-                                            <label>Occupation<input name="occupation" value="{{ $visitor->occupation }}"></label>
-                                            <label>Company<input name="company" value="{{ $visitor->company }}"></label>
-                                            <label>Category<input name="category" value="{{ $visitor->category }}"></label>
-                                            <label>Entrance fee<input name="entrance_fee" type="number" min="0" step="0.01" value="{{ $visitor->entrance_fee }}"></label>
-                                            <label>Payment method<select name="payment_method"><option value="">Not selected</option>@foreach(['cash'=>'Cash','visa_master'=>'Visa / MasterCard','amex'=>'American Express'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_method===$value)>{{ $label }}</option>@endforeach</select></label>
-                                            <label>Payment status<select name="payment_status" required>@foreach(['pending'=>'Pending','cash_pending'=>'Cash pending','card_pending'=>'Card pending','paid'=>'Paid'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_status===$value)>{{ $label }}</option>@endforeach</select></label>
-                                            <label>Check-in state<select name="checkin_status" required><option value="1" @selected($visitor->checkin_status)>Inside</option><option value="0" @selected(!$visitor->checkin_status)>Not inside</option></select></label>
-                                        </div>
-                                        <div class="admin-edit-actions"><button type="button" class="admin-modal-close-button" data-close>Cancel</button><div><button type="submit" class="btn btn-primary">Save changes</button></div></div>
-                                    </form>
-                                </dialog>
-
-                                <dialog id="delete-visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-delete-dialog">
-                                    <div class="admin-dialog-heading"><div><span>PERMANENT DELETION</span><h2>Delete visitor?</h2></div><button type="button" data-close aria-label="Close">×</button></div>
-                                    <div class="admin-delete-content">
-                                        <p>You are about to permanently delete <strong>{{ $visitor->full_name ?: 'this visitor' }}</strong>. This action cannot be undone.</p>
-                                        <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Live face photograph</li>@endif</ul>
-                                    </div>
-                                    <form method="POST" action="{{ route('admin.visitors.destroy', $visitor) }}" class="admin-delete-modal-form">@csrf @method('DELETE')<div class="admin-delete-actions-bar"><button type="button" class="btn-keep-visitor" data-close>Keep visitor</button><button type="submit" class="btn-delete-permanently">Delete permanently</button></div></form>
-                                </dialog>
                             @empty
                                 <tr><td colspan="8"><div class="admin-visitor-empty"><span>+</span><h3>No verified visitors found</h3><p>Completed registrations will appear here with their verified identity and form details.</p></div></td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
+
+                @foreach($visitors as $visitor)
+                    @php
+                        $mediaVersion = $visitor->updated_at?->format('Uu') ?: $visitor->id;
+                    @endphp
+                    <dialog id="visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-preview-dialog">
+                        <div class="admin-dialog-heading"><div><span>VISITOR PROFILE</span><h2>{{ $visitor->full_name ?: 'Visitor details' }}</h2></div>@if($visitor->face_verification_status === 'verified' && $visitor->selfie_path)<a class="admin-header-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a>@endif<button type="button" data-close aria-label="Close">×</button></div>
+                        <div class="admin-dialog-profile">
+                            <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Live camera photo of {{ $visitor->full_name }}">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Document photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Verified photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->face_verification_status === 'verified' ? 'FACE VERIFIED' : 'REVIEW' }}</i></div>
+                            <div class="admin-dialog-grid">
+                                @foreach([
+                                    'Sinhala / Preferred Name' => $visitor->full_name,
+                                    'Latin Name' => $visitor->full_name_latin,
+                                    'Document Type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: '')),
+                                    'NIC / Passport' => $visitor->document_number,
+                                    'Mobile Number' => $visitor->mobile_number,
+                                    'WhatsApp Number' => $visitor->whatsapp_number,
+                                    'Occupation' => $visitor->occupation,
+                                    'Company' => $visitor->company,
+                                    'Category' => $visitor->category,
+                                    'Entrance Fee' => $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : null,
+                                    'Payment Method' => strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: '')),
+                                    'Payment Status' => strtoupper(str_replace('_', ' ', $visitor->payment_status)),
+                                    'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',
+                                    'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
+                                    'Face Check' => strtoupper(str_replace('_', ' ', $visitor->face_verification_status ?: 'pending')),
+                                    'Face Consistency' => $visitor->face_match_score !== null ? number_format((float)$visitor->face_match_score, 2).'%' : null,
+                                    'Detection Confidence' => $visitor->face_detection_confidence !== null ? number_format((float)$visitor->face_detection_confidence, 2).'%' : null,
+                                    'Face Checked At' => $visitor->face_verified_at?->format('M j, Y · g:i A'),
+                                    'Face Provider' => $visitor->face_provider ? strtoupper(str_replace('_', ' ', $visitor->face_provider)) : null,
+                                    'OCR Provider' => $visitor->ocr_provider ? strtoupper(str_replace('_', ' ', $visitor->ocr_provider)) : null,
+                                    'Identity Reviewed' => $visitor->identity_reviewed_at?->format('M j, Y · g:i A'),
+                                ] as $label => $value)<div><span>{{ $label }}</span><strong>{{ filled($value) ? $value : '—' }}</strong></div>@endforeach
+                                <div class="admin-dialog-wide"><span>Address</span><strong>{{ $visitor->address ?: '—' }}</strong></div>
+                                @if($visitor->address_latin && $visitor->address_latin !== $visitor->address)<div class="admin-dialog-wide"><span>Latin Address</span><strong>{{ $visitor->address_latin }}</strong></div>@endif
+                                <div class="admin-dialog-wide admin-document-sides">
+                                    <span>Stored document images</span>
+                                    <div>
+                                        @if($visitor->photo_path)<a href="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" target="_blank" rel="noopener"><img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Front of document"><small>{{ $visitor->document_type === 'passport' ? 'Identity page' : 'Front' }}</small></a>@endif
+                                        @if($visitor->back_photo_path)<a href="{{ route('admin.visitors.back_photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" target="_blank" rel="noopener"><img src="{{ route('admin.visitors.back_photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Back of document"><small>Back</small></a>@endif
+                                    </div>
+                                </div>
+                                <div class="admin-activity-section">
+                                    <span>Activity</span>
+                                    <div class="table-responsive">
+                                        <table class="admin-activity-table">
+                                            <thead><tr><th>Date</th><th>Time-In</th><th>Gate-In</th><th>Time-Out</th><th>Gate-Out</th><th>Duration</th></tr></thead>
+                                            <tbody>
+                                            @forelse($visitor->activity_rows as $activity)
+                                                <tr>
+                                                    <td>{{ $activity['in']->scanned_at->format('M j, Y') }}</td>
+                                                    <td>{{ $activity['in']->scanned_at->format('H:i') }}</td>
+                                                    <td>{{ $activity['in']->gate }}</td>
+                                                    <td>{{ $activity['out']?->scanned_at?->format('H:i') ?: '—' }}</td>
+                                                    <td>{{ $activity['out']?->gate ?: '—' }}</td>
+                                                    <td>{{ $activity['duration_minutes'] !== null ? intdiv($activity['duration_minutes'], 60).'h '.($activity['duration_minutes'] % 60).'m' : 'Inside now' }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="6">No gate activity recorded.</td></tr>
+                                            @endforelse
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="admin-dialog-actions"><form method="POST" action="{{ route('admin.visitors.checkin', $visitor) }}">@csrf @method('PATCH')<button class="btn {{ $visitor->checkin_status ? 'btn-secondary' : 'btn-primary' }}" type="submit">{{ $visitor->checkin_status ? 'Check Out Visitor' : 'Check In Visitor' }}</button></form><a class="btn btn-primary" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a><button type="button" class="admin-edit-button" data-dialog-switch="edit-visitor-{{ $visitor->id }}">Edit record</button><button type="button" class="admin-modal-close-button" data-close>Close</button></div>
+                    </dialog>
+
+                    <dialog id="edit-visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-edit-dialog">
+                        <div class="admin-dialog-heading"><div><span>ADMIN CONTROLS</span><h2>Edit visitor record</h2></div><button type="button" data-close aria-label="Close">×</button></div>
+                        <form class="admin-edit-form" method="POST" action="{{ route('admin.visitors.update', $visitor) }}">
+                            @csrf @method('PATCH')
+                            <div class="admin-edit-grid">
+                                <label>Full name<input name="full_name" value="{{ $visitor->full_name }}"></label>
+                                <label>Document type<select name="document_type"><option value="">Not specified</option>@foreach(['nic'=>'NIC','driving_license'=>'Driving Licence','passport'=>'Passport'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->document_type===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label>Document number<input name="document_number" value="{{ $visitor->document_number }}"></label>
+                                <label>Face verification<select name="face_verification_status">@foreach(['pending'=>'Pending','verified'=>'Verified','review_required'=>'Review required','rejected'=>'Rejected'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->face_verification_status===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label class="wide">Address<textarea name="address">{{ $visitor->address }}</textarea></label>
+                                <label>Mobile number<input name="mobile_number" value="{{ $visitor->mobile_number }}"></label>
+                                <label>WhatsApp number<input name="whatsapp_number" value="{{ $visitor->whatsapp_number }}"></label>
+                                <label>Occupation<input name="occupation" value="{{ $visitor->occupation }}"></label>
+                                <label>Company<input name="company" value="{{ $visitor->company }}"></label>
+                                <label>Category<input name="category" value="{{ $visitor->category }}"></label>
+                                <label>Entrance fee<input name="entrance_fee" type="number" min="0" step="0.01" value="{{ $visitor->entrance_fee }}"></label>
+                                <label>Payment method<select name="payment_method"><option value="">Not selected</option>@foreach(['cash'=>'Cash','visa_master'=>'Visa / MasterCard','amex'=>'American Express'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_method===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label>Payment status<select name="payment_status" required>@foreach(['pending'=>'Pending','cash_pending'=>'Cash pending','card_pending'=>'Card pending','paid'=>'Paid'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_status===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label>Access status<select name="is_blocked" required><option value="0" @selected(!$visitor->is_blocked)>Allowed</option><option value="1" @selected($visitor->is_blocked)>Blocked</option></select></label>
+                            </div>
+                            <div class="admin-edit-actions"><button type="button" class="admin-modal-close-button" data-close>Cancel</button><div><button type="submit" class="btn btn-primary">Save changes</button></div></div>
+                        </form>
+                    </dialog>
+
+                    <dialog id="delete-visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-delete-dialog">
+                        <div class="admin-dialog-heading"><div><span>PERMANENT DELETION</span><h2>Delete visitor?</h2></div><button type="button" data-close aria-label="Close">×</button></div>
+                        <div class="admin-delete-content">
+                            <p>You are about to permanently delete <strong>{{ $visitor->full_name ?: 'this visitor' }}</strong>. This action cannot be undone.</p>
+                            <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Live face photograph</li>@endif</ul>
+                        </div>
+                        <form method="POST" action="{{ route('admin.visitors.destroy', $visitor) }}" class="admin-delete-modal-form">@csrf @method('DELETE')<div class="admin-delete-actions-bar"><button type="button" class="btn-keep-visitor" data-close>Keep visitor</button><button type="submit" class="btn-delete-permanently">Delete permanently</button></div></form>
+                    </dialog>
+                @endforeach
 
                 @if($visitors->hasPages())
                     <nav class="admin-pagination" aria-label="Visitor records pagination">
@@ -250,6 +300,16 @@
         const sidebar = document.querySelector('.admin-sidebar'), menu = document.getElementById('adminMenuToggle'), overlay = document.getElementById('adminSidebarOverlay');
         menu.addEventListener('click', () => { const open = sidebar.classList.toggle('open'); overlay.classList.toggle('show', open); menu.setAttribute('aria-expanded', String(open)); });
         overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
+        document.querySelectorAll('.admin-nav-group-title').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                const group = toggle.closest('.admin-nav-group');
+                if (group) {
+                    const isCollapsed = group.classList.toggle('collapsed');
+                    toggle.setAttribute('aria-expanded', String(!isCollapsed));
+                }
+            });
+        });
         // Dialogs are emitted while looping table rows. Mounting them directly under
         // <body> avoids HTML table "foster parenting" and inconsistent modal targets.
         const visitorDialogs = [...document.querySelectorAll('dialog.admin-visitor-dialog')];

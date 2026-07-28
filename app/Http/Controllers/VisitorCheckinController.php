@@ -221,6 +221,13 @@ class VisitorCheckinController extends Controller
         $bytes = file_get_contents($file->getRealPath());
 
         $documentPath = Storage::disk('local')->path(data_get($verification, 'photo_path'));
+        if (! is_file($documentPath)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'The verified ID portrait is unavailable. Please upload the identity document again.',
+            ], 422);
+        }
+
         try {
             $faceResult = $faceVerifier->compare($documentPath, $file->getRealPath());
         } catch (\RuntimeException $exception) {
@@ -261,6 +268,12 @@ class VisitorCheckinController extends Controller
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
         $selfiePath = 'verified-visitors/'.data_get($verification, 'verification_id').'-live.'.$extension;
         Storage::disk('local')->put($selfiePath, $bytes);
+        if (! Storage::disk('local')->exists($selfiePath)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'The verified live photo could not be stored. Please try again.',
+            ], 500);
+        }
 
         $request->session()->put('verification', array_merge($verification, [
             'selfie_path' => $selfiePath,

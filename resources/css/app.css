@@ -2528,6 +2528,127 @@ body.landing-page .admin-nav-link.active {
     background: #c8e063;
 }
 
+body.landing-page .configuration-split-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 992px) {
+    body.landing-page .configuration-split-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+body.landing-page .admin-nav-group {
+    margin-top: 5px;
+    padding: 7px 7px 9px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 10px;
+    transition: padding 0.25s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+body.landing-page .admin-nav-group.active {
+    border-color: rgba(200, 224, 99, .32);
+    background: rgba(200, 224, 99, .06);
+}
+
+body.landing-page .admin-nav-group-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 8px;
+    color: #d7dde3;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .03em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+body.landing-page .admin-nav-group-title:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, .06);
+}
+
+body.landing-page .admin-nav-group-title svg:not(.admin-nav-arrow) {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+body.landing-page .admin-nav-arrow {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    margin-left: auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: rotate(90deg);
+}
+
+body.landing-page .admin-nav-group.collapsed .admin-nav-arrow {
+    transform: rotate(0deg);
+}
+
+body.landing-page .admin-nav-subtabs {
+    display: grid;
+    gap: 2px;
+    margin: 6px 0 0 27px;
+    max-height: 300px;
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin-top 0.25s ease;
+}
+
+body.landing-page .admin-nav-group.collapsed .admin-nav-subtabs {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    pointer-events: none;
+}
+
+body.landing-page .admin-nav-subtabs a,
+body.landing-page .admin-nav-subtabs span {
+    padding: 6px 8px;
+    color: #8f9aa7;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-decoration: none;
+}
+
+body.landing-page .admin-nav-subtabs a:hover,
+body.landing-page .admin-nav-subtabs a.active {
+    color: #dff58a;
+    background: rgba(200, 224, 99, .1);
+}
+
+body.landing-page .admin-nav-subtabs span {
+    cursor: not-allowed;
+    opacity: .52;
+}
+
 body.landing-page .admin-logout-form {
     margin-top: auto;
 }

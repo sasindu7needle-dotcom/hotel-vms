@@ -17,7 +17,7 @@
                 Traction Guest provides organizations with a single place to secure, manage and govern an entire cycle of visitor operations.
             </p>
             <div class="cta-buttons">
-                <a href="{{ route('visitor.create') }}" class="btn btn-primary btn-large">Register</a>
+                <a href="{{ route('visitor.start') }}" class="btn btn-primary btn-large">Register</a>
             </div>
         </div>
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VerifiedVisitor extends Model
 {
@@ -18,5 +19,11 @@ class VerifiedVisitor extends Model
         'face_detection_confidence' => 'decimal:2',
         'face_verified_at' => 'datetime',
         'identity_reviewed_at' => 'datetime',
+        'is_blocked' => 'boolean',
     ];
+
+    public function gateLogs(): HasMany
+    {
+        return $this->hasMany(GateLog::class, 'visitor_id');
+    }
 }
