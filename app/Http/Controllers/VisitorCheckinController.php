@@ -29,12 +29,14 @@ class VisitorCheckinController extends Controller
         $request->validate([
             'document_type' => 'required|in:nic,driving_license,passport',
             'document_front_image' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240',
-            'document_back_image' => 'required_unless:document_type,passport|nullable|file|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'document_back_image' => 'required_if:document_type,nic|nullable|file|image|mimes:jpeg,png,jpg,webp|max:10240',
         ]);
 
         $docType = $request->string('document_type')->toString();
         $file = $request->file('document_front_image');
-        $backFile = $request->file('document_back_image');
+        // Only the NIC flow uses the reverse side. Passports and driving
+        // licences are verified from their portrait/details page.
+        $backFile = $docType === 'nic' ? $request->file('document_back_image') : null;
 
         $imageBytes = file_get_contents($file->getRealPath());
         $mime = $file->getMimeType() ?: 'image/jpeg';

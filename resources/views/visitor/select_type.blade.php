@@ -80,7 +80,8 @@
 
                 <label class="consent-checkbox-row" for="privacyConsent" style="margin-top: 18px;">
                     <input type="checkbox" id="privacyConsent" name="privacy_consent" value="1">
-                    <span>I have read this notice and agree to the identity verification and processing described above.</span>
+                    <span class="consent-checkbox-control" aria-hidden="true"></span>
+                    <span class="consent-checkbox-text">I have read this notice and agree to the identity verification and processing described above.</span>
                 </label>
             </div>
 

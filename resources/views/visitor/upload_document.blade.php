@@ -72,9 +72,14 @@
                     </div>
                 </div>
 
-                <div class="document-sides" style="text-align: left; margin-bottom: 20px;">
+                <div class="document-sides @if($type !== 'nic') document-sides--single @endif" style="text-align: left; margin-bottom: 20px;">
                     <div class="document-side">
-                        <label class="form-label-premium" id="frontLabel">Front of document</label>
+                        <label class="form-label-premium" id="frontLabel">
+                            @if($type === 'passport') Passport identity page
+                            @elseif($type === 'driving_license') Driving licence front
+                            @else NIC front
+                            @endif
+                        </label>
                         <div class="doc-dropzone">
                             <input type="file" id="documentFrontImage" accept="image/*" capture="environment" class="doc-dropzone__input">
                             <div id="frontContent" class="doc-dropzone__placeholder">
@@ -92,7 +97,7 @@
                         </div>
                     </div>
 
-                    <div class="document-side" id="backDocumentSide">
+                    <div class="document-side @if($type !== 'nic') document-side--hidden @endif" id="backDocumentSide">
                         <label class="form-label-premium">Back of document</label>
                         <div class="doc-dropzone">
                             <input type="file" id="documentBackImage" accept="image/*" capture="environment" class="doc-dropzone__input">
@@ -149,6 +154,10 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 14px;
+        }
+
+        body.landing-page.upload-document-page .document-sides--single {
+            grid-template-columns: minmax(0, 1fr);
         }
 
         body.landing-page.upload-document-page .document-side--hidden { display: none; }
@@ -398,6 +407,7 @@
         const documentBackImage = document.getElementById('documentBackImage');
         const hiddenInput = document.getElementById('docTypeSelect');
         const verifyBtn = document.getElementById('verifyBtn');
+        const documentSides = document.querySelector('.document-sides');
         const backDocumentSide = document.getElementById('backDocumentSide');
         const frontLabel = document.getElementById('frontLabel');
 
@@ -475,7 +485,7 @@
 
         function updateButtonState() {
             const hasFront = documentFrontImage.files && documentFrontImage.files.length > 0;
-            const needsBack = hiddenInput.value !== 'passport';
+            const needsBack = hiddenInput.value === 'nic';
             const hasBack = documentBackImage.files && documentBackImage.files.length > 0;
             verifyBtn.disabled = !hasFront || (needsBack && !hasBack);
         }
@@ -507,8 +517,12 @@
 
         function updateDocumentSides() {
             const isPassport = hiddenInput.value === 'passport';
-            backDocumentSide.classList.toggle('document-side--hidden', isPassport);
-            frontLabel.innerText = isPassport ? 'Passport identity page' : 'Front of document';
+            const needsBack = hiddenInput.value === 'nic';
+            backDocumentSide.classList.toggle('document-side--hidden', !needsBack);
+            documentSides.classList.toggle('document-sides--single', !needsBack);
+            frontLabel.innerText = isPassport
+                ? 'Passport identity page'
+                : (hiddenInput.value === 'driving_license' ? 'Driving licence front' : 'NIC front');
             updateButtonState();
         }
 
@@ -563,9 +577,12 @@
         verifyBtn.addEventListener('click', async function(e) {
             e.preventDefault();
 
-            const needsBack = hiddenInput.value !== 'passport';
+            const needsBack = hiddenInput.value === 'nic';
             if (!documentFrontImage.files || !documentFrontImage.files[0] || (needsBack && (!documentBackImage.files || !documentBackImage.files[0]))) {
-                showToast(needsBack ? 'Please add both the front and back of the card.' : 'Please add the passport identity page.', 'error');
+                const missingDocumentMessage = needsBack
+                    ? 'Please add both the front and back of the NIC.'
+                    : (hiddenInput.value === 'passport' ? 'Please add the passport identity page.' : 'Please add the front of the driving licence.');
+                showToast(missingDocumentMessage, 'error');
                 return;
             }
 

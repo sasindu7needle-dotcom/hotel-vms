@@ -78,6 +78,100 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonValidationErrors(['document_type', 'document_front_image']);
     }
 
+    public function test_it_verifies_a_driving_license_without_a_back_image(): void
+    {
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'fullTextAnnotation' => [
+                        'text' => "DRIVING LICENCE\nNO: B1234567\nNAME: Nimal Perera\nADDRESS: 12 Galle Road, Colombo",
+                    ],
+                    'faceAnnotations' => [$this->faceAnnotation()],
+                ]],
+            ]),
+        ]);
+
+        $response = $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'driving_license',
+            'document_front_image' => UploadedFile::fake()->image('license-front.jpg', 600, 400),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.document_type', 'driving_license')
+            ->assertJsonPath('data.document_number', 'B1234567')
+            ->assertJsonPath('data.full_name', 'Nimal Perera')
+            ->assertJsonPath('data.back_photo_path', null);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_it_verifies_a_passport_identity_page_without_a_back_image(): void
+    {
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response([
+                'responses' => [[
+                    'fullTextAnnotation' => [
+                        'text' => "SRI LANKA PASSPORT\nPASSPORT NO: N1234567\nNAME: Nimal Perera\nN1234567<7LKA9001011M3001012",
+                    ],
+                    'faceAnnotations' => [$this->faceAnnotation()],
+                ]],
+            ]),
+        ]);
+
+        $response = $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'passport',
+            'document_front_image' => UploadedFile::fake()->image('passport-identity-page.jpg', 600, 400),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.document_type', 'passport')
+            ->assertJsonPath('data.document_number', 'N1234567')
+            ->assertJsonPath('data.full_name', 'Nimal Perera')
+            ->assertJsonPath('data.back_photo_path', null);
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_only_nic_requires_a_back_image(): void
+    {
+        Http::fake([
+            'vision.googleapis.com/*' => Http::response(['responses' => [[]]]),
+        ]);
+
+        $front = fn (string $name) => UploadedFile::fake()->image($name, 600, 400);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => $front('nic-front.jpg'),
+        ])->assertUnprocessable()->assertJsonValidationErrors('document_back_image');
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'driving_license',
+            'document_front_image' => $front('license-front.jpg'),
+        ])->assertJsonMissingValidationErrors('document_back_image');
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'passport',
+            'document_front_image' => $front('passport-page.jpg'),
+        ])->assertJsonMissingValidationErrors('document_back_image');
+    }
+
+    public function test_driving_license_and_passport_upload_pages_use_one_document_side(): void
+    {
+        foreach (['driving_license', 'passport'] as $documentType) {
+            $response = $this->get(route('visitor.upload_document', ['type' => $documentType]))->assertOk();
+
+            $this->assertMatchesRegularExpression('/class="document-sides\s+document-sides--single\s*"/', $response->getContent());
+            $this->assertMatchesRegularExpression('/class="document-side\s+document-side--hidden\s*" id="backDocumentSide"/', $response->getContent());
+        }
+
+        $nicResponse = $this->get(route('visitor.upload_document', ['type' => 'nic']))->assertOk();
+        $this->assertDoesNotMatchRegularExpression('/class="document-sides\s+document-sides--single\s*"/', $nicResponse->getContent());
+        $this->assertDoesNotMatchRegularExpression('/class="document-side\s+document-side--hidden\s*" id="backDocumentSide"/', $nicResponse->getContent());
+    }
+
     public function test_it_rejects_a_document_when_all_ocr_providers_fail(): void
     {
         Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Vision API offline'));

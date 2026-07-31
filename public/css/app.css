@@ -14675,6 +14675,66 @@ body.verification-consent-page .headline {
     text-wrap: balance;
 }
 
+/* Use an explicit control so browser themes and extensions cannot hide the checkbox. */
+body.verification-consent-page .consent-checkbox-row {
+    position: relative;
+}
+
+body.verification-consent-page .consent-checkbox-row input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+body.verification-consent-page .consent-checkbox-control {
+    position: relative;
+    display: block;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    margin-top: 1px;
+    background: #ffffff;
+    border: 2px solid #8793a1;
+    border-radius: 5px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+body.verification-consent-page .consent-checkbox-row:hover .consent-checkbox-control {
+    border-color: #7f981d;
+}
+
+body.verification-consent-page .consent-checkbox-row input[type="checkbox"]:focus-visible + .consent-checkbox-control {
+    outline: 3px solid rgba(169, 198, 47, 0.35);
+    outline-offset: 2px;
+}
+
+body.verification-consent-page .consent-checkbox-row input[type="checkbox"]:checked + .consent-checkbox-control {
+    background: #9eb91f;
+    border-color: #829b18;
+}
+
+body.verification-consent-page .consent-checkbox-row input[type="checkbox"]:checked + .consent-checkbox-control::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 6px;
+    height: 11px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+body.verification-consent-page .consent-checkbox-text {
+    min-width: 0;
+}
+
 body.verification-consent-page .verification-consent-card,
 body.verification-consent-page .select-type-form,
 body.verification-consent-page .verification-assurance,
