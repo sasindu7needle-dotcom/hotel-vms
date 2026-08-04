@@ -14,8 +14,7 @@ class VisitorRegistrationTest extends TestCase
         'document_number' => '199012345678',
         'address' => '12 Galle Road, Colombo',
         'photo_url' => 'https://example.test/verified-photo.jpg',
-        'face_verification_status' => 'verified',
-        'face_match_score' => 88.5,
+        'selfie_path' => 'verified-visitors/captured-photo.jpg',
     ];
 
     private array $category = [
@@ -37,6 +36,19 @@ class VisitorRegistrationTest extends TestCase
             ->assertSee('LKR 1,500.00')
             ->assertSee('Same as Mobile')
             ->assertSee('Next');
+    }
+
+    public function test_registration_redirects_to_document_upload_when_ocr_fields_are_incomplete(): void
+    {
+        $incomplete = array_merge($this->verification, [
+            'full_name' => '',
+            'address' => '',
+        ]);
+
+        $this->withSession(['verification' => $incomplete])
+            ->get(route('visitor.create', ['type' => 'nic']))
+            ->assertRedirect(route('visitor.upload_document', ['type' => 'nic']))
+            ->assertSessionHasErrors('verification');
     }
 
     public function test_confirmation_uses_reviewed_identity_and_server_controlled_fee(): void

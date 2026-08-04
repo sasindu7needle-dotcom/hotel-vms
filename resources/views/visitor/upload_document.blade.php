@@ -124,7 +124,7 @@
 
             <div class="verification-assurance" style="margin-top: 16px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                <span>Encrypted connection · Secure document OCR</span>
+                <span>Encrypted connection · Gemini document extraction</span>
             </div>
         </div>
 
@@ -608,12 +608,12 @@
                 const data = await response.json().catch(() => ({}));
 
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || "Document OCR verification failed.");
+                    throw new Error(data.error || "Gemini document verification failed.");
                 }
 
                 showToast('Document verified successfully! Redirecting...', 'success');
                 setTimeout(() => {
-                    window.location.href = data.redirect_url || "{{ route('visitor.live_face') }}";
+                    window.location.href = data.redirect_url || "{{ route('visitor.photo_capture') }}";
                 }, 800);
 
             } catch (error) {

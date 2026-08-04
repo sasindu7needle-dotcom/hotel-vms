@@ -86,7 +86,6 @@ class AdminVisitorController extends Controller
             'entrance_fee' => 'nullable|numeric|min:0|max:9999999999',
             'payment_method' => 'nullable|in:visa_master,amex,cash',
             'payment_status' => 'required|in:pending,cash_pending,card_pending,paid',
-            'face_verification_status' => 'required|in:pending,verified,review_required,rejected',
             'is_blocked' => 'required|boolean',
         ]);
 
@@ -95,10 +94,6 @@ class AdminVisitorController extends Controller
         }
         $validated['full_name_latin'] = $validated['full_name'] ?? null;
         $validated['address_latin'] = $validated['address'] ?? null;
-        $validated['face_verified_at'] = $validated['face_verification_status'] === 'verified'
-            ? ($visitor->face_verified_at ?: now())
-            : null;
-
         $visitor->update($validated);
 
         return redirect()->route('admin.visitors.index')->with('status', 'Visitor details updated successfully.');
@@ -188,13 +183,12 @@ class AdminVisitorController extends Controller
 
     public function badge(VerifiedVisitor $visitor)
     {
-        if ($visitor->face_verification_status !== 'verified'
-            || blank($visitor->selfie_path)
+        if (blank($visitor->selfie_path)
             || ! Storage::disk('local')->exists($visitor->selfie_path)) {
             return redirect()
                 ->route('admin.visitors.index')
                 ->withErrors([
-                    'badge' => 'This card cannot be printed until the ID portrait and live camera photo have been successfully matched.',
+                    'badge' => 'This card cannot be printed until a visitor photo has been captured.',
                 ]);
         }
 

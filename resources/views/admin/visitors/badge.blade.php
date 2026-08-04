@@ -282,7 +282,7 @@
         <div class="card-topbar"><span>ENTRANCE ID</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
         <header class="card-event"><span>EVENT NAME</span><h1>{{ $eventName }}</h1></header>
         <div class="card-photo">
-            <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Verified live photo of {{ $visitor->full_name }}">
+            <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Captured visitor photo of {{ $visitor->full_name }}">
         </div>
         <div class="card-name">
             <span>VISITOR NAME</span>

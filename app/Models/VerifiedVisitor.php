@@ -15,9 +15,6 @@ class VerifiedVisitor extends Model
         'verified_at' => 'datetime',
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
-        'face_match_score' => 'decimal:2',
-        'face_detection_confidence' => 'decimal:2',
-        'face_verified_at' => 'datetime',
         'identity_reviewed_at' => 'datetime',
         'is_blocked' => 'boolean',
     ];

@@ -19,7 +19,7 @@ Route::get('/', function () {
 Route::get('/visitor/new', [VisitorController::class, 'startNew'])->name('visitor.start');
 Route::get('/visitor/create', [VisitorController::class, 'create'])->name('visitor.create');
 Route::get('/visitor/upload-document', [VisitorController::class, 'showUploadDocument'])->name('visitor.upload_document');
-Route::get('/visitor/live-face-check', [VisitorController::class, 'showLiveFaceCheck'])->name('visitor.live_face');
+Route::get('/visitor/photo-capture', [VisitorController::class, 'showPhotoCapture'])->name('visitor.photo_capture');
 Route::get('/visitor/session-photo/{type?}', [VisitorController::class, 'sessionPhoto'])->name('visitor.session_photo');
 Route::post('/visitor/confirm', [VisitorController::class, 'confirm'])->name('visitor.confirm');
 Route::post('/visitor/payment-method', [VisitorController::class, 'selectPaymentMethod'])->name('visitor.payment-method');
@@ -32,7 +32,7 @@ Route::post('/visitor', [VisitorController::class, 'store'])->name('visitor.stor
 Route::delete('/visitor/{visitorId}', [VisitorController::class, 'checkout'])->name('visitor.checkout');
 
 Route::post('/api/visitor/verify-vision', [VisitorCheckinController::class, 'verifyVision'])->name('visitor.verify_vision');
-Route::post('/api/visitor/verify-live-face', [VisitorCheckinController::class, 'verifyLiveFace'])->middleware('throttle:10,1')->name('visitor.verify_live_face');
+Route::post('/api/visitor/capture-photo', [VisitorCheckinController::class, 'capturePhoto'])->middleware('throttle:10,1')->name('visitor.capture_photo');
 Route::post('/api/visitor/verify-session', [VisitorCheckinController::class, 'verifyVision'])->name('visitor.session');
 
 Route::prefix('gate')->name('gate.')->group(function () {

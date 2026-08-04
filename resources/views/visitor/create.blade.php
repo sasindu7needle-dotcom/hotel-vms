@@ -23,7 +23,7 @@
             <div class="registration-heading">
                 <span class="tagline no-margin">VERIFIED IDENTITY</span>
                 <h1 id="registration-title" class="headline">Complete your details<span class="dot">.</span></h1>
-                <p>Review the identity details extracted by Tesseract OCR and correct any character it could not read clearly.</p>
+                <p>Review the identity details extracted by Gemini. Sinhala and Tamil names and addresses are converted to English automatically.</p>
             </div>
 
             <form method="POST" action="{{ route('visitor.confirm') }}" class="registration-form">

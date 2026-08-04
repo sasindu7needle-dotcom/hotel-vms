@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Services\LocalFaceVerificationService;
+use App\Http\Controllers\VisitorCheckinController;
+use App\Services\GeminiDocumentService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -16,36 +17,15 @@ class VisitorVerificationTest extends TestCase
 
         Storage::fake('local');
         config()->set('services.google_vision.api_key', 'test-vision-api-key');
-        $this->mock(LocalFaceVerificationService::class, function ($mock) {
-            $mock->shouldReceive('inspectDocument')->zeroOrMoreTimes()->andReturn([
-                'success' => true,
-                'face_detected' => true,
-                'detection_confidence' => 96.0,
-            ]);
-            $mock->shouldReceive('compare')->zeroOrMoreTimes()->andReturn([
-                'success' => true,
-                'matched' => true,
-                'similarity_percent' => 78.5,
-                'live_detection_confidence' => 97.0,
-                'message' => 'The live face matches the identity-document portrait.',
-            ]);
-        });
+        config()->set('services.google_translate.api_key', 'test-translation-api-key');
     }
 
-    public function test_it_verifies_document_with_google_cloud_vision(): void
+    public function test_it_verifies_document_with_gemini_and_prefills_complete_identity(): void
     {
-        Http::fake([
-            'vision.googleapis.com/*' => Http::response([
-                'responses' => [
-                    [
-                        'fullTextAnnotation' => [
-                            'text' => "SRI LANKA NIC\n199012345678\nNAME: Nimal Perera\nADDRESS: 12 Galle Road, Colombo",
-                        ],
-                        'faceAnnotations' => [$this->faceAnnotation()],
-                    ],
-                    ['fullTextAnnotation' => ['text' => 'Back side details']],
-                ],
-            ]),
+        $this->mockGemini([
+            'document_number' => '199012345678',
+            'full_name' => 'Nimal Kamal Perera',
+            'address' => 'No. 12, Galle Road, Colombo 03',
         ]);
 
         $file = UploadedFile::fake()->image('nic.jpg', 600, 400);
@@ -61,13 +41,14 @@ class VisitorVerificationTest extends TestCase
                 'success' => true,
             ])
             ->assertJsonPath('data.document_number', '199012345678')
-            ->assertJsonPath('data.full_name', 'Nimal Perera')
-            ->assertJsonPath('data.address', '12 Galle Road, Colombo');
+            ->assertJsonPath('data.full_name', 'Nimal Kamal Perera')
+            ->assertJsonPath('data.address', 'No. 12, Galle Road, Colombo 03')
+            ->assertJsonPath('data.provider', 'google_gemini');
 
         $this->assertNotNull(session('verification'));
         $this->assertEquals('199012345678', session('verification.document_number'));
-        $this->assertEquals('pending', session('verification.face_verification_status'));
-        $response->assertJsonPath('redirect_url', route('visitor.live_face'));
+        $this->assertEquals('pending', session('verification.photo_capture_status'));
+        $response->assertJsonPath('redirect_url', route('visitor.photo_capture'));
     }
 
     public function test_it_rejects_invalid_document_type_or_missing_image(): void
@@ -78,17 +59,152 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonValidationErrors(['document_type', 'document_front_image']);
     }
 
+    public function test_gemini_service_joins_every_wrapped_name_line_from_the_back(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'document_number' => '200124103810',
+                    'full_name_lines' => ['Senarath Wickramanayaka Mudiyanselage Bimasara'],
+                    'full_name' => 'Senarath Wickramanayaka Mudiyanselage Bimasara',
+                    'address_lines' => ['88, Harigala, Atala'],
+                    'address' => '88, Harigala, Atala',
+                    'full_name_original' => '',
+                    'address_original' => '',
+                ]))
+                ->push($this->geminiApiResponse([
+                    'document_number' => '',
+                    'full_name_lines' => [
+                        'Senarath Wickramanayaka Mudiyanselage Bimasara',
+                        'Nisal Wickramanayaka',
+                    ],
+                    'full_name' => 'Senarath Wickramanayaka Mudiyanselage Bimasara Nisal Wickramanayaka',
+                    'address_lines' => ['88, Harigala, Atala'],
+                    'address' => '88, Harigala, Atala',
+                    'full_name_original' => '',
+                    'address_original' => '',
+                ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('front.jpg', 600, 400);
+        $back = UploadedFile::fake()->image('back.jpg', 600, 400);
+        $result = app(GeminiDocumentService::class)->extract(
+            $front->getRealPath(),
+            'image/jpeg',
+            $back->getRealPath(),
+            'image/jpeg'
+        );
+
+        $this->assertSame(
+            'Senarath Wickramanayaka Mudiyanselage Bimasara Nisal Wickramanayaka',
+            $result['full_name']
+        );
+    }
+
+    public function test_it_does_not_continue_when_name_or_address_is_missing(): void
+    {
+        $this->mockGemini(['document_number' => '200124103810']);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 800, 500),
+        ])->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 'incomplete_identity_fields');
+
+        $this->assertNull(session('verification'));
+    }
+
+    public function test_it_extracts_multiline_identity_fields_for_all_document_types(): void
+    {
+        $parser = new \ReflectionMethod(VisitorCheckinController::class, 'parseDocumentText');
+        $controller = app(VisitorCheckinController::class);
+        $samples = [
+            'nic' => [
+                "199012345678\nFULL NAME\nNIMAL PERERA\nADDRESS\nNO. 12\nGALLE ROAD\nCOLOMBO\nDATE OF BIRTH\n1990-01-01",
+                ['199012345678', 'NIMAL PERERA', 'NO. 12, GALLE ROAD, COLOMBO'],
+            ],
+            'driving_license' => [
+                "LICENCE NO\nB1234567\nSURNAME\nPERERA\nOTHER NAMES\nNIMAL KAMAL\nPERMANENT PLACE OF RESIDENCE\nNO. 8\nKANDY ROAD\nKANDY\nDATE OF ISSUE\n2025-01-01",
+                ['B1234567', 'NIMAL KAMAL PERERA', 'NO. 8, KANDY ROAD, KANDY'],
+            ],
+            'passport' => [
+                "PASSPORT NO: N1234567\nSURNAME\nPERERA\nGIVEN NAMES\nNIMAL KAMAL\nADDRESS\n45 GALLE ROAD\nCOLOMBO",
+                ['N1234567', 'NIMAL KAMAL PERERA', '45 GALLE ROAD, COLOMBO'],
+            ],
+        ];
+
+        foreach ($samples as $type => [$ocrText, $expected]) {
+            $parsed = $parser->invoke($controller, $ocrText, $type);
+            $this->assertSame($expected[0], $parsed['document_number']);
+            $this->assertSame($expected[1], $parsed['full_name']);
+            $this->assertSame($expected[2], $parsed['address']);
+        }
+    }
+
+    public function test_it_translates_sinhala_name_and_address_to_english(): void
+    {
+        $this->mockGemini([
+            'document_number' => '199012345678',
+            'full_name' => 'Nimal Perera',
+            'address' => 'No. 12, Galle Road, Colombo',
+            'full_name_original' => 'නිමල් පෙරේරා',
+            'address_original' => 'අංක 12, ගාලු පාර, කොළඹ',
+        ]);
+
+        Http::fake([
+            'translate.googleapis.com/*' => Http::sequence()
+                ->push([[['Nimal Perera']]])
+                ->push([[['No. 12, Galle Road, Colombo']]]),
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'Nimal Perera')
+            ->assertJsonPath('data.address', 'No. 12, Galle Road, Colombo')
+            ->assertJsonPath('data.full_name_original', 'නිමල් පෙරේරා')
+            ->assertJsonPath('data.address_original', 'අංක 12, ගාලු පාර, කොළඹ');
+    }
+
+    public function test_it_translates_tamil_name_and_address_to_english(): void
+    {
+        $this->mockGemini([
+            'document_number' => 'N1234567',
+            'full_name' => 'Kumar Siva',
+            'address' => 'No. 8, Galle Road, Colombo',
+            'full_name_original' => 'குமார் சிவா',
+            'address_original' => 'இல 8, காலி வீதி, கொழும்பு',
+        ]);
+
+        Http::fake([
+            'translate.googleapis.com/*' => Http::sequence()
+                ->push([[['Kumar Siva']]])
+                ->push([[['No. 8, Galle Road, Colombo']]]),
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'passport',
+            'document_front_image' => UploadedFile::fake()->image('passport.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'Kumar Siva')
+            ->assertJsonPath('data.address', 'No. 8, Galle Road, Colombo')
+            ->assertJsonPath('data.full_name_original', 'குமார் சிவா')
+            ->assertJsonPath('data.address_original', 'இல 8, காலி வீதி, கொழும்பு');
+    }
+
     public function test_it_verifies_a_driving_license_without_a_back_image(): void
     {
-        Http::fake([
-            'vision.googleapis.com/*' => Http::response([
-                'responses' => [[
-                    'fullTextAnnotation' => [
-                        'text' => "DRIVING LICENCE\nNO: B1234567\nNAME: Nimal Perera\nADDRESS: 12 Galle Road, Colombo",
-                    ],
-                    'faceAnnotations' => [$this->faceAnnotation()],
-                ]],
-            ]),
+        $this->mockGemini([
+            'document_number' => 'B1234567',
+            'nic_number' => '200109402239',
+            'driving_license_number' => 'B1234567',
+            'full_name' => 'Nimal Perera',
+            'address' => '12 Galle Road, Colombo',
         ]);
 
         $response = $this->postJson(route('visitor.verify_vision'), [
@@ -99,24 +215,18 @@ class VisitorVerificationTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.document_type', 'driving_license')
-            ->assertJsonPath('data.document_number', 'B1234567')
+            ->assertJsonPath('data.document_number', '200109402239')
             ->assertJsonPath('data.full_name', 'Nimal Perera')
             ->assertJsonPath('data.back_photo_path', null);
 
-        Http::assertSentCount(1);
     }
 
     public function test_it_verifies_a_passport_identity_page_without_a_back_image(): void
     {
-        Http::fake([
-            'vision.googleapis.com/*' => Http::response([
-                'responses' => [[
-                    'fullTextAnnotation' => [
-                        'text' => "SRI LANKA PASSPORT\nPASSPORT NO: N1234567\nNAME: Nimal Perera\nN1234567<7LKA9001011M3001012",
-                    ],
-                    'faceAnnotations' => [$this->faceAnnotation()],
-                ]],
-            ]),
+        $this->mockGemini([
+            'document_number' => 'N1234567',
+            'full_name' => 'Nimal Perera',
+            'address' => '45 Galle Road, Colombo',
         ]);
 
         $response = $this->postJson(route('visitor.verify_vision'), [
@@ -131,11 +241,12 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('data.full_name', 'Nimal Perera')
             ->assertJsonPath('data.back_photo_path', null);
 
-        Http::assertSentCount(1);
     }
 
     public function test_only_nic_requires_a_back_image(): void
     {
+        $this->mockGemini([]);
+
         Http::fake([
             'vision.googleapis.com/*' => Http::response(['responses' => [[]]]),
         ]);
@@ -172,9 +283,9 @@ class VisitorVerificationTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/class="document-side\s+document-side--hidden\s*" id="backDocumentSide"/', $nicResponse->getContent());
     }
 
-    public function test_it_rejects_a_document_when_all_ocr_providers_fail(): void
+    public function test_it_rejects_a_document_when_gemini_cannot_read_it(): void
     {
-        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Vision API offline'));
+        $this->mockGemini([]);
 
         $file = UploadedFile::fake()->image('license.png', 500, 300);
 
@@ -186,7 +297,7 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
-    public function test_it_verifies_a_live_camera_face_and_unlocks_registration(): void
+    public function test_it_stores_a_camera_photo_and_unlocks_registration(): void
     {
         Storage::disk('local')->put('verified-visitors/document.jpg', 'document');
         $response = $this->withSession(['verification' => [
@@ -194,61 +305,56 @@ class VisitorVerificationTest extends TestCase
             'verification_id' => '11111111-2222-4333-8444-555555555555',
             'document_type' => 'nic',
             'photo_path' => 'verified-visitors/document.jpg',
-        ]])->postJson(route('visitor.verify_live_face'), [
-            'selfie' => UploadedFile::fake()->image('live-camera.jpg', 1280, 960),
+        ]])->postJson(route('visitor.capture_photo'), [
+            'selfie' => UploadedFile::fake()->image('camera-photo.jpg', 1280, 960),
         ]);
 
         $response->assertOk()->assertJson(['success' => true]);
-        $this->assertEquals('verified', session('verification.face_verification_status'));
-        $this->assertEquals('opencv_yunet_sface', session('verification.face_provider'));
-        Storage::disk('local')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-live.jpg');
+        $this->assertEquals('completed', session('verification.photo_capture_status'));
+        Storage::disk('local')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-photo.jpg');
     }
 
-    public function test_it_does_not_unlock_registration_when_faces_do_not_match(): void
+    public function test_it_rejects_an_invalid_camera_photo(): void
     {
-        $this->mock(LocalFaceVerificationService::class, function ($mock) {
-            $mock->shouldReceive('compare')->once()->andReturn([
-                'success' => true,
-                'matched' => false,
-                'similarity_percent' => 12.4,
-                'live_detection_confidence' => 96.0,
-                'message' => 'The live face does not sufficiently match the identity-document portrait.',
-            ]);
-        });
-
-        Storage::disk('local')->put('verified-visitors/document.jpg', 'document');
         $response = $this->withSession(['verification' => [
             'session_id' => '11111111-2222-4333-8444-555555555555',
             'verification_id' => '11111111-2222-4333-8444-555555555555',
             'document_type' => 'nic',
             'photo_path' => 'verified-visitors/document.jpg',
-        ]])->postJson(route('visitor.verify_live_face'), [
-            'selfie' => UploadedFile::fake()->image('different-person.jpg', 1280, 960),
+        ]])->postJson(route('visitor.capture_photo'), [
+            'selfie' => UploadedFile::fake()->create('not-an-image.txt', 10, 'text/plain'),
         ]);
 
         $response->assertUnprocessable()
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 'face_mismatch');
-        $this->assertEquals('rejected', session('verification.face_verification_status'));
+            ->assertJsonValidationErrors('selfie');
+        $this->assertNull(session('verification.selfie_path'));
     }
 
-    private function faceAnnotation(): array
+    private function mockGemini(array $result): void
     {
-        $points = [
-            'LEFT_EYE' => [100, 100], 'RIGHT_EYE' => [200, 100],
-            'NOSE_TIP' => [150, 155], 'MOUTH_CENTER' => [150, 205],
-            'MOUTH_LEFT' => [110, 205], 'MOUTH_RIGHT' => [190, 205],
-        ];
+        $this->mock(GeminiDocumentService::class, function ($mock) use ($result) {
+            $mock->shouldReceive('extract')->andReturn(array_merge([
+                'document_number' => '',
+                'nic_number' => '',
+                'driving_license_number' => '',
+                'full_name' => '',
+                'address' => '',
+                'full_name_original' => '',
+                'address_original' => '',
+            ], $result));
+        });
+    }
 
+    private function geminiApiResponse(array $result): array
+    {
         return [
-            'detectionConfidence' => .96,
-            'landmarkingConfidence' => .92,
-            'blurredLikelihood' => 'VERY_UNLIKELY',
-            'underExposedLikelihood' => 'VERY_UNLIKELY',
-            'landmarks' => collect($points)->map(fn ($position, $type) => [
-                'type' => $type,
-                'position' => ['x' => $position[0], 'y' => $position[1], 'z' => 0],
-            ])->values()->all(),
+            'candidates' => [[
+                'content' => [
+                    'parts' => [[
+                        'text' => json_encode($result, JSON_UNESCAPED_UNICODE),
+                    ]],
+                ],
+            ]],
         ];
     }
 }

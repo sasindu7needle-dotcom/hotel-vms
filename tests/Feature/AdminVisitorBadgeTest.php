@@ -49,7 +49,7 @@ class AdminVisitorBadgeTest extends TestCase
             ->assertSee('>Print<', false);
     }
 
-    public function test_card_printing_is_rejected_without_a_verified_live_photo(): void
+    public function test_card_printing_is_rejected_without_a_captured_photo(): void
     {
         Storage::fake('local');
         $visitor = VerifiedVisitor::create([

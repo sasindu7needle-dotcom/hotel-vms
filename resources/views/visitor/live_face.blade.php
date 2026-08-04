@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Face Check — Identity Verification</title>
+    <title>Photo Capture — Visitor Registration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
@@ -12,9 +12,9 @@
     <section class="hero">
         <div class="hero-content">
             <a class="face-back" href="{{ route('visitor.upload_document', ['type' => $type]) }}">← Upload document again</a>
-            <div class="tagline">Identity security check</div>
-            <h1 class="headline">Confirm it’s really you<span class="dot">.</span></h1>
-            <p class="face-intro">We’ll capture one live camera frame and compare it locally with the portrait on your document using OpenCV face detection and matching.</p>
+            <div class="tagline">Visitor photo</div>
+            <h1 class="headline">Take your photo<span class="dot">.</span></h1>
+            <p class="face-intro">Capture a clear photo for your visitor record, then continue to registration.</p>
 
             <div class="face-card">
                 <div class="face-status"><span id="statusDot"></span><strong id="statusText">Camera not started</strong></div>
@@ -25,14 +25,14 @@
                     <div class="camera-placeholder" id="cameraPlaceholder">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                         <strong>Allow camera access to continue</strong>
-                        <small>No gallery upload is available for this live check.</small>
+                        <small>Your browser will ask for camera permission.</small>
                     </div>
                 </div>
-                <div class="face-tips"><span>Face forward</span><span>Remove sunglasses</span><span>Use even lighting</span></div>
+                <div class="face-tips"><span>Look at the camera</span><span>Keep the photo clear</span><span>Use even lighting</span></div>
                 <p class="face-error" id="faceError" role="alert"></p>
                 <button type="button" id="cameraBtn" class="btn btn-secondary btn-large form-width-100">Start camera</button>
-                <button type="button" id="captureBtn" class="btn btn-primary btn-large form-width-100" disabled>Capture &amp; verify face</button>
-                <p class="face-disclaimer">Face images are processed locally and are not sent to a cloud recognition service. Unclear or mismatched results will not unlock registration.</p>
+                <button type="button" id="captureBtn" class="btn btn-primary btn-large form-width-100" disabled>Capture photo &amp; proceed</button>
+                <p class="face-disclaimer">This photo is stored with your visitor record. No biometric analysis is performed.</p>
             </div>
         </div>
         <div class="hero-visual" aria-hidden="true">@include('visitor.partials.checkin-illustration')</div>
@@ -92,7 +92,7 @@
         captureBtn.addEventListener('click', () => {
             if (!stream || !video.videoWidth) return;
             captureBtn.disabled = true;
-            captureBtn.textContent = 'Checking face match locally…';
+            captureBtn.textContent = 'Saving photo…';
             errorBox.textContent = '';
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -102,18 +102,18 @@
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             canvas.toBlob(async blob => {
                 const form = new FormData();
-                form.append('selfie', blob, 'live-camera.jpg');
+                form.append('selfie', blob, 'visitor-photo.jpg');
                 try {
-                    const response = await fetch("{{ route('visitor.verify_live_face') }}", {method:'POST', headers:{'X-CSRF-TOKEN':"{{ csrf_token() }}", 'Accept':'application/json'}, body:form});
+                    const response = await fetch("{{ route('visitor.capture_photo') }}", {method:'POST', headers:{'X-CSRF-TOKEN':"{{ csrf_token() }}", 'Accept':'application/json'}, body:form});
                     const data = await response.json().catch(() => ({}));
-                    if (!response.ok || !data.success) throw new Error(data.error || 'Face check failed. Please try again.');
-                    statusText.textContent = `Verified · ${data.score}% consistency`;
+                    if (!response.ok || !data.success) throw new Error(data.error || 'Photo capture failed. Please try again.');
+                    statusText.textContent = 'Photo saved';
                     stream.getTracks().forEach(track => track.stop());
                     window.location.href = data.redirect_url;
                 } catch (error) {
                     errorBox.textContent = error.message;
                     captureBtn.disabled = false;
-                    captureBtn.textContent = 'Capture & verify face';
+                    captureBtn.textContent = 'Capture photo & proceed';
                 }
             }, 'image/jpeg', .9);
         });

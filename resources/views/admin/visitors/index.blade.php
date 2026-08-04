@@ -142,7 +142,7 @@
 
                 <div class="table-responsive">
                     <table class="admin-table admin-visitors-table">
-                        <thead><tr><th class="admin-index-column">#</th><th>Verified Visitor</th><th>Contact</th><th>Category & Fee</th><th>Payment</th><th>Face Check</th><th>Verified</th><th></th></tr></thead>
+                        <thead><tr><th class="admin-index-column">#</th><th>Verified Visitor</th><th>Contact</th><th>Category & Fee</th><th>Payment</th><th>Photo</th><th>Verified</th><th></th></tr></thead>
                         <tbody>
                             @forelse($visitors as $visitor)
                                 @php
@@ -157,9 +157,9 @@
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->category ?: 'Not assigned' }}</strong><small class="admin-cell-secondary">{{ $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : 'No fee' }}</small></td>
                                     <td><div class="admin-status-stack"><span class="admin-payment-badge admin-payment-{{ $visitor->payment_status }}">{{ strtoupper(str_replace('_', ' ', $visitor->payment_status)) }}</span><small class="admin-status-detail">{{ strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: 'Not selected')) }}</small></div></td>
-                                    <td><div class="admin-status-stack"><span class="admin-face-badge admin-face-status-{{ $visitor->face_verification_status ?: 'pending' }}">{{ ['verified'=>'Face verified','pending'=>'Pending','review_required'=>'Review required','rejected'=>'Rejected'][$visitor->face_verification_status] ?? 'Pending' }}</span><small class="admin-status-detail">{{ $visitor->face_match_score !== null ? number_format((float)$visitor->face_match_score, 1).'% consistency' : 'No live check' }}</small></div></td>
+                                    <td><div class="admin-status-stack"><span class="admin-face-badge admin-face-status-{{ $visitor->selfie_path ? 'verified' : 'pending' }}">{{ $visitor->selfie_path ? 'Photo captured' : 'Pending' }}</span><small class="admin-status-detail">{{ $visitor->selfie_path ? 'Stored with visitor record' : 'No visitor photo' }}</small></div></td>
                                     <td>{{ ($visitor->verified_at ?: $visitor->created_at)?->format('M j, Y') }}<small class="admin-cell-secondary">{{ ($visitor->verified_at ?: $visitor->created_at)?->format('g:i A') }}</small></td>
-                                    <td><div class="admin-row-actions"><button type="button" class="admin-view-button" data-dialog="visitor-{{ $visitor->id }}">View</button>@if($visitor->face_verification_status === 'verified' && $visitor->selfie_path)<a class="admin-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print</a>@else<span class="admin-print-button admin-print-disabled" title="A verified live photo is required">Print</span>@endif<button type="button" class="admin-edit-button" data-dialog="edit-visitor-{{ $visitor->id }}">Edit</button><button type="button" class="admin-row-delete-button" data-dialog="delete-visitor-{{ $visitor->id }}" aria-label="Delete {{ $visitor->full_name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg></button></div></td>
+                                    <td><div class="admin-row-actions"><button type="button" class="admin-view-button" data-dialog="visitor-{{ $visitor->id }}">View</button>@if($visitor->selfie_path)<a class="admin-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print</a>@else<span class="admin-print-button admin-print-disabled" title="A captured visitor photo is required">Print</span>@endif<button type="button" class="admin-edit-button" data-dialog="edit-visitor-{{ $visitor->id }}">Edit</button><button type="button" class="admin-row-delete-button" data-dialog="delete-visitor-{{ $visitor->id }}" aria-label="Delete {{ $visitor->full_name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg></button></div></td>
                                 </tr>
                             @empty
                                 <tr><td colspan="8"><div class="admin-visitor-empty"><span>+</span><h3>No verified visitors found</h3><p>Completed registrations will appear here with their verified identity and form details.</p></div></td></tr>
@@ -173,9 +173,9 @@
                         $mediaVersion = $visitor->updated_at?->format('Uu') ?: $visitor->id;
                     @endphp
                     <dialog id="visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-preview-dialog">
-                        <div class="admin-dialog-heading"><div><span>VISITOR PROFILE</span><h2>{{ $visitor->full_name ?: 'Visitor details' }}</h2></div>@if($visitor->face_verification_status === 'verified' && $visitor->selfie_path)<a class="admin-header-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a>@endif<button type="button" data-close aria-label="Close">×</button></div>
+                        <div class="admin-dialog-heading"><div><span>VISITOR PROFILE</span><h2>{{ $visitor->full_name ?: 'Visitor details' }}</h2></div>@if($visitor->selfie_path)<a class="admin-header-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a>@endif<button type="button" data-close aria-label="Close">×</button></div>
                         <div class="admin-dialog-profile">
-                            <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Live camera photo of {{ $visitor->full_name }}">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Document photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Verified photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->face_verification_status === 'verified' ? 'FACE VERIFIED' : 'REVIEW' }}</i></div>
+                            <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Captured photo of {{ $visitor->full_name }}">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Document photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Visitor photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->selfie_path ? 'PHOTO CAPTURED' : 'NO PHOTO' }}</i></div>
                             <div class="admin-dialog-grid">
                                 @foreach([
                                     'Sinhala / Preferred Name' => $visitor->full_name,
@@ -192,11 +192,7 @@
                                     'Payment Status' => strtoupper(str_replace('_', ' ', $visitor->payment_status)),
                                     'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',
                                     'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
-                                    'Face Check' => strtoupper(str_replace('_', ' ', $visitor->face_verification_status ?: 'pending')),
-                                    'Face Consistency' => $visitor->face_match_score !== null ? number_format((float)$visitor->face_match_score, 2).'%' : null,
-                                    'Detection Confidence' => $visitor->face_detection_confidence !== null ? number_format((float)$visitor->face_detection_confidence, 2).'%' : null,
-                                    'Face Checked At' => $visitor->face_verified_at?->format('M j, Y · g:i A'),
-                                    'Face Provider' => $visitor->face_provider ? strtoupper(str_replace('_', ' ', $visitor->face_provider)) : null,
+                                    'Visitor Photo' => $visitor->selfie_path ? 'CAPTURED' : 'NOT CAPTURED',
                                     'OCR Provider' => $visitor->ocr_provider ? strtoupper(str_replace('_', ' ', $visitor->ocr_provider)) : null,
                                     'Identity Reviewed' => $visitor->identity_reviewed_at?->format('M j, Y · g:i A'),
                                 ] as $label => $value)<div><span>{{ $label }}</span><strong>{{ filled($value) ? $value : '—' }}</strong></div>@endforeach
@@ -244,7 +240,6 @@
                                 <label>Full name<input name="full_name" value="{{ $visitor->full_name }}"></label>
                                 <label>Document type<select name="document_type"><option value="">Not specified</option>@foreach(['nic'=>'NIC','driving_license'=>'Driving Licence','passport'=>'Passport'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->document_type===$value)>{{ $label }}</option>@endforeach</select></label>
                                 <label>Document number<input name="document_number" value="{{ $visitor->document_number }}"></label>
-                                <label>Face verification<select name="face_verification_status">@foreach(['pending'=>'Pending','verified'=>'Verified','review_required'=>'Review required','rejected'=>'Rejected'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->face_verification_status===$value)>{{ $label }}</option>@endforeach</select></label>
                                 <label class="wide">Address<textarea name="address">{{ $visitor->address }}</textarea></label>
                                 <label>Mobile number<input name="mobile_number" value="{{ $visitor->mobile_number }}"></label>
                                 <label>WhatsApp number<input name="whatsapp_number" value="{{ $visitor->whatsapp_number }}"></label>
@@ -264,7 +259,7 @@
                         <div class="admin-dialog-heading"><div><span>PERMANENT DELETION</span><h2>Delete visitor?</h2></div><button type="button" data-close aria-label="Close">×</button></div>
                         <div class="admin-delete-content">
                             <p>You are about to permanently delete <strong>{{ $visitor->full_name ?: 'this visitor' }}</strong>. This action cannot be undone.</p>
-                            <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Live face photograph</li>@endif</ul>
+                            <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Captured visitor photo</li>@endif</ul>
                         </div>
                         <form method="POST" action="{{ route('admin.visitors.destroy', $visitor) }}" class="admin-delete-modal-form">@csrf @method('DELETE')<div class="admin-delete-actions-bar"><button type="button" class="btn-keep-visitor" data-close>Keep visitor</button><button type="submit" class="btn-delete-permanently">Delete permanently</button></div></form>
                     </dialog>
@@ -339,7 +334,7 @@
             });
         });
         document.querySelectorAll('[data-confirm-delete]').forEach(form => form.addEventListener('submit', event => {
-            if (!window.confirm(`Permanently delete ${form.dataset.confirmDelete}? This also removes the stored NIC and live-camera images.`)) event.preventDefault();
+            if (!window.confirm(`Permanently delete ${form.dataset.confirmDelete}? This also removes the stored document and visitor photos.`)) event.preventDefault();
         }));
     </script>
 </body>

@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\LocalFaceVerificationService;
-use App\Services\TesseractOcrService;
-use Illuminate\Http\Client\ConnectionException;
+use App\Services\GeminiDocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -14,18 +12,15 @@ use Illuminate\Support\Str;
 class VisitorCheckinController extends Controller
 {
     /**
-     * Verify identity document using Local Open-Source Tesseract OCR (with fallback).
+     * Verify an identity document using Gemini multimodal extraction.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Services\TesseractOcrService  $tesseract
      * @return \Illuminate\Http\JsonResponse
      */
-    public function verifyVision(
-        Request $request,
-        TesseractOcrService $tesseract,
-        LocalFaceVerificationService $faceVerifier
-    )
+    public function verifyVision(Request $request, GeminiDocumentService $gemini)
     {
+        @set_time_limit(120);
+
         $request->validate([
             'document_type' => 'required|in:nic,driving_license,passport',
             'document_front_image' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240',
@@ -42,120 +37,63 @@ class VisitorCheckinController extends Controller
         $mime = $file->getMimeType() ?: 'image/jpeg';
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
         $backImageBytes = $backFile ? file_get_contents($backFile->getRealPath()) : null;
+        $provider = 'google_gemini';
+        try {
+            $parsed = $gemini->extract(
+                $file->getRealPath(),
+                $mime,
+                $backFile?->getRealPath(),
+                $backFile?->getMimeType()
+            );
+        } catch (\Throwable $exception) {
+            logger()->warning('Gemini document extraction failed: '.$exception->getMessage().'. Attempting fallback to local Tesseract OCR...');
 
-        $rawOcrText = '';
-        $ocrProvider = 'tesseract_ocr';
+            try {
+                $tesseract = app(\App\Services\TesseractOcrService::class);
+                $frontOcr = $tesseract->extractLanguageTexts($file->getRealPath());
+                $backOcr = $backFile ? $tesseract->extractLanguageTexts($backFile->getRealPath()) : [];
 
-        // 1. Run local Open-Source Tesseract OCR
-        $frontOcr = $tesseract->extractText($file->getRealPath());
-        $backOcr = $backFile ? $tesseract->extractText($backFile->getRealPath()) : '';
+                $combinedMultilingual = trim(($frontOcr['combined'] ?? '')."\n".($backOcr['combined'] ?? ''));
+                $combinedEnglish = trim(($frontOcr['eng'] ?? '')."\n".($backOcr['eng'] ?? ''));
+                $combinedNative = trim(($frontOcr['sin'] ?? '')."\n".($frontOcr['tam'] ?? '')."\n".($backOcr['sin'] ?? '')."\n".($backOcr['tam'] ?? ''));
 
-        if (filled($frontOcr) || filled($backOcr)) {
-            $rawOcrText = trim($frontOcr."\n".$backOcr);
-            $ocrProvider = 'local_tesseract_engine';
-        }
-
-        // 2. If Tesseract binary is not installed yet on PATH, attempt Google Vision if credentials exist, else use smart local extraction
-        if (blank($rawOcrText)) {
-            $accessToken = $this->getAccessToken();
-            $apiKey = config('services.google_vision.api_key');
-
-            if (filled($accessToken) || filled($apiKey)) {
-                try {
-                    $http = Http::acceptJson()->connectTimeout(5)->timeout(15);
-                    $http = $this->withGoogleCertificate($http);
-                    $url = 'https://vision.googleapis.com/v1/images:annotate';
-                    if (filled($accessToken)) {
-                        $http = $http->withToken($accessToken);
-                    } else {
-                        $url .= "?key={$apiKey}";
-                    }
-
-                    $visionRequests = [[
-                        'image' => ['content' => base64_encode($imageBytes)],
-                        'features' => [
-                            ['type' => 'DOCUMENT_TEXT_DETECTION'],
-                            ['type' => 'FACE_DETECTION', 'maxResults' => 2],
-                        ],
-                    ]];
-                    if ($backImageBytes !== null) {
-                        $visionRequests[] = [
-                            'image' => ['content' => base64_encode($backImageBytes)],
-                            'features' => [['type' => 'DOCUMENT_TEXT_DETECTION']],
-                        ];
-                    }
-
-                    $response = $http->post($url, ['requests' => $visionRequests]);
-
-                    if ($response->successful()) {
-                        $rawOcrText = (string) data_get($response->json(), 'responses.0.fullTextAnnotation.text', '');
-                        if (blank($rawOcrText)) {
-                            $rawOcrText = (string) data_get($response->json(), 'responses.0.textAnnotations.0.description', '');
-                        }
-                        if ($backImageBytes !== null) {
-                            $backOcrText = (string) data_get($response->json(), 'responses.1.fullTextAnnotation.text', '');
-                            $rawOcrText = trim($rawOcrText."\n".$backOcrText);
-                        }
-                        $ocrProvider = 'google_vision';
-                    }
-                } catch (\Throwable $e) {
-                    logger()->info('Google Vision fallback skipped: '.$e->getMessage());
+                if (filled($combinedMultilingual) || filled($combinedEnglish)) {
+                    $parsed = $this->combineTesseractIdentityFields($combinedMultilingual, $combinedEnglish, $docType, $combinedNative);
+                    $parsed = $this->translateIdentityFieldsToEnglish($parsed);
+                    $provider = 'tesseract_ocr_fallback';
+                } else {
+                    throw $exception;
                 }
-            }
-        }
-
-        if (blank($rawOcrText)) {
-            if ((! $tesseract->findExecutable() || ! function_exists('imagecreatefromstring')) && blank($accessToken) && blank($apiKey)) {
+            } catch (\Throwable $fallbackException) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'OCR is not configured on this server. Install Tesseract and enable PHP GD, or configure GOOGLE_VISION_API_KEY / GOOGLE_APPLICATION_CREDENTIALS before verifying documents.',
-                    'code' => 'ocr_not_configured',
-                ], 503);
+                    'error' => str_contains(strtolower($exception->getMessage()), 'api key')
+                        ? 'Gemini API is not configured on this server.'
+                        : 'Gemini could not read the document. Please retry with clear, glare-free photos.',
+                    'code' => 'gemini_extraction_failed',
+                ], str_contains(strtolower($exception->getMessage()), 'api key') ? 503 : 502);
             }
-
-            return response()->json([
-                'success' => false,
-                'error' => 'No readable identity details were found. Retake the document photo in even lighting and keep all text in focus.',
-            ], 422);
         }
 
-        // Parse the text extracted from the identity document.
-        $parsed = $this->parseDocumentText($rawOcrText, $docType);
-        if ($ocrProvider === 'local_tesseract_engine') {
-            $frontParsed = $this->parseDocumentText($frontOcr, $docType);
-            $backParsed = $this->parseDocumentText($backOcr, $docType);
-            $parsed = [
-                'document_number' => $frontParsed['document_number'] ?: $backParsed['document_number'],
-                'full_name' => $frontParsed['full_name'],
-                'full_name_latin' => $frontParsed['full_name_latin'],
-                'address' => $backParsed['address'] ?: $frontParsed['address'],
-                'address_latin' => $backParsed['address_latin'] ?: $frontParsed['address_latin'],
-            ];
+        $parsed['full_name_latin'] = (string) data_get($parsed, 'full_name', '');
+        $parsed['address_latin'] = (string) data_get($parsed, 'address', '');
+        if ($docType === 'driving_license') {
+            // Sri Lankan driving licences print the licence number at field 5
+            // and the holder's NIC at field 4c. Registration needs the NIC.
+            $parsed['document_number'] = (string) data_get($parsed, 'nic_number', '');
         }
 
-        if (blank($parsed['document_number']) && blank($parsed['full_name'])) {
+        $missingFields = collect([
+            'document number' => $this->isPlausibleDocumentNumber((string) data_get($parsed, 'document_number'), $docType),
+            'full name' => $this->isPlausibleIdentityField((string) data_get($parsed, 'full_name'), 'name'),
+            'address' => $this->isPlausibleIdentityField((string) data_get($parsed, 'address'), 'address'),
+        ])->filter(fn ($isValid) => ! $isValid)->keys()->values()->all();
+
+        if ($missingFields !== []) {
             return response()->json([
                 'success' => false,
-                'error' => 'The identity number and name could not be read. Retake the document photo closer and in sharper focus.',
-            ], 422);
-        }
-
-        try {
-            $documentFace = $faceVerifier->inspectDocument($file->getRealPath());
-        } catch (\RuntimeException $exception) {
-            report($exception);
-
-            return response()->json([
-                'success' => false,
-                'error' => 'Local face verification is temporarily unavailable. Please contact reception.',
-            ], 503);
-        }
-
-        if (! data_get($documentFace, 'success')) {
-            return response()->json([
-                'success' => false,
-                'error' => data_get($documentFace, 'message', 'No clear portrait was detected on the identity document.'),
-                'code' => data_get($documentFace, 'code'),
+                'error' => 'Document extraction could not confidently read the '.implode(', ', $missingFields).'. Retake the document photos closer, avoid glare, and keep the card edges visible.',
+                'code' => 'incomplete_identity_fields',
             ], 422);
         }
 
@@ -179,22 +117,22 @@ class VisitorCheckinController extends Controller
             'verified_at' => now()->toIso8601String(),
             'full_name' => $parsed['full_name'],
             'full_name_latin' => $parsed['full_name_latin'],
+            'full_name_original' => data_get($parsed, 'full_name_original'),
             'document_number' => $parsed['document_number'],
             'address' => $parsed['address'],
             'address_latin' => $parsed['address_latin'],
+            'address_original' => data_get($parsed, 'address_original'),
             'photo_url' => route('visitor.session_photo', ['type' => 'photo']),
             'photo_path' => $photoPath,
             'photo_mime' => $mime,
             'back_photo_path' => $backPhotoPath,
             'back_photo_mime' => $backPhotoMime,
-            'ocr_text' => $rawOcrText,
-            'provider' => $ocrProvider,
-            'document_face_detected' => true,
-            'document_face_confidence' => data_get($documentFace, 'detection_confidence'),
-            'face_verification_status' => 'pending',
+            'ocr_text' => '',
+            'ocr_confidence' => null,
+            'provider' => $provider,
+            'photo_capture_status' => 'pending',
         ];
 
-        // Store in session for registration form pre-filling
         $request->session()->put('verification', $verification);
         $request->session()->put('didit_verification', $verification);
         $request->session()->save();
@@ -202,13 +140,13 @@ class VisitorCheckinController extends Controller
         return response()->json([
             'success' => true,
             'verification_id' => $verificationId,
-            'redirect_url' => route('visitor.live_face'),
+            'redirect_url' => route('visitor.photo_capture'),
             'data' => $verification,
         ]);
     }
 
-    /** Verify a camera-captured face against the identity-document portrait. */
-    public function verifyLiveFace(Request $request, LocalFaceVerificationService $faceVerifier)
+    /** Store the visitor photo captured by the camera. */
+    public function capturePhoto(Request $request)
     {
         $verification = $request->session()->get('verification', []);
         if (! is_array($verification) || blank(data_get($verification, 'photo_path'))) {
@@ -222,75 +160,26 @@ class VisitorCheckinController extends Controller
         $file = $request->file('selfie');
         $bytes = file_get_contents($file->getRealPath());
 
-        $documentPath = Storage::disk('local')->path(data_get($verification, 'photo_path'));
-        if (! is_file($documentPath)) {
-            return response()->json([
-                'success' => false,
-                'error' => 'The verified ID portrait is unavailable. Please upload the identity document again.',
-            ], 422);
-        }
-
-        try {
-            $faceResult = $faceVerifier->compare($documentPath, $file->getRealPath());
-        } catch (\RuntimeException $exception) {
-            report($exception);
-
-            return response()->json([
-                'success' => false,
-                'error' => 'Local face verification is temporarily unavailable. Please contact reception.',
-            ], 503);
-        }
-
-        if (! data_get($faceResult, 'success')) {
-            return response()->json([
-                'success' => false,
-                'error' => data_get($faceResult, 'message', 'The live face could not be verified.'),
-                'code' => data_get($faceResult, 'code'),
-            ], 422);
-        }
-
-        $score = (float) data_get($faceResult, 'similarity_percent', 0);
-        if (! data_get($faceResult, 'matched')) {
-            $request->session()->put('verification', array_merge($verification, [
-                'face_verification_status' => 'rejected',
-                'face_match_score' => $score,
-                'face_detection_confidence' => data_get($faceResult, 'live_detection_confidence'),
-                'face_provider' => 'opencv_yunet_sface',
-            ]));
-            $request->session()->save();
-
-            return response()->json([
-                'success' => false,
-                'error' => data_get($faceResult, 'message'),
-                'code' => 'face_mismatch',
-                'score' => $score,
-            ], 422);
-        }
-
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
-        $selfiePath = 'verified-visitors/'.data_get($verification, 'verification_id').'-live.'.$extension;
+        $selfiePath = 'verified-visitors/'.data_get($verification, 'verification_id').'-photo.'.$extension;
         Storage::disk('local')->put($selfiePath, $bytes);
         if (! Storage::disk('local')->exists($selfiePath)) {
             return response()->json([
                 'success' => false,
-                'error' => 'The verified live photo could not be stored. Please try again.',
+                'error' => 'The captured photo could not be stored. Please try again.',
             ], 500);
         }
 
         $request->session()->put('verification', array_merge($verification, [
             'selfie_path' => $selfiePath,
             'selfie_mime' => $file->getMimeType() ?: 'image/jpeg',
-            'face_verification_status' => 'verified',
-            'face_match_score' => $score,
-            'face_detection_confidence' => data_get($faceResult, 'live_detection_confidence'),
-            'face_verified_at' => now()->toIso8601String(),
-            'face_provider' => 'opencv_yunet_sface',
+            'photo_capture_status' => 'completed',
+            'photo_captured_at' => now()->toIso8601String(),
         ]));
         $request->session()->save();
 
         return response()->json([
             'success' => true,
-            'score' => $score,
             'redirect_url' => route('visitor.create', ['type' => data_get($verification, 'document_type', 'nic')]),
         ]);
     }
@@ -378,6 +267,335 @@ class VisitorCheckinController extends Controller
         return $http;
     }
 
+    /**
+     * Extract text from a local image file using the OCR.space Free API.
+     *
+     * Free tier: 25,000 requests/month — no payment required.
+     * Get a free key at https://ocr.space/ocrapi/freekey
+     * Uses modern AI/ML models that handle ID cards far better than Tesseract.
+     */
+    private function ocrSpaceExtract(string $filePath, string $apiKey): string
+    {
+        if (! file_exists($filePath) || blank($apiKey)) {
+            return '';
+        }
+
+        $imageData = base64_encode((string) file_get_contents($filePath));
+        $mime = mime_content_type($filePath) ?: 'image/jpeg';
+
+        $response = Http::timeout(20)
+            ->connectTimeout(5)
+            ->withHeaders([
+                'apikey' => $apiKey,
+            ])
+            ->asForm()
+            ->post('https://api.ocr.space/parse/image', [
+                'base64Image' => "data:{$mime};base64,{$imageData}",
+                'language' => 'eng',
+                'isOverlayRequired' => 'false',
+                'detectOrientation' => 'true',
+                'scale' => 'true',
+                'OCREngine' => '2',  // Engine 2 is better for complex documents
+            ]);
+
+        if (! $response->successful()) {
+            logger()->info('OCR.space HTTP error: '.$response->status());
+            return '';
+        }
+
+        $data = $response->json();
+        $isErrored = data_get($data, 'IsErroredOnProcessing', false);
+        if ($isErrored) {
+            $errorMessage = data_get($data, 'ErrorMessage.0', 'Unknown error');
+            logger()->info('OCR.space processing error: '.$errorMessage);
+            return '';
+        }
+
+        $parsedResults = data_get($data, 'ParsedResults', []);
+        $text = '';
+        foreach ($parsedResults as $result) {
+            $text .= data_get($result, 'ParsedText', '')."\n";
+        }
+
+        return trim($text);
+    }
+
+    /** Use an explicit CA bundle when the local PHP installation has none. */
+    private function withTrustedCertificate($http)
+    {
+        $candidates = array_filter([
+            config('services.google_vision.ca_bundle'),
+            ini_get('curl.cainfo'),
+            ini_get('openssl.cafile'),
+            'C:\\xampp\\apache\\bin\\curl-ca-bundle.crt',
+            'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
+        ]);
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && file_exists($candidate)) {
+                return $http->withOptions(['verify' => $candidate]);
+            }
+        }
+
+        return $http;
+    }
+
+    /** Prefer native-script Tesseract fields so Google can translate the clean source text. */
+    private function combineTesseractIdentityFields(
+        string $multilingualText,
+        string $englishText,
+        string $docType,
+        ?string $nativeText = null
+    ): array {
+        $multilingual = $this->parseDocumentText($multilingualText, $docType);
+        $english = $this->parseDocumentText($englishText, $docType);
+        $native = $this->extractNativeIdentityFields($nativeText ?: $multilingualText);
+
+        $name = data_get($native, 'full_name')
+            ?: data_get($english, 'full_name')
+            ?: data_get($multilingual, 'full_name', '');
+        $address = data_get($native, 'address')
+            ?: data_get($english, 'address')
+            ?: data_get($multilingual, 'address', '');
+
+        return [
+            'document_number' => data_get($english, 'document_number')
+                ?: data_get($multilingual, 'document_number', ''),
+            'full_name' => trim((string) $name),
+            'full_name_latin' => $this->containsSinhalaOrTamil((string) $name)
+                ? ''
+                : trim((string) $name),
+            'full_name_original' => data_get($native, 'full_name'),
+            'address' => trim((string) $address),
+            'address_latin' => $this->containsSinhalaOrTamil((string) $address)
+                ? ''
+                : trim((string) $address),
+            'address_original' => data_get($native, 'address'),
+        ];
+    }
+
+    private function bestNativeOcrText(array $result): string
+    {
+        return (string) collect(['sin', 'tam'])
+            ->map(function ($language) use ($result) {
+                $text = (string) data_get($result, $language, '');
+                $fields = $this->extractNativeIdentityFields($text);
+                $name = (string) data_get($fields, 'full_name', '');
+                $address = (string) data_get($fields, 'address', '');
+                $fieldScore = $this->nativeLetterCount($name)
+                    + $this->nativeLetterCount($address)
+                    + (filled($name) ? 25 : 0)
+                    + (preg_match('/\d{1,4}\s*[,\/\-]?/u', $address) === 1 ? 35 : 0);
+                $symbolPenalty = mb_strlen((string) preg_replace(
+                    '/[\p{L}\p{M}\p{N}\s,.\/\-\x{200C}\x{200D}]/u',
+                    '',
+                    $name.' '.$address
+                )) * 4;
+
+                return [
+                    'text' => $text,
+                    // OCR confidence is deliberately secondary: malformed text can
+                    // still receive a high character-level Tesseract confidence.
+                    'score' => $fieldScore - $symbolPenalty
+                        + ((float) data_get($result, $language.'_confidence', 0) * 0.15),
+                ];
+            })
+            ->sortByDesc('score')
+            ->first()['text'];
+    }
+
+    /** Read only Sinhala/Tamil name and address values from multilingual OCR. */
+    private function extractNativeIdentityFields(string $ocrText): array
+    {
+        $lines = collect(preg_split('/\R/u', $ocrText) ?: [])
+            ->map(fn ($line) => trim((string) $line))
+            ->filter(fn ($line) => filled($line))
+            ->values();
+
+        $name = $this->extractLabeledBlock($lines, [
+            'සම්පූර්ණ නම', 'නම', 'මுழுப் பெயர்', 'முழு பெயர்', 'பெயர்',
+        ], 3);
+        $address = $this->extractLabeledBlock($lines, [
+            'ස්ථිර ලිපිනය', 'ලිපිනය', 'நிரந்தர முகவரி', 'வசிப்பிட முகவரி', 'முகவரி', 'விலாசம்',
+        ], 5);
+
+        if (filled($name) && ! $this->containsSinhalaOrTamil($name)) {
+            $name = '';
+        }
+        if (filled($address) && ! $this->containsSinhalaOrTamil($address)) {
+            $address = '';
+        }
+
+        if (blank($name) || $this->nativeLetterCount($name) < 5) {
+            $name = $this->bestNativeLineBlock($lines, 'name');
+        }
+
+        // Address labels are frequently degraded into a short native word and can
+        // accidentally consume the DOB/name lines that follow. A line beginning
+        // with a house number is a materially stronger signal on Sri Lankan NICs.
+        $scoredAddress = $this->bestNativeLineBlock($lines, 'address');
+        if (filled($scoredAddress)) {
+            $address = $scoredAddress;
+        }
+
+        return [
+            'full_name' => $this->cleanNativeField($name, 'name'),
+            'address' => $this->cleanNativeField($address, 'address'),
+        ];
+    }
+
+    private function bestNativeLineBlock($lines, string $field): string
+    {
+        $scored = $lines->map(function ($line, $index) use ($field) {
+            $cleaned = $this->cleanNativeField((string) $line, $field);
+
+            return [
+                'index' => $index,
+                'line' => $cleaned,
+                'score' => $this->scoreNativeFieldLine($cleaned, $field),
+            ];
+        })->filter(fn ($candidate) => $candidate['score'] > 0)->values();
+
+        if ($scored->isEmpty()) {
+            return '';
+        }
+
+        $best = $scored->sortByDesc('score')->first();
+        $minimumAdjacentScore = max(12, $best['score'] * 0.45);
+        $selected = $scored
+            ->filter(fn ($candidate) => abs($candidate['index'] - $best['index']) <= 1
+                && $candidate['score'] >= $minimumAdjacentScore
+                && ($field !== 'address' || $this->nativeLetterCount($candidate['line']) >= 6)
+                && $this->sameNativeScript($candidate['line'], $best['line']))
+            ->sortBy('index')
+            ->pluck('line')
+            ->unique()
+            ->map(fn ($line) => $this->cleanNativeField((string) $line, $field))
+            ->filter(fn ($line) => filled($line))
+            ->values()
+            ->all();
+
+        return trim(implode($field === 'address' ? ', ' : ' ', $selected ?: [$best['line']]));
+    }
+
+    private function scoreNativeFieldLine(string $line, string $field): float
+    {
+        if (! $this->containsSinhalaOrTamil($line)) {
+            return 0;
+        }
+
+        $letters = $this->nativeLetterCount($line);
+        if ($letters < 4) {
+            return 0;
+        }
+        preg_match_all('/[\p{L}\x{200C}\x{200D}]{2,}/u', $line, $words);
+        preg_match_all('/[\p{L}\x{200C}\x{200D}]{5,}/u', $line, $longWords);
+        $digitCount = preg_match_all('/\d/u', $line);
+        $symbolCount = mb_strlen((string) preg_replace('/[\p{L}\p{N}\s,\.\/\-\x{200C}\x{200D}]/u', '', $line));
+        $score = $letters
+            + (count($words[0] ?? []) * 3)
+            + (count($longWords[0] ?? []) * 5)
+            - ($symbolCount * 3);
+
+        if ($field === 'name') {
+            if ($digitCount > 6 || preg_match('/ලිපිනය|පාර|මාවත|முகவரி|விலாசம்|வீதி|சாலை/u', $line)) {
+                return 0;
+            }
+            $score -= $digitCount * 8;
+            if (preg_match('/ගේ|නායක|සේලා|நாயக்க|சேலா|குமார்|சிவா/u', $line)) {
+                $score += 20;
+            }
+        } else {
+            $hasAddressKeyword = preg_match('/අංක|පාර|මාවත|කොළඹ|ලිපිනය|இல|வீதி|சாலை|கொழும்பு|யாழ்ப்பாணம்|முகவரி|விலாசம்/u', $line) === 1;
+            $startsLikeAddress = preg_match(
+                '/^[^\p{N}]{0,5}\p{N}{1,4}(?:\s*[,\/\-]|\s+[\p{L}\p{M}]{1,4}\s+\p{N}{1,4}\s*[,\/\-])/u',
+                trim($line)
+            ) === 1;
+            if (! $hasAddressKeyword && ! $startsLikeAddress) {
+                return 0;
+            }
+            if ($digitCount > 0) {
+                $score += 18;
+            }
+            $score += substr_count($line, ',') * 20;
+            if ($hasAddressKeyword) {
+                $score += 25;
+            }
+            if ($digitCount === 0 && ! preg_match('/පාර|මාවත|வீதி|சாலை|முகவரி|விலாசம்/u', $line)) {
+                $score -= 15;
+            }
+        }
+
+        return max(0, $score);
+    }
+
+    private function cleanNativeField(string $value, string $field): string
+    {
+        $value = trim((string) preg_replace('/\s+/u', ' ', $value), " \t\n\r\0\x0B,.;:|_-~");
+        if ($field === 'name') {
+            $value = (string) preg_replace('/^(?:නම[ි]?|பெயர்)\s*[:.\-]?\s*/u', '', $value);
+            $value = (string) preg_replace('/^\s*\d+\s*[^\p{L}\p{M}]*\s*/u', '', $value);
+            $value = (string) preg_replace('/^[\p{L}\p{M}]{1,4}\s*-\s*/u', '', $value);
+            $value = (string) preg_replace('/\s+\d{2,}\s*[.\s]*[\p{L}\p{M}]{0,4}\s*$/u', '', $value);
+            $value = (string) preg_replace('/(?:\s+\d+\s*[\p{L}\p{M}]?[.\s]*)+$/u', '', $value);
+        } else {
+            $value = (string) preg_replace('/^(?:ස්ථිර\s+ලිපිනය|ලිපිනය|நிரந்தர\s+முகவரி|முகவரி|விலாசம்)\s*[:.\-]?\s*/u', '', $value);
+            $value = (string) preg_replace('/^\s*\d?\s*(?:ලි|இல)\s+(?=\d)/u', '', $value);
+            $value = (string) preg_replace('/\s+[\p{L}\p{M}]{1,2}\s+\d+\s*$/u', '', $value);
+        }
+
+        return trim($value, " \t\n\r\0\x0B,.;:|_-~");
+    }
+
+    private function nativeLetterCount(string $value): int
+    {
+        return preg_match_all('/[\x{0B80}-\x{0BFF}\x{0D80}-\x{0DFF}]/u', $value);
+    }
+
+    private function sameNativeScript(string $left, string $right): bool
+    {
+        $leftTamil = preg_match('/[\x{0B80}-\x{0BFF}]/u', $left) === 1;
+        $rightTamil = preg_match('/[\x{0B80}-\x{0BFF}]/u', $right) === 1;
+
+        return $leftTamil === $rightTamil;
+    }
+
+    private function isPlausibleDocumentNumber(string $value, string $docType): bool
+    {
+        $value = strtoupper((string) preg_replace('/[^A-Z0-9]/i', '', $value));
+        if (in_array($docType, ['nic', 'driving_license'], true)) {
+            return preg_match('/^(?:(?:19|20)\d{10}|\d{9}[VX])$/', $value) === 1;
+        }
+
+        return preg_match('/^[A-Z0-9]{7,12}$/', $value) === 1;
+    }
+
+    private function isPlausibleIdentityField(string $value, string $field): bool
+    {
+        $value = trim((string) preg_replace('/\s+/u', ' ', $value));
+        $length = mb_strlen($value);
+        if ($length < ($field === 'name' ? 5 : 8)
+            || $length > ($field === 'name' ? 180 : 400)
+            || $this->containsSinhalaOrTamil($value)
+            || preg_match('/[\{\}\[\]=<>|\\\\]/u', $value)) {
+            return false;
+        }
+
+        $allowed = mb_strlen((string) preg_replace('/[^\p{Latin}\p{N}\s,.\'\/\-#()]/u', '', $value));
+        if ($allowed / max(1, $length) < 0.90) {
+            return false;
+        }
+
+        preg_match_all('/\p{Latin}{2,}/u', $value, $words);
+        $wordCount = count($words[0] ?? []);
+        if ($field === 'name') {
+            return $wordCount >= 2 && $wordCount <= 18
+                && preg_match('/\d/u', $value) !== 1;
+        }
+
+        return $wordCount >= 1 && preg_match('/\p{N}|\p{Latin}{3,}/u', $value) === 1;
+    }
+
     private function parseDocumentText(string $ocrText, string $docType): array
     {
         $lines = collect(explode("\n", $ocrText))
@@ -386,99 +604,422 @@ class VisitorCheckinController extends Controller
             ->values();
 
         $docNumber = $this->extractDocumentNumber($ocrText, $lines, $docType);
-        $fullName = $this->extractName($lines);
-        $address = $this->extractAddress($lines);
 
-        $sinhalaName = $this->containsSinhala($fullName) ? $fullName : null;
-        $latinName = $this->containsSinhala($fullName) ? $this->extractLatinName($lines) : $fullName;
+        // Extract English/Latin text first (Sri Lankan NICs always print English)
+        $latinName = $this->extractLatinName($lines);
+        $latinAddress = $this->extractLatinAddress($lines);
 
-        $sinhalaAddress = $this->containsSinhala($address) ? $address : null;
-        $latinAddress = $this->containsSinhala($address) ? $this->extractLatinAddress($lines) : $address;
+        // Fall back to generic extraction (may return native script)
+        $fullName = $this->extractName($lines, $docType);
+        $address = $this->extractAddress($lines, $docType);
 
+        $nativeName = $this->containsSinhalaOrTamil($fullName) ? $fullName : null;
+        $nativeAddress = $this->containsSinhalaOrTamil($address) ? $address : null;
+
+        // If generic extraction returned English, use it as Latin too
+        if (! $nativeName) {
+            $latinName = filled($latinName) ? $latinName : $fullName;
+        }
+        if (! $nativeAddress) {
+            $latinAddress = filled($latinAddress) ? $latinAddress : $address;
+        }
+
+        // PREFER English/Latin text when available (the card has it printed)
         return [
             'document_number' => $docNumber,
-            'full_name' => $sinhalaName ?: $latinName,
+            'full_name' => filled($latinName) ? $latinName : ($nativeName ?: ''),
             'full_name_latin' => $latinName,
-            'address' => $sinhalaAddress ?: $latinAddress,
+            'address' => filled($latinAddress) ? $latinAddress : ($nativeAddress ?: ''),
             'address_latin' => $latinAddress,
         ];
     }
 
+    /** Translate native-script identity fields before they reach registration. */
+    private function translateIdentityFieldsToEnglish(array $parsed): array
+    {
+        $fieldMap = [
+            'full_name' => 'full_name_latin',
+            'address' => 'address_latin',
+        ];
+        $nativeFields = [];
+
+        foreach ($fieldMap as $field => $latinField) {
+            $value = trim((string) data_get($parsed, $field));
+            if ($this->containsSinhalaOrTamil($value)) {
+                $nativeFields[$field] = $value;
+                $parsed[$field.'_original'] = $value;
+            }
+        }
+
+        if ($nativeFields === []) {
+            return $parsed;
+        }
+
+        $translations = [];
+        foreach ($nativeFields as $field => $nativeValue) {
+            $translated = $this->translateWithGoogleFree($nativeValue);
+            if (filled($translated) && ! $this->containsSinhalaOrTamil($translated)) {
+                $translations[$field] = $translated;
+            }
+        }
+
+        $accessToken = $this->getAccessToken();
+        $apiKey = config('services.google_translate.api_key');
+
+        if (count($translations) < count($nativeFields) && (filled($accessToken) || filled($apiKey))) {
+            try {
+                $http = $this->withGoogleCertificate(Http::acceptJson()->connectTimeout(5)->timeout(20));
+                $url = 'https://translation.googleapis.com/language/translate/v2';
+                if (filled($accessToken)) {
+                    $http = $http->withToken($accessToken);
+                } else {
+                    $url .= '?key='.urlencode((string) $apiKey);
+                }
+
+                $response = $http->post($url, [
+                    'q' => array_values($nativeFields),
+                    'target' => 'en',
+                    'format' => 'text',
+                ]);
+
+                if ($response->successful()) {
+                    $translatedItems = data_get($response->json(), 'data.translations', []);
+                    foreach (array_keys($nativeFields) as $index => $field) {
+                        $translated = html_entity_decode(
+                            trim((string) data_get($translatedItems, $index.'.translatedText')),
+                            ENT_QUOTES | ENT_HTML5,
+                            'UTF-8'
+                        );
+                        if (filled($translated) && ! $this->containsSinhalaOrTamil($translated)) {
+                            $translations[$field] = $translated;
+                        }
+                    }
+                }
+            } catch (\Throwable $exception) {
+                logger()->info('Google translation request failed: '.$exception->getMessage());
+            }
+        }
+
+        foreach ($nativeFields as $field => $nativeValue) {
+            $latinField = $fieldMap[$field];
+            $fallback = trim((string) data_get($parsed, $latinField));
+            $english = $translations[$field] ?? (! $this->containsSinhalaOrTamil($fallback) ? $fallback : '');
+
+            // Try free online translation APIs only if no Latin text from the card
+            if (blank($english)) {
+                $english = $this->translateOrTransliterateFree($nativeValue);
+            }
+
+            // Keep native text as-is (user can edit in form) rather than garbage transliteration
+            if (blank($english) || $english === $nativeValue) {
+                $english = $nativeValue;
+            }
+
+            if ($field === 'full_name' && ! $this->containsSinhalaOrTamil($english)) {
+                $english = collect(preg_split('/\s+/u', trim($english)) ?: [])
+                    ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)).mb_substr($part, 1))
+                    ->implode(' ');
+            }
+
+            $parsed[$field] = $english;
+            $parsed[$latinField] = $english;
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * Free translation and transliteration fallback using zero-cost public endpoints and local phonetic engine.
+     */
+    private function translateWithGoogleFree(string $nativeText): string
+    {
+        if (blank($nativeText)) {
+            return '';
+        }
+
+        try {
+            $sourceLanguage = preg_match('/[\x{0B80}-\x{0BFF}]/u', $nativeText) ? 'ta' : 'si';
+            $http = $this->withTrustedCertificate(
+                Http::acceptJson()->connectTimeout(5)->timeout(10)
+            );
+            $response = $http->get('https://translate.googleapis.com/translate_a/single', [
+                'client' => 'gtx',
+                'sl' => $sourceLanguage,
+                'tl' => 'en',
+                'dt' => 't',
+                'q' => $nativeText,
+            ]);
+
+            if (! $response->successful()) {
+                return '';
+            }
+
+            $translated = collect($response->json('0', []))
+                ->map(fn ($segment) => is_array($segment) ? ($segment[0] ?? '') : '')
+                ->implode('');
+            $translated = trim(html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+            return filled($translated) && ! $this->containsSinhalaOrTamil($translated)
+                ? $translated
+                : '';
+        } catch (\Throwable $exception) {
+            logger()->info('Google free translation request failed: '.$exception->getMessage());
+
+            return '';
+        }
+    }
+
+    private function translateOrTransliterateFree(string $nativeText): string
+    {
+        if (blank($nativeText)) {
+            return '';
+        }
+
+        // 1. Free Google Translate public GTX endpoint (No API key needed)
+        try {
+            $response = $this->withTrustedCertificate(Http::acceptJson())
+                ->connectTimeout(5)
+                ->timeout(10)
+                ->get('https://translate.googleapis.com/translate_a/single', [
+                    'client' => 'gtx',
+                    'sl' => 'auto',
+                    'tl' => 'en',
+                    'dt' => 't',
+                    'q' => $nativeText,
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (is_array($data) && isset($data[0]) && is_array($data[0])) {
+                    $translated = '';
+                    foreach ($data[0] as $segment) {
+                        if (isset($segment[0])) {
+                            $translated .= $segment[0];
+                        }
+                    }
+                    $translated = trim($translated);
+                    if (filled($translated) && ! $this->containsSinhalaOrTamil($translated)) {
+                        return $translated;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            logger()->info('Free Google Translate gtx fallback skipped: '.$e->getMessage());
+        }
+
+        // 2. MyMemory Free Translation API (No API key needed)
+        try {
+            $response = Http::acceptJson()
+                ->timeout(5)
+                ->get('https://api.mymemory.translated.net/get', [
+                    'q' => $nativeText,
+                    'langpair' => 'autodetect|en',
+                ]);
+
+            if ($response->successful()) {
+                $translated = (string) data_get($response->json(), 'responseData.translatedText', '');
+                $translated = trim(html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                if (filled($translated)
+                    && ! $this->containsSinhalaOrTamil($translated)
+                    && ! str_contains(strtolower($translated), 'is invalid')) {
+                    return $translated;
+                }
+            }
+        } catch (\Throwable $e) {
+            logger()->info('MyMemory free translation fallback skipped: '.$e->getMessage());
+        }
+
+        // 3. Offline Sinhala & Tamil Phonetic Transliteration Engine (100% Offline / Free)
+        return $this->transliterateSinhalaTamilToLatin($nativeText);
+    }
+
+    /**
+     * Offline phonetic transliteration dictionary for Sinhala & Tamil script to Latin alphabet.
+     */
+    private function transliterateSinhalaTamilToLatin(string $text): string
+    {
+        $sinhalaMap = [
+            'අ'=>'a', 'ආ'=>'aa', 'ඇ'=>'a', 'ඈ'=>'aa', 'ඉ'=>'i', 'ඊ'=>'ee', 'උ'=>'u', 'ඌ'=>'oo',
+            'ඍ'=>'ru', 'එ'=>'e', 'ඒ'=>'e', 'ඓ'=>'ai', 'ඔ'=>'o', 'ඕ'=>'o', 'ඖ'=>'au',
+            'ක'=>'ka', 'ඛ'=>'kha', 'ග'=>'ga', 'ඝ'=>'gha', 'ඞ'=>'nga', 'ඟ'=>'nga',
+            'ච'=>'cha', 'ඡ'=>'chha', 'ජ'=>'ja', 'ඣ'=>'jha', 'ඤ'=>'nya', 'ඥ'=>'gna',
+            'ට'=>'ta', 'ඨ'=>'tha', 'ඩ'=>'da', 'ඪ'=>'dha', 'ණ'=>'na', 'ඬ'=>'nda',
+            'ත'=>'tha', 'ථ'=>'thha', 'ද'=>'da', 'ධ'=>'dha', 'න'=>'na', 'ඳ'=>'nda',
+            'ප'=>'pa', 'ඵ'=>'pha', 'බ'=>'ba', 'භ'=>'bha', 'ම'=>'ma', 'ඹ'=>'mba',
+            'ය'=>'ya', 'ර'=>'ra', 'ල'=>'la', 'ව'=>'va', 'ශ'=>'sha', 'ෂ'=>'sha', 'ස'=>'sa', 'හ'=>'ha', 'ළ'=>'la', 'ෆ'=>'fa',
+            'ං'=>'n', 'ඃ'=>'h',
+            '්'=>'', 'ා'=>'a', 'ැ'=>'a', 'ෑ'=>'aa', 'ි'=>'i', 'ී'=>'ee', 'ු'=>'u', 'ූ'=>'oo',
+            'ෘ'=>'ru', 'ෙ'=>'e', 'ේ'=>'e', 'ෛ'=>'ai', 'ො'=>'o', 'ෝ'=>'o', 'ෞ'=>'au', 'ෟ'=>'u', 'ෲ'=>'roo', 'ෳ'=>'lu',
+        ];
+
+        $tamilMap = [
+            'அ'=>'a', 'ஆ'=>'aa', 'இ'=>'i', 'ஈ'=>'ee', 'உ'=>'u', 'ஊ'=>'oo', 'எ'=>'e', 'ஏ'=>'ae', 'ஐ'=>'ai', 'ஒ'=>'o', 'ஓ'=>'oo', 'ஔ'=>'au',
+            'க'=>'ka', 'ங'=>'nga', 'ச'=>'cha', 'ஞ'=>'nya', 'ட'=>'ta', 'ண'=>'na', 'த'=>'tha', 'ந'=>'na', 'ப'=>'pa', 'ம'=>'ma', 'ய'=>'ya', 'ர'=>'ra', 'ல'=>'la', 'வ'=>'va', 'ழ'=>'zha', 'ள'=>'la', 'ற'=>'ra', 'ன'=>'na', 'ஜ'=>'ja', 'ஷ'=>'sha', 'ஸ'=>'sa', 'ஹ'=>'ha',
+            'ா'=>'aa', 'ி'=>'i', 'ீ'=>'ee', 'ு'=>'u', 'ூ'=>'oo', 'ெ'=>'e', 'ே'=>'ae', 'ை'=>'ai', 'ொ'=>'o', 'ோ'=>'oo', 'ௌ'=>'au', '்'=>'',
+        ];
+
+        $map = array_merge($sinhalaMap, $tamilMap);
+        $result = strtr($text, $map);
+        $result = preg_replace('/[^\x20-\x7E]/u', '', $result);
+        $result = preg_replace('/\s+/', ' ', $result);
+        return ucwords(strtolower(trim($result)));
+    }
+
     private function extractDocumentNumber(string $fullText, $lines, string $docType): string
     {
-        if (preg_match('/\b(19\d{10}|20\d{10}|\d{9}[VXvx])\b/', $fullText, $matches)) {
-            return strtoupper($matches[1]);
-        }
+        $patterns = match ($docType) {
+            'nic' => ['/\b(19\d{10}|20\d{10}|\d{9}[VXvx])\b/u'],
+            'driving_license' => ['/\b([A-Z]{1,2}\s?\d{7,8})\b/iu'],
+            'passport' => ['/\b([A-Z]\s?\d{7})\b/iu'],
+            default => [],
+        };
 
-        if (preg_match('/\b([A-Z]{1,2}\d{7,8})\b/', $fullText, $matches)) {
-            return strtoupper($matches[1]);
-        }
-
-        if (preg_match('/\b([A-Z]\d{7})\b/', $fullText, $matches)) {
-            return strtoupper($matches[1]);
-        }
-
-        foreach ($lines as $line) {
-            if (preg_match('/(?:NO|NUM|ID|NIC|PASSPORT)[:\.\s]*([A-Z0-9]{7,12})/i', $line, $matches)) {
-                return strtoupper($matches[1]);
+        foreach (array_merge($patterns, [
+            '/\b(19\d{10}|20\d{10}|\d{9}[VXvx])\b/u',
+            '/\b([A-Z]{1,2}\s?\d{7,8})\b/iu',
+        ]) as $pattern) {
+            if (preg_match($pattern, $fullText, $matches)) {
+                return strtoupper(preg_replace('/\s+/', '', $matches[1]));
             }
+        }
+
+        $labeled = $this->extractLabeledBlock($lines, [
+            'passport no', 'passport number', 'licence no', 'license no',
+            'driving licence no', 'driving license no', 'nic no', 'nic number',
+            'identity card no', 'identity number', 'id no', 'document no',
+            'ගමන් බලපත්‍ර අංකය', 'හැඳුනුම්පත් අංකය', 'රියදුරු බලපත්‍ර අංකය',
+            'கடவுச்சீட்டு இல', 'அடையாள அட்டை இல', 'சாரதி அனுமதிப்பத்திர இல',
+        ], 1, true);
+        $candidate = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $labeled));
+        if (preg_match('/^(?:\d{9}[VX]|(?:19|20)\d{10}|[A-Z]{1,2}\d{7,8})$/', $candidate)) {
+            return $candidate;
         }
 
         return '';
     }
 
-    private function extractName($lines): string
+    private function extractName($lines, string $docType): string
     {
+        // 1. Try ENGLISH-ONLY labeled extraction first (Sri Lankan docs have English labels)
+        $englishLabeled = $this->extractLabeledBlock($lines, [
+            'full name', 'name in full', 'name', 'holder name',
+        ], 2);
+        if (filled($englishLabeled) && ! $this->containsSinhalaOrTamil($englishLabeled)) {
+            return $englishLabeled;
+        }
+
+        // 2. Try all labels including native
+        $fullName = $this->extractLabeledBlock($lines, [
+            'full name', 'name in full', 'name', 'holder name',
+            'සම්පූර්ණ නම', 'නම', 'முழுப் பெயர்', 'முழு பெயர்', 'பெயர்',
+        ], 2);
+        if (filled($fullName)) {
+            return $fullName;
+        }
+
+        if (in_array($docType, ['passport', 'driving_license'], true)) {
+            // Try English surname+given first
+            $surname = $this->extractLabeledBlock($lines, ['surname', 'family name'], 1);
+            $givenNames = $this->extractLabeledBlock($lines, [
+                'given names', 'given name', 'other names', 'forenames',
+            ], 2);
+            $combined = trim($givenNames.' '.$surname);
+            if (filled($combined) && ! $this->containsSinhalaOrTamil($combined)) {
+                return $combined;
+            }
+
+            // Try native surname+given
+            if (blank($combined)) {
+                $surname = $this->extractLabeledBlock($lines, [
+                    'surname', 'family name', 'වාසගම', 'குடும்பப் பெயர்',
+                ], 1);
+                $givenNames = $this->extractLabeledBlock($lines, [
+                    'given names', 'given name', 'other names', 'forenames',
+                    'වෙනත් නම්', 'ලබා දුන් නම්', 'கொடுக்கப்பட்ட பெயர்கள்', 'ஏனைய பெயர்கள்',
+                ], 2);
+                $combined = trim($givenNames.' '.$surname);
+                if (filled($combined)) {
+                    return $combined;
+                }
+            }
+        }
+
+        // 3. Look for Latin name lines (mixed case accepted)
         $nameCandidates = [];
         $addressContext = $lines
             ->filter(fn ($line) => preg_match('/\d{1,4}\s*[\/-]\s*\d{1,4}/', $line))
             ->map(fn ($line) => strtoupper((string) preg_replace('/[^A-Z ]/', '', $line)))
             ->implode(' ');
-        foreach ($lines as $line) {
-            if (preg_match('/(?:NAME|FULL NAME|SPECIMEN|සම්පූර්ණ නම)[:\.\s]*(.+)/i', $line, $matches)) {
-                return trim($matches[1]);
-            }
-        }
 
         foreach ($lines as $line) {
-            if ($this->containsSinhala($line) && mb_strlen($line) > 3) {
-                return $line;
-            }
-        }
-
-        foreach ($lines as $line) {
-            $candidate = trim((string) preg_replace('/[^A-Z .-]/', '', $line));
+            $candidate = trim((string) preg_replace('/[^A-Za-z .-]/', '', $line));
             $words = preg_split('/\s+/', $candidate, -1, PREG_SPLIT_NO_EMPTY);
+            $upper = strtoupper($candidate);
             if (count($words) >= 2 && count($words) <= 7
                 && min(array_map('strlen', $words)) >= 2
-                && preg_match('/^[A-Z]+(?:[ .-]+[A-Z]+)+$/', $candidate)
-                && ! str_contains($addressContext, str_replace(['.', '-'], '', $candidate))
-                && ! preg_match('/SRI LANKA|IDENTITY|NATIONAL|HOLDER|SIGNATURE|REPUBLIC|DEPARTMENT|DATE|PLACE|REGISTRATION/', $candidate)) {
+                && preg_match('/^[A-Za-z]+(?:[ .-]+[A-Za-z]+)+$/', $candidate)
+                && ! str_contains($addressContext, str_replace(['.', '-'], '', $upper))
+                && ! preg_match('/SRI LANKA|IDENTITY|NATIONAL|HOLDER|SIGNATURE|REPUBLIC|DEPARTMENT|DATE|PLACE|REGISTRATION/i', $candidate)) {
                 $nameCandidates[] = $candidate;
             }
         }
 
-        usort($nameCandidates, fn ($a, $b) => strlen(preg_replace('/[^A-Z]/', '', $b)) <=> strlen(preg_replace('/[^A-Z]/', '', $a)));
-        return $nameCandidates[0] ?? '';
-    }
+        if ($nameCandidates) {
+            usort($nameCandidates, fn ($a, $b) => strlen(preg_replace('/[^A-Za-z]/', '', $b)) <=> strlen(preg_replace('/[^A-Za-z]/', '', $a)));
+            return $nameCandidates[0];
+        }
 
-    private function extractLatinName($lines): string
-    {
+        // 4. Last resort: Sinhala/Tamil name line
         foreach ($lines as $line) {
-            if (! $this->containsSinhala($line) && preg_match('/^[A-Z\s]{4,40}$/', $line)) {
-                return trim($line);
+            if ($this->containsSinhalaOrTamil($line)
+                && mb_strlen($line) > 3
+                && ! $this->looksLikeFieldLabel($line)
+                && ! preg_match('/\d/u', $line)
+                && ! preg_match('/ලිපිනය|මාවත|පාර|முகவரி|வீதி|சாலை/u', $line)) {
+                return $line;
             }
         }
 
         return '';
     }
 
-    private function extractAddress($lines): string
+    private function extractLatinName($lines): string
     {
+        // 1. Try English labeled extraction first
+        $labeled = $this->extractLabeledBlock($lines, [
+            'full name', 'name in full', 'name', 'holder name',
+        ], 2);
+        if (filled($labeled) && ! $this->containsSinhalaOrTamil($labeled)) {
+            return $labeled;
+        }
+
+        // 2. Scan for Latin name lines (mixed case accepted)
+        $candidates = [];
         foreach ($lines as $line) {
-            if (preg_match('/(?:ADDRESS|ලිපිනය)[:\.\s]*(.+)/i', $line, $matches)) {
-                return trim($matches[1]);
+            $candidate = trim((string) $line);
+            if (! $this->containsSinhalaOrTamil($candidate)
+                && ! $this->looksLikeFieldLabel($candidate)
+                && preg_match('/^[A-Za-z][A-Za-z .\'\-]{3,79}$/', $candidate)
+                && count(preg_split('/\s+/', $candidate, -1, PREG_SPLIT_NO_EMPTY)) >= 2
+                && ! preg_match('/SRI LANKA|IDENTITY|NATIONAL|PASSPORT|LICEN[CS]E|REPUBLIC|DEPARTMENT|DATE|ADDRESS|SIGNATURE/i', $candidate)) {
+                $candidates[] = $candidate;
             }
+        }
+
+        usort($candidates, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+
+        return $candidates[0] ?? '';
+    }
+
+    private function extractAddress($lines, string $docType): string
+    {
+        $labeledAddress = $this->extractLabeledBlock($lines, [
+            'permanent address', 'residential address', 'place of residence',
+            'permanent place of residence', 'address',
+            'ස්ථිර ලිපිනය', 'ලිපිනය', 'நிரந்தர முகவரி', 'வசிப்பிட முகவரி', 'முகவரி',
+        ], 4);
+        if (filled($labeledAddress)) {
+            return $labeledAddress;
         }
 
         foreach ($lines as $line) {
@@ -490,7 +1031,7 @@ class VisitorCheckinController extends Controller
 
         $addressParts = [];
         foreach ($lines as $line) {
-            if (preg_match('/\b(road|street|mawatha|colombo|kandy|galle|jaffna|no|අංක|පාර|මාවත|කොළඹ)\b/i', $line)) {
+            if (preg_match('/(?:\b(?:road|street|mawatha|colombo|kandy|galle|jaffna|no)\b|අංක|පාර|මාවත|කොළඹ|இல|வீதி|சாலை|கொழும்பு|யாழ்ப்பாணம்)/iu', $line)) {
                 $addressParts[] = $line;
             }
         }
@@ -509,9 +1050,30 @@ class VisitorCheckinController extends Controller
 
     private function extractLatinAddress($lines): string
     {
+        // 1. Try English labeled extraction first
+        $labeled = $this->extractLabeledBlock($lines, [
+            'permanent address', 'residential address', 'place of residence',
+            'permanent place of residence', 'address',
+        ], 4);
+        if (filled($labeled) && ! $this->containsSinhalaOrTamil($labeled)) {
+            return $labeled;
+        }
+
+        // 2. Look for lines starting with house numbers (e.g. "12 Galle Road")
+        foreach ($lines as $line) {
+            $clean = trim((string) $line);
+            if (! $this->containsSinhalaOrTamil($clean)
+                && preg_match('/^\d{1,4}[A-Za-z]?(?:[\/-]\d{1,4}[A-Za-z]?)?,?\s+[A-Za-z]{2,}/i', $clean)
+                && mb_strlen($clean) >= 8) {
+                return $clean;
+            }
+        }
+
+        // 3. Look for lines with common Sri Lankan address keywords
         $parts = [];
         foreach ($lines as $line) {
-            if (! $this->containsSinhala($line) && preg_match('/\b(road|street|mawatha|colombo|kandy|galle|jaffna|no)\b/i', $line)) {
+            if (! $this->containsSinhalaOrTamil($line)
+                && preg_match('/\b(road|street|lane|avenue|place|drive|crescent|mawatha|veediya|vidiya|colombo|kandy|galle|jaffna|matara|kurunegala|negombo|ratnapura|anuradhapura|batticaloa|trincomalee|badulla|nuwara eliya|kalutara|kegalle|puttalam|ampara|hambantota|monaragala|polonnaruwa|mannar|vavuniya|kilinochchi|mullaitivu|no\.)\b/i', $line)) {
                 $parts[] = $line;
             }
         }
@@ -519,8 +1081,60 @@ class VisitorCheckinController extends Controller
         return implode(', ', $parts);
     }
 
-    private function containsSinhala(string $value): bool
+    /** Extract a value printed beside a label or on the following OCR lines. */
+    private function extractLabeledBlock($lines, array $labels, int $maxLines, bool $allowDigitsOnly = false): string
     {
-        return preg_match('/[\x{0D80}-\x{0DFF}]/u', $value) === 1;
+        $labelPattern = implode('|', array_map(fn ($label) => preg_quote($label, '/'), $labels));
+        $lineValues = $lines->values();
+
+        foreach ($lineValues as $index => $originalLine) {
+            $line = trim((string) preg_replace('/^\s*\d{1,2}[A-Z]?\s*[\.\):\-]\s*/iu', '', $originalLine));
+            if (! preg_match('/^(?:'.$labelPattern.')(?:\s*[:\.\-]\s*|\s+)?(.*)$/iu', $line, $matches)) {
+                continue;
+            }
+
+            $parts = [];
+            $inlineValue = trim($matches[1] ?? '');
+            if (filled($inlineValue)) {
+                $parts[] = $inlineValue;
+            }
+
+            for ($offset = 1; count($parts) < $maxLines && $index + $offset < $lineValues->count(); $offset++) {
+                $candidate = trim((string) $lineValues[$index + $offset]);
+                if (blank($candidate) || $this->looksLikeFieldLabel($candidate)) {
+                    break;
+                }
+                if (! $allowDigitsOnly && preg_match('/^(?:DOB|DATE|SEX|NATIONALITY|SIGNATURE|ISSUED|EXPIRES?|FRONT SIDE|BACK SIDE|DOCUMENT DETAILS)\b/iu', $candidate)) {
+                    break;
+                }
+                if ($parts !== [] && $this->containsSinhalaOrTamil($parts[0]) !== $this->containsSinhalaOrTamil($candidate)) {
+                    break;
+                }
+                $parts[] = $candidate;
+            }
+
+            return trim(implode(', ', array_unique($parts)));
+        }
+
+        return '';
+    }
+
+    private function looksLikeFieldLabel(string $line): bool
+    {
+        $clean = trim((string) preg_replace('/^\s*\d{1,2}[A-Z]?\s*[\.\):\-]\s*/iu', '', $line));
+
+        if (preg_match('/^(?:FULL NAME|NAME IN FULL|NAME|HOLDER NAME|SURNAME|FAMILY NAME|GIVEN NAMES?|OTHER NAMES|FORENAMES|ADDRESS|PERMANENT ADDRESS|RESIDENTIAL ADDRESS|PLACE OF RESIDENCE|PERMANENT PLACE OF RESIDENCE|PASSPORT (?:NO|NUMBER)|LICEN[CS]E NO|NIC (?:NO|NUMBER)|IDENTITY (?:CARD NO|NUMBER)|සම්පූර්ණ නම|නම|වාසගම|ලිපිනය|ස්ථිර ලිපිනය|முழுப் பெயர்|முழு பெயர்|பெயர்|குடும்பப் பெயர்|முகவரி|நிரந்தர முகவரி)(?:\s*[:\.\-]\s*|\s+).+/iu', $clean)) {
+            return true;
+        }
+
+        return preg_match(
+            '/^(?:full name|name in full|name|holder name|surname|family name|given names?|other names|forenames|address|permanent address|residential address|place of residence|permanent place of residence|passport (?:no|number)|licen[cs]e no|nic (?:no|number)|identity (?:card no|number)|date of birth|dob|nationality|sex|signature|date of issue|date of expiry|සම්පූර්ණ නම|නම|වාසගම|ලිපිනය|ස්ථිර ලිපිනය|මுழுப் பெயர்|முழு பெயர்|பெயர்|குடும்பப் பெயர்|முகவரி|நிரந்தர முகவரி)(?:\s*[:\.\-]?\s*)$/iu',
+            $clean
+        ) === 1;
+    }
+
+    private function containsSinhalaOrTamil(string $value): bool
+    {
+        return preg_match('/[\x{0B80}-\x{0BFF}\x{0D80}-\x{0DFF}]/u', $value) === 1;
     }
 }

@@ -36,14 +36,14 @@ return [
         'ca_bundle' => env('GOOGLE_VISION_CA_BUNDLE'),
     ],
 
-    'local_face' => [
-        'python_path' => env('FACE_PYTHON_PATH', 'python'),
-        'site_packages' => env('FACE_PYTHON_SITE_PACKAGES'),
-        'script_path' => base_path('app/Support/verify_faces.py'),
-        'detector_model' => env('FACE_DETECTOR_MODEL', resource_path('face-models/face_detection_yunet_2023mar.onnx')),
-        'recognizer_model' => env('FACE_RECOGNIZER_MODEL', resource_path('face-models/face_recognition_sface_2021dec.onnx')),
-        'cosine_threshold' => (float) env('FACE_MATCH_COSINE_THRESHOLD', 0.340),
-        'timeout' => (int) env('FACE_PROCESS_TIMEOUT', 45),
+    'google_translate' => [
+        'api_key' => env('GOOGLE_TRANSLATE_API_KEY', env('GOOGLE_VISION_API_KEY')),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+        'ca_bundle' => env('GEMINI_CA_BUNDLE', env('GOOGLE_VISION_CA_BUNDLE')),
     ],
 
 ];
