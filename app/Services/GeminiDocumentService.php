@@ -40,7 +40,7 @@ class GeminiDocumentService
             $parts[] = $this->imagePart($backPath, $backMime ?: 'image/jpeg');
         }
 
-        $model = trim((string) config('services.gemini.model', 'gemini-1.5-flash'));
+        $model = trim((string) config('services.gemini.model', 'gemini-2.5-flash'));
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
             .rawurlencode($model).':generateContent';
         $request = $this->geminiRequest($apiKey, 60);
@@ -187,9 +187,9 @@ Extract only text visibly supported by the document:
 - document_number: the primary number for the uploaded document type.
 - nic_number: the holder's Sri Lankan NIC number. A valid Sri Lankan NIC is either exactly 9 digits followed by V or X, or exactly 12 digits. Preserve all digits and the final V/X. On a Sri Lankan driving licence this is specifically field 4c; never return field 5 here.
 - driving_license_number: only the driving-licence number printed at field 5 (often one letter followed by seven digits). Keep this separate from nic_number.
-- When Sinhala or Tamil is visible, first transcribe the clearest single language version exactly into full_name_original and address_original. Prefer Sinhala; use Tamil only when Sinhala is absent. Do not merge the duplicated language versions.
+- When Sinhala or Tamil is visible, first transcribe the clearest single language version exactly into full_name_original and address_original. Prefer Sinhala; use Tamil only when Sinhala is absent. Before writing English, cross-check the duplicate Sinhala and Tamil name spellings visible on the card; do not merge them into the source fields.
 - full_name_lines: one item for EACH physical printed line belonging to the holder's name, translated/transliterated into English in the same order. Start after the name label and continue through every consecutive name line until the next field label. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained.
-- full_name: English for the exact printed holder name. For Sinhala/Tamil names, use a faithful Latin-script transliteration of every name component in order, not a shortened name, parent/guardian name, or guessed common spelling. For documents that print English, copy that English value exactly.
+- full_name: English for the exact printed holder name. A Sinhala/Tamil personal name must be transliterated, NEVER semantically translated. Keep every name word and syllable in order, including vowel length and endings: do not substitute a similar-sounding word, shorten a word, or guess a common spelling. Use both printed scripts to resolve uncertain letters. For documents that print English, copy that English value exactly.
 - address_lines: one item for each physical address line, translated into English in the same order.
 - address: complete English rendering of the exact printed residential address, including house numbers and postal codes. Translate address words and transliterate proper place names; do not omit, replace, or infer any part.
 - full_name_original and address_original: exact source-script transcriptions when Sinhala or Tamil was used; otherwise empty strings.
@@ -442,7 +442,7 @@ PROMPT;
     private function translateExactNicText(array $source): array
     {
         $apiKey = trim((string) config('services.gemini.api_key'));
-        $model = trim((string) config('services.gemini.model', 'gemini-1.5-flash'));
+        $model = trim((string) config('services.gemini.model', 'gemini-2.5-flash'));
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
             .rawurlencode($model).':generateContent';
 
@@ -452,7 +452,7 @@ PROMPT;
                     'role' => 'user',
                     'parts' => [[
                         'text' => 'Convert these exact Sri Lankan NIC fields to English. '
-                            .'For full_name, faithfully transliterate every name component into Latin script; do not shorten, translate its meaning, or guess an alternative spelling. '
+                            .'For full_name, transliterate the personal name character-by-character into Latin script; never translate its meaning, replace it with a similar-sounding English word, shorten it, or guess an alternative spelling. Preserve every word and syllable. '
                             .'For address, translate address words and transliterate proper place names while preserving every number and component. '
                             .'Return only JSON with full_name and address strings. Input: '
                             .json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
