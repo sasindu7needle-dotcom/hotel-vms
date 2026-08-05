@@ -152,6 +152,67 @@ class VisitorVerificationTest extends TestCase
         );
     }
 
+    public function test_back_only_extraction_cannot_replace_conflicting_combined_identity_fields(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'document_number' => '199012345678',
+                    'full_name' => 'Madikes Paramanandake Poojana Sasithu Legonj Fernando',
+                    'full_name_lines' => [],
+                    'address' => '07, Thiyelagoda Mallama, Puttalam',
+                    'address_lines' => [],
+                    'full_name_original' => '',
+                    'address_original' => '',
+                ]))
+                ->push($this->geminiApiResponse([
+                    'document_number' => '',
+                    'full_name' => 'Different Nearby Name',
+                    'full_name_lines' => [],
+                    'address' => 'Different Nearby Address',
+                    'address_lines' => [],
+                    'full_name_original' => '',
+                    'address_original' => '',
+                ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('front.jpg', 600, 400);
+        $back = UploadedFile::fake()->image('back.jpg', 600, 400);
+        $result = app(GeminiDocumentService::class)->extract(
+            $front->getRealPath(),
+            'image/jpeg',
+            $back->getRealPath(),
+            'image/jpeg',
+            false,
+            'nic'
+        );
+
+        $this->assertSame('Madikes Paramanandake Poojana Sasithu Legonj Fernando', $result['full_name']);
+        $this->assertSame('07, Thiyelagoda Mallama, Puttalam', $result['address']);
+    }
+
+    public function test_gemini_service_preserves_repeated_physical_name_lines(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::response($this->geminiApiResponse([
+                'document_number' => '199012345678',
+                'full_name' => 'Nimal Perera Nimal Perera',
+                'full_name_lines' => ['Nimal Perera', 'Nimal Perera'],
+                'address' => '12 Galle Road, Colombo',
+                'address_lines' => [],
+                'full_name_original' => '',
+                'address_original' => '',
+            ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('front.jpg', 600, 400);
+        $result = app(GeminiDocumentService::class)->extract($front->getRealPath(), 'image/jpeg', null, null, false, 'nic');
+
+        $this->assertSame('Nimal Perera Nimal Perera', $result['full_name']);
+    }
+
     public function test_it_does_not_continue_when_name_or_address_is_missing(): void
     {
         $this->mockGemini(['document_number' => '200124103810']);

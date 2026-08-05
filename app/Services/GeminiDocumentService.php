@@ -120,12 +120,17 @@ class GeminiDocumentService
 
         if ($backPath && is_file($backPath)) {
             // Sri Lankan NICs print the long name/address on the reverse. A
-            // dedicated back-only pass prevents the portrait/front text from
-            // causing Gemini to stop after the first wrapped name line. Keep
-            // the document number from the combined/front result.
-            $backDetails = $this->extract($backPath, $backMime ?: 'image/jpeg', null, null, true, $documentType);
+            // dedicated back-only pass can complete a wrapped value, but must
+            // never blindly replace the more reliable result that examined
+            // both sides together. Send the uploaded orientation first; the
+            // previous implementation rotated every back image by 90 degrees.
+            $backDetails = $this->extract($backPath, $backMime ?: 'image/jpeg', null, null, false, $documentType);
             foreach (['full_name', 'address', 'full_name_original', 'address_original'] as $field) {
-                if (filled(data_get($backDetails, $field))) {
+                if ($this->shouldUseBackField(
+                    (string) data_get($result, $field),
+                    (string) data_get($backDetails, $field),
+                    $field
+                )) {
                     $result[$field] = $backDetails[$field];
                 }
             }
@@ -208,9 +213,9 @@ Extract only text visibly supported by the document:
 - nic_number: the holder's Sri Lankan NIC number. A valid Sri Lankan NIC is either exactly 9 digits followed by V or X, or exactly 12 digits. Preserve all digits and the final V/X. On a Sri Lankan driving licence this is specifically field 4c; never return field 5 here.
 - driving_license_number: only the driving-licence number printed at field 5 (often one letter followed by seven digits). Keep this separate from nic_number.
 - full_name_lines: one English array item for EACH physical printed line belonging to the holder's name. Start after the name label and continue through every consecutive name line until the next field label (such as date of birth, sex, or address). A long name commonly wraps onto two or more lines; never stop after the first line and never omit the final name line. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained. Do not put the combined name in one array item.
-- full_name: the same complete holder name in English, with every full_name_lines item joined in printed order. Prefer the printed English name. If it exists only in Sinhala or Tamil, accurately transliterate it into English.
-- address_lines: one English array item for each physical address line, stopping at the next field label.
-- address: the complete residential address in English, containing every address_lines item in printed order. Preserve house numbers and postal codes.
+- full_name: copy the holder's printed English name exactly, character-for-character, with every full_name_lines item joined in printed order. Do not correct spelling, shorten it, use a parent/guardian name, or transliterate when a printed English name exists. Only transliterate when no English name exists anywhere on the document.
+- address_lines: one English array item for each physical printed address line, stopping at the next field label.
+- address: copy the complete printed English residential address exactly, including house numbers and postal codes. Do not correct spelling, replace a locality, translate, or infer missing parts when a printed English address exists.
 - full_name_original and address_original: the source-script values when Sinhala or Tamil was used; otherwise empty strings.
 
 confidence is a number from 0 to 100 describing visual readability only. Cross-check repeated Sinhala, Tamil, and English text and both document sides, but use only one language version of each field; do not concatenate equivalent translations as separate name or address lines. Do not infer, autocomplete, correct from world knowledge, or invent obscured characters. Return an empty string for an unreadable string field and an empty array for unreadable line arrays.
@@ -385,6 +390,38 @@ PROMPT;
         return str_repeat('*', max(0, strlen($value) - 3)).substr($value, -3);
     }
 
+    /**
+     * A second pass over a single NIC side is only a supplement. It can fill a
+     * missing value or extend the exact value returned from the two-sided pass;
+     * a conflicting value is not evidence strong enough to replace it.
+     */
+    private function shouldUseBackField(string $current, string $candidate, string $field): bool
+    {
+        $current = trim($current);
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return false;
+        }
+        if ($current === '') {
+            return true;
+        }
+
+        $normalise = fn (string $value): string => mb_strtolower((string) preg_replace('/[^\p{L}\p{N}]+/u', '', $value));
+        $currentComparable = $normalise($current);
+        $candidateComparable = $normalise($candidate);
+        if ($currentComparable === $candidateComparable) {
+            return false;
+        }
+
+        // A legitimate wrapped continuation contains the text already read
+        // from the combined image and is materially longer. Never apply this
+        // to original-script copies, where different transliterations cannot
+        // be compared safely.
+        return ! str_ends_with($field, '_original')
+            && strlen($candidateComparable) > strlen($currentComparable)
+            && str_contains($candidateComparable, $currentComparable);
+    }
+
     private function cleanExtractedLines($lines): array
     {
         if (! is_array($lines)) {
@@ -394,7 +431,6 @@ PROMPT;
         return collect($lines)
             ->map(fn ($line) => trim((string) preg_replace('/\s+/u', ' ', (string) $line), " \t\n\r\0\x0B,;|"))
             ->filter(fn ($line) => $line !== '')
-            ->unique()
             ->values()
             ->all();
     }
