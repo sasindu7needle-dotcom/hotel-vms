@@ -6,6 +6,7 @@ use App\Services\GeminiDocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -43,7 +44,9 @@ class VisitorCheckinController extends Controller
                 $file->getRealPath(),
                 $mime,
                 $backFile?->getRealPath(),
-                $backFile?->getMimeType()
+                $backFile?->getMimeType(),
+                false,
+                $docType,
             );
         } catch (\Throwable $exception) {
             logger()->warning('Gemini document extraction failed: '.$exception->getMessage().'. Attempting fallback to local Tesseract OCR...');
@@ -77,10 +80,22 @@ class VisitorCheckinController extends Controller
 
         $parsed['full_name_latin'] = (string) data_get($parsed, 'full_name', '');
         $parsed['address_latin'] = (string) data_get($parsed, 'address', '');
-        if ($docType === 'driving_license') {
+        if ($docType === 'nic') {
+            $parsed['document_number'] = $this->normalizeDocumentNumber((string) data_get($parsed, 'document_number', ''), $docType);
+        } elseif ($docType === 'driving_license') {
             // Sri Lankan driving licences print the licence number at field 5
             // and the holder's NIC at field 4c. Registration needs the NIC.
             $parsed['document_number'] = (string) data_get($parsed, 'nic_number', '');
+        }
+
+        $parsed['document_number'] = $this->normalizeDocumentNumber((string) data_get($parsed, 'document_number'), $docType);
+
+        if ((int) data_get($parsed, 'confidence', 100) < 20) {
+            Log::info('Gemini reported low document readability; applying structural validation.', [
+                'document_type' => $docType,
+                'confidence' => (int) data_get($parsed, 'confidence', 0),
+                'document_number' => $this->maskDocumentNumber((string) data_get($parsed, 'document_number')),
+            ]);
         }
 
         $missingFields = collect([
@@ -90,6 +105,43 @@ class VisitorCheckinController extends Controller
         ])->filter(fn ($isValid) => ! $isValid)->keys()->values()->all();
 
         if ($missingFields !== []) {
+            $documentNumber = (string) data_get($parsed, 'document_number');
+            $reason = blank($documentNumber)
+                ? 'no_document_number'
+                : (! $this->isPlausibleDocumentNumber($documentNumber, $docType) ? 'invalid_document_number' : 'incomplete_identity_fields');
+            Log::warning('Document verification rejected.', [
+                'document_type' => $docType,
+                'json_decoded' => (bool) data_get($parsed, '_gemini_json_decoded', true),
+                'document_number_key' => data_get($parsed, '_gemini_document_number_key'),
+                'document_number_valid' => $this->isPlausibleDocumentNumber($documentNumber, $docType),
+                'document_number' => $this->maskDocumentNumber($documentNumber),
+                'reason' => $reason,
+            ]);
+
+            if (! data_get($parsed, '_gemini_json_decoded', true) && blank($documentNumber)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'The document reader returned an unreadable response. Please try again with clear, glare-free photos.',
+                    'code' => 'invalid_gemini_response',
+                ], 422);
+            }
+
+            if (blank($documentNumber)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No document number was detected. Retake the document photos closer, avoid glare, and keep the card edges visible.',
+                    'code' => 'document_number_not_detected',
+                ], 422);
+            }
+
+            if (! $this->isPlausibleDocumentNumber($documentNumber, $docType)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'The document number was detected but is not valid for this document type. Please retake clear photos of the original document.',
+                    'code' => 'invalid_document_number',
+                ], 422);
+            }
+
             return response()->json([
                 'success' => false,
                 'error' => 'Document extraction could not confidently read the '.implode(', ', $missingFields).'. Retake the document photos closer, avoid glare, and keep the card edges visible.',
@@ -562,12 +614,28 @@ class VisitorCheckinController extends Controller
 
     private function isPlausibleDocumentNumber(string $value, string $docType): bool
     {
-        $value = strtoupper((string) preg_replace('/[^A-Z0-9]/i', '', $value));
+        $value = $this->normalizeDocumentNumber($value, $docType);
         if (in_array($docType, ['nic', 'driving_license'], true)) {
-            return preg_match('/^(?:(?:19|20)\d{10}|\d{9}[VX])$/', $value) === 1;
+            return preg_match('/^(?:\d{9}[VX]|\d{12})$/', $value) === 1;
         }
 
         return preg_match('/^[A-Z0-9]{7,12}$/', $value) === 1;
+    }
+
+    private function normalizeDocumentNumber(string $value, string $docType): string
+    {
+        $value = strtoupper(trim($value));
+
+        return in_array($docType, ['nic', 'driving_license'], true)
+            ? (string) preg_replace('/[^0-9VX]/', '', $value)
+            : (string) preg_replace('/[^A-Z0-9]/', '', $value);
+    }
+
+    private function maskDocumentNumber(string $value): string
+    {
+        $value = preg_replace('/\s+/', '', $value);
+
+        return $value === '' ? '' : str_repeat('*', max(0, strlen($value) - 3)).substr($value, -3);
     }
 
     private function isPlausibleIdentityField(string $value, string $field): bool
@@ -606,7 +674,7 @@ class VisitorCheckinController extends Controller
         $docNumber = $this->extractDocumentNumber($ocrText, $lines, $docType);
 
         // Extract English/Latin text first (Sri Lankan NICs always print English)
-        $latinName = $this->extractLatinName($lines);
+        $latinName = $this->extractLatinName($lines, $docType);
         $latinAddress = $this->extractLatinAddress($lines);
 
         // Fall back to generic extraction (may return native script)
@@ -904,7 +972,9 @@ class VisitorCheckinController extends Controller
         $englishLabeled = $this->extractLabeledBlock($lines, [
             'full name', 'name in full', 'name', 'holder name',
         ], 2);
-        if (filled($englishLabeled) && ! $this->containsSinhalaOrTamil($englishLabeled)) {
+        if (filled($englishLabeled)
+            && ! in_array($docType, ['passport', 'driving_license'], true)
+            && ! $this->containsSinhalaOrTamil($englishLabeled)) {
             return $englishLabeled;
         }
 
@@ -913,7 +983,7 @@ class VisitorCheckinController extends Controller
             'full name', 'name in full', 'name', 'holder name',
             'සම්පූර්ණ නම', 'නම', 'முழுப் பெயர்', 'முழு பெயர்', 'பெயர்',
         ], 2);
-        if (filled($fullName)) {
+        if (filled($fullName) && ! in_array($docType, ['passport', 'driving_license'], true)) {
             return $fullName;
         }
 
@@ -983,8 +1053,21 @@ class VisitorCheckinController extends Controller
         return '';
     }
 
-    private function extractLatinName($lines): string
+    private function extractLatinName($lines, string $docType = 'nic'): string
     {
+        // Driving licences and passports split the holder name into surname
+        // and given-name fields; combine those before generic "name" matching.
+        if (in_array($docType, ['passport', 'driving_license'], true)) {
+            $surname = $this->extractLabeledBlock($lines, ['surname', 'family name'], 1);
+            $givenNames = $this->extractLabeledBlock($lines, [
+                'given names', 'given name', 'other names', 'forenames',
+            ], 2);
+            $combined = trim($givenNames.' '.$surname);
+            if (filled($combined) && ! $this->containsSinhalaOrTamil($combined)) {
+                return $combined;
+            }
+        }
+
         // 1. Try English labeled extraction first
         $labeled = $this->extractLabeledBlock($lines, [
             'full name', 'name in full', 'name', 'holder name',

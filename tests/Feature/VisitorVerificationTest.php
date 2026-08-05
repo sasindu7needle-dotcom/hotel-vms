@@ -59,6 +59,56 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonValidationErrors(['document_type', 'document_front_image']);
     }
 
+    public function test_it_normalizes_and_validates_both_sri_lankan_nic_formats(): void
+    {
+        $gemini = app(GeminiDocumentService::class);
+
+        foreach ([
+            '123456789V' => '123456789V',
+            '123456789v' => '123456789V',
+            '123 456-789 v' => '123456789V',
+            '1998 1234-5678' => '199812345678',
+        ] as $input => $expected) {
+            $this->assertSame($expected, $gemini->normalizeNicNumber($input));
+            $this->assertTrue($gemini->isValidSriLankanNic($input));
+        }
+
+        $this->assertFalse($gemini->isValidSriLankanNic('1234567890'));
+        $this->assertFalse($gemini->isValidSriLankanNic('12345678901'));
+    }
+
+    public function test_gemini_parser_accepts_nic_aliases_markdown_and_text_fallback(): void
+    {
+        $gemini = app(GeminiDocumentService::class);
+
+        $aliased = $gemini->parseGeminiResponse('```json\n{"nic_number":"123 456-789v","full_name":"Nimal Perera","address":"12 Galle Road"}\n```', 'nic');
+        $this->assertSame('123456789V', $aliased['document_number']);
+        $this->assertSame('nic_number', $aliased['_gemini_document_number_key']);
+
+        $camelCase = $gemini->parseGeminiResponse('Gemini result: {"documentNumber":"199812345678"} complete', 'nic');
+        $this->assertSame('199812345678', $camelCase['document_number']);
+        $this->assertSame('documentNumber', $camelCase['_gemini_document_number_key']);
+
+        $fallback = $gemini->parseGeminiResponse('I could read the NIC Number: 123 456 789 X, but no JSON was produced.', 'nic');
+        $this->assertFalse($fallback['_gemini_json_decoded']);
+        $this->assertSame('123456789X', $fallback['document_number']);
+    }
+
+    public function test_missing_document_number_returns_a_controlled_notice(): void
+    {
+        $this->mockGemini([
+            'full_name' => 'Nimal Perera',
+            'address' => '12 Galle Road, Colombo',
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 800, 500),
+        ])->assertUnprocessable()
+            ->assertJsonPath('code', 'document_number_not_detected');
+    }
+
     public function test_gemini_service_joins_every_wrapped_name_line_from_the_back(): void
     {
         config()->set('services.gemini.api_key', 'test-key');

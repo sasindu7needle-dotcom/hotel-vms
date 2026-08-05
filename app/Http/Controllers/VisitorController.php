@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Visitor;
 use App\Models\VerifiedVisitor;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use F9WebLtd\QrCode\Facades\QrCode;
@@ -159,7 +160,20 @@ class VisitorController extends Controller
         ]);
 
         $request->session()->put('visitor_registration', $details);
-        $visitor = $this->persistVerifiedVisitor($details);
+        try {
+            $visitor = $this->persistVerifiedVisitor($details);
+        } catch (\Throwable $exception) {
+            Log::error('Verified visitor could not be saved.', [
+                'verification_id' => data_get($details, 'verification_id'),
+                'document_type' => data_get($details, 'document_type'),
+                'document_number' => $this->maskDocumentNumber((string) data_get($details, 'document_number')),
+                'exception_class' => $exception::class,
+            ]);
+
+            return back()->withInput()->withErrors([
+                'verification' => 'Your verified details could not be saved. Please try again or contact reception.',
+            ]);
+        }
         $request->session()->put('visitor_registration.record_id', $visitor->id);
 
         return view('visitor.confirm', compact('details'));
@@ -212,10 +226,23 @@ class VisitorController extends Controller
 
         $details = $request->session()->get('visitor_registration');
         $paymentStatus = $validated['payment_method'] === 'cash' ? 'cash_pending' : 'card_pending';
-        $visitor = $this->persistVerifiedVisitor($details, [
-            'payment_method' => $validated['payment_method'],
-            'payment_status' => $paymentStatus,
-        ]);
+        try {
+            $visitor = $this->persistVerifiedVisitor($details, [
+                'payment_method' => $validated['payment_method'],
+                'payment_status' => $paymentStatus,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Verified visitor payment state could not be saved.', [
+                'verification_id' => data_get($details, 'verification_id'),
+                'document_type' => data_get($details, 'document_type'),
+                'document_number' => $this->maskDocumentNumber((string) data_get($details, 'document_number')),
+                'exception_class' => $exception::class,
+            ]);
+
+            return back()->withErrors([
+                'verification' => 'Your registration could not be updated. Please try again or contact reception.',
+            ]);
+        }
         $request->session()->put('visitor_registration.record_id', $visitor->id);
 
         return $validated['payment_method'] === 'cash'
@@ -431,5 +458,12 @@ class VisitorController extends Controller
         return filled(data_get($verification, 'document_number'))
             && filled(data_get($verification, 'full_name'))
             && filled(data_get($verification, 'address'));
+    }
+
+    private function maskDocumentNumber(string $value): string
+    {
+        $value = preg_replace('/\s+/', '', $value);
+
+        return $value === '' ? '' : str_repeat('*', max(0, strlen($value) - 3)).substr($value, -3);
     }
 }
