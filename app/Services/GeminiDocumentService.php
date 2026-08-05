@@ -398,10 +398,7 @@ PROMPT;
             && str_contains($candidateComparable, $currentComparable);
     }
 
-    /**
-     * Translate the exact native-script transcription, rather than asking the
-     * image reader to guess a Latin spelling from a noisy card image.
-     */
+    /** Translate only when the image-reading pass could not return English. */
     private function translateNativeIdentityFields(array &$result): void
     {
         $source = [];
@@ -414,7 +411,12 @@ PROMPT;
 
             if ($native !== '') {
                 $result[$field.'_original'] = $native;
-                $source[$field] = $native;
+                // Gemini has more context when it can see the NIC. Do not
+                // overwrite that image-aware English rendering with a second
+                // text-only transliteration pass.
+                if ($this->containsSinhalaOrTamil($current)) {
+                    $source[$field] = $native;
+                }
             }
         }
 

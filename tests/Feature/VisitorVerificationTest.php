@@ -242,6 +242,28 @@ class VisitorVerificationTest extends TestCase
         $this->assertSame('07, ප්‍රසේවස් මාවත, පුත්තලම', $result['address_original']);
     }
 
+    public function test_old_nic_keeps_the_image_aware_english_name(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::response($this->geminiApiResponse([
+                'document_number' => '993100900V',
+                'full_name' => 'Madikes Paramanandake Poojana Sasithu',
+                'full_name_lines' => [],
+                'address' => '07, Prasewas Mawatha, Puttalam',
+                'address_lines' => [],
+                'full_name_original' => 'මැඩිකේස් පරමානන්දකේ පූජන සසිතු',
+                'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+            ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('old-nic-front.jpg', 600, 400);
+        $result = app(GeminiDocumentService::class)->extract($front->getRealPath(), 'image/jpeg', null, null, false, 'nic');
+
+        $this->assertSame('Madikes Paramanandake Poojana Sasithu', $result['full_name']);
+        Http::assertSentCount(1);
+    }
+
     public function test_old_nic_with_english_identity_fields_passes_verification(): void
     {
         $this->mockGemini([
