@@ -136,6 +136,11 @@ class GeminiDocumentService
             }
         }
 
+        // Old NICs commonly contain Sinhala and Tamil only. A phonetic English
+        // rendering is not an authoritative spelling, so present the exact
+        // Sinhala text whenever Gemini was able to read it.
+        $this->preferSinhalaForLegacyNic($result, $documentType);
+
         if (filled($result['full_name'])
             && preg_match('/\p{Latin}/u', $result['full_name']) === 1
             && mb_strtoupper($result['full_name']) === $result['full_name']) {
@@ -212,10 +217,11 @@ Extract only text visibly supported by the document:
 - document_number: the primary number for the uploaded document type.
 - nic_number: the holder's Sri Lankan NIC number. A valid Sri Lankan NIC is either exactly 9 digits followed by V or X, or exactly 12 digits. Preserve all digits and the final V/X. On a Sri Lankan driving licence this is specifically field 4c; never return field 5 here.
 - driving_license_number: only the driving-licence number printed at field 5 (often one letter followed by seven digits). Keep this separate from nic_number.
-- full_name_lines: one English array item for EACH physical printed line belonging to the holder's name. Start after the name label and continue through every consecutive name line until the next field label (such as date of birth, sex, or address). A long name commonly wraps onto two or more lines; never stop after the first line and never omit the final name line. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained. Do not put the combined name in one array item.
-- full_name: copy the holder's printed English name exactly, character-for-character, with every full_name_lines item joined in printed order. Do not correct spelling, shorten it, use a parent/guardian name, or transliterate when a printed English name exists. Only transliterate when no English name exists anywhere on the document.
-- address_lines: one English array item for each physical printed address line, stopping at the next field label.
-- address: copy the complete printed English residential address exactly, including house numbers and postal codes. Do not correct spelling, replace a locality, translate, or infer missing parts when a printed English address exists.
+- For an old NIC (9 digits followed by V or X): when Sinhala text is visible, set full_name and address to that exact Sinhala text, preserving its characters and order. Do not translate, transliterate, correct, shorten, or replace it with the Tamil duplicate. Set full_name_original and address_original to the same Sinhala values. Use Tamil only when Sinhala is absent.
+- full_name_lines: one item for EACH physical printed line belonging to the holder's name, in the selected source script for an old NIC and exact printed English for other documents. Start after the name label and continue through every consecutive name line until the next field label. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained.
+- full_name: copy the selected printed name exactly, character-for-character. For documents that print English, use that English value exactly. Do not correct spelling, shorten it, or use a parent/guardian name.
+- address_lines: one item for each physical address line in the selected source script for an old NIC, otherwise exact printed English.
+- address: copy the complete selected printed residential address exactly, including house numbers and postal codes. Do not translate, correct spelling, replace a locality, or infer missing parts.
 - full_name_original and address_original: the source-script values when Sinhala or Tamil was used; otherwise empty strings.
 
 confidence is a number from 0 to 100 describing visual readability only. Cross-check repeated Sinhala, Tamil, and English text and both document sides, but use only one language version of each field; do not concatenate equivalent translations as separate name or address lines. Do not infer, autocomplete, correct from world knowledge, or invent obscured characters. Return an empty string for an unreadable string field and an empty array for unreadable line arrays.
@@ -420,6 +426,26 @@ PROMPT;
         return ! str_ends_with($field, '_original')
             && strlen($candidateComparable) > strlen($currentComparable)
             && str_contains($candidateComparable, $currentComparable);
+    }
+
+    private function preferSinhalaForLegacyNic(array &$result, ?string $documentType): void
+    {
+        if ($this->normalizeDocumentType($documentType) !== 'nic'
+            || preg_match('/^\d{9}[VX]$/', $this->normalizeNicNumber((string) data_get($result, 'document_number'))) !== 1) {
+            return;
+        }
+
+        foreach (['full_name', 'address'] as $field) {
+            $original = trim((string) data_get($result, $field.'_original'));
+            if ($this->containsSinhala($original)) {
+                $result[$field] = $original;
+            }
+        }
+    }
+
+    private function containsSinhala(string $value): bool
+    {
+        return preg_match('/[\x{0D80}-\x{0DFF}]/u', $value) === 1;
     }
 
     private function cleanExtractedLines($lines): array

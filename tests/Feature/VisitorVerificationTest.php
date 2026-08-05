@@ -213,6 +213,47 @@ class VisitorVerificationTest extends TestCase
         $this->assertSame('Nimal Perera Nimal Perera', $result['full_name']);
     }
 
+    public function test_old_nic_preserves_sinhala_name_and_address_without_transliteration(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::response($this->geminiApiResponse([
+                'document_number' => '993100900V',
+                'full_name' => 'Madush Paranduke Pooja Sadru',
+                'full_name_lines' => [],
+                'address' => '07, Prasevas Mawatha, Puttalam',
+                'address_lines' => [],
+                'full_name_original' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
+                'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+            ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('old-nic-front.jpg', 600, 400);
+        $result = app(GeminiDocumentService::class)->extract($front->getRealPath(), 'image/jpeg', null, null, false, 'nic');
+
+        $this->assertSame('මදුෂ් පරමානන්දකේ පූජන සදරු', $result['full_name']);
+        $this->assertSame('07, ප්‍රසේවස් මාවත, පුත්තලම', $result['address']);
+    }
+
+    public function test_old_nic_with_sinhala_identity_fields_passes_verification(): void
+    {
+        $this->mockGemini([
+            'document_number' => '993100900V',
+            'full_name' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
+            'address' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+            'full_name_original' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
+            'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('old-nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('old-nic-back.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'මදුෂ් පරමානන්දකේ පූජන සදරු')
+            ->assertJsonPath('data.address', '07, ප්‍රසේවස් මාවත, පුත්තලම');
+    }
+
     public function test_it_does_not_continue_when_name_or_address_is_missing(): void
     {
         $this->mockGemini(['document_number' => '200124103810']);

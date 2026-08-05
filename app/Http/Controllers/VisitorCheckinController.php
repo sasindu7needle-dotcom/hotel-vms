@@ -78,8 +78,12 @@ class VisitorCheckinController extends Controller
             }
         }
 
-        $parsed['full_name_latin'] = (string) data_get($parsed, 'full_name', '');
-        $parsed['address_latin'] = (string) data_get($parsed, 'address', '');
+        $parsed['full_name_latin'] = $this->containsSinhalaOrTamil((string) data_get($parsed, 'full_name'))
+            ? ''
+            : (string) data_get($parsed, 'full_name', '');
+        $parsed['address_latin'] = $this->containsSinhalaOrTamil((string) data_get($parsed, 'address'))
+            ? ''
+            : (string) data_get($parsed, 'address', '');
         if ($docType === 'nic') {
             $parsed['document_number'] = $this->normalizeDocumentNumber((string) data_get($parsed, 'document_number', ''), $docType);
         } elseif ($docType === 'driving_license') {
@@ -644,9 +648,15 @@ class VisitorCheckinController extends Controller
         $length = mb_strlen($value);
         if ($length < ($field === 'name' ? 5 : 8)
             || $length > ($field === 'name' ? 180 : 400)
-            || $this->containsSinhalaOrTamil($value)
             || preg_match('/[\{\}\[\]=<>|\\\\]/u', $value)) {
             return false;
+        }
+
+        if ($this->containsSinhalaOrTamil($value)) {
+            $nativeCharacters = $this->nativeLetterCount($value);
+
+            return $nativeCharacters >= ($field === 'name' ? 4 : 6)
+                && ($field === 'name' || preg_match('/\p{N}|[\p{L}\p{M}]{3,}/u', $value) === 1);
         }
 
         $allowed = mb_strlen((string) preg_replace('/[^\p{Latin}\p{N}\s,.\'\/\-#()]/u', '', $value));
