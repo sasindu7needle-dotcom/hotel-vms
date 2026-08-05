@@ -213,34 +213,41 @@ class VisitorVerificationTest extends TestCase
         $this->assertSame('Nimal Perera Nimal Perera', $result['full_name']);
     }
 
-    public function test_old_nic_preserves_sinhala_name_and_address_without_transliteration(): void
+    public function test_old_nic_translates_the_exact_sinhala_name_and_address_to_english(): void
     {
         config()->set('services.gemini.api_key', 'test-key');
         Http::fake([
-            'generativelanguage.googleapis.com/*' => Http::response($this->geminiApiResponse([
-                'document_number' => '993100900V',
-                'full_name' => 'Madush Paranduke Pooja Sadru',
-                'full_name_lines' => [],
-                'address' => '07, Prasevas Mawatha, Puttalam',
-                'address_lines' => [],
-                'full_name_original' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
-                'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
-            ])),
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'document_number' => '993100900V',
+                    'full_name' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
+                    'full_name_lines' => [],
+                    'address' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+                    'address_lines' => [],
+                    'full_name_original' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
+                    'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+                ]))
+                ->push($this->geminiApiResponse([
+                    'full_name' => 'Madush Paramanandake Poojana Sadaru',
+                    'address' => '07, Prasewas Mawatha, Puttalam',
+                ])),
         ]);
 
         $front = UploadedFile::fake()->image('old-nic-front.jpg', 600, 400);
         $result = app(GeminiDocumentService::class)->extract($front->getRealPath(), 'image/jpeg', null, null, false, 'nic');
 
-        $this->assertSame('මදුෂ් පරමානන්දකේ පූජන සදරු', $result['full_name']);
-        $this->assertSame('07, ප්‍රසේවස් මාවත, පුත්තලම', $result['address']);
+        $this->assertSame('Madush Paramanandake Poojana Sadaru', $result['full_name']);
+        $this->assertSame('07, Prasewas Mawatha, Puttalam', $result['address']);
+        $this->assertSame('මදුෂ් පරමානන්දකේ පූජන සදරු', $result['full_name_original']);
+        $this->assertSame('07, ප්‍රසේවස් මාවත, පුත්තලම', $result['address_original']);
     }
 
-    public function test_old_nic_with_sinhala_identity_fields_passes_verification(): void
+    public function test_old_nic_with_english_identity_fields_passes_verification(): void
     {
         $this->mockGemini([
             'document_number' => '993100900V',
-            'full_name' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
-            'address' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
+            'full_name' => 'Madush Paramanandake Poojana Sadaru',
+            'address' => '07, Prasewas Mawatha, Puttalam',
             'full_name_original' => 'මදුෂ් පරමානන්දකේ පූජන සදරු',
             'address_original' => '07, ප්‍රසේවස් මාවත, පුත්තලම',
         ]);
@@ -250,8 +257,8 @@ class VisitorVerificationTest extends TestCase
             'document_front_image' => UploadedFile::fake()->image('old-nic-front.jpg', 800, 500),
             'document_back_image' => UploadedFile::fake()->image('old-nic-back.jpg', 800, 500),
         ])->assertOk()
-            ->assertJsonPath('data.full_name', 'මදුෂ් පරමානන්දකේ පූජන සදරු')
-            ->assertJsonPath('data.address', '07, ප්‍රසේවස් මාවත, පුත්තලම');
+            ->assertJsonPath('data.full_name', 'Madush Paramanandake Poojana Sadaru')
+            ->assertJsonPath('data.address', '07, Prasewas Mawatha, Puttalam');
     }
 
     public function test_it_does_not_continue_when_name_or_address_is_missing(): void

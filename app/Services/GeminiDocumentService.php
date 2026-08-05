@@ -43,37 +43,7 @@ class GeminiDocumentService
         $model = trim((string) config('services.gemini.model', 'gemini-1.5-flash'));
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
             .rawurlencode($model).':generateContent';
-        $request = Http::acceptJson()
-            ->withHeaders(['x-goog-api-key' => $apiKey])
-            ->connectTimeout(8)
-            ->timeout(60);
-
-        $caBundle = config('services.gemini.ca_bundle');
-        if (filled($caBundle)) {
-            $path = str_starts_with((string) $caBundle, '/')
-                || preg_match('/^[A-Za-z]:[\\\/]/', (string) $caBundle)
-                ? (string) $caBundle
-                : base_path((string) $caBundle);
-            $request = $request->withOptions(['verify' => $path]);
-        } else {
-            $candidates = array_filter([
-                ini_get('curl.cainfo'),
-                ini_get('openssl.cafile'),
-                'C:\\xampp\\apache\\bin\\curl-ca-bundle.crt',
-                'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
-            ]);
-            $foundBundle = false;
-            foreach ($candidates as $candidate) {
-                if (is_string($candidate) && file_exists($candidate)) {
-                    $request = $request->withOptions(['verify' => $candidate]);
-                    $foundBundle = true;
-                    break;
-                }
-            }
-            if (! $foundBundle && app()->isLocal()) {
-                $request = $request->withOptions(['verify' => false]);
-            }
-        }
+        $request = $this->geminiRequest($apiKey, 60);
 
         try {
             $response = $request->post($url, [
@@ -136,10 +106,10 @@ class GeminiDocumentService
             }
         }
 
-        // Old NICs commonly contain Sinhala and Tamil only. A phonetic English
-        // rendering is not an authoritative spelling, so present the exact
-        // Sinhala text whenever Gemini was able to read it.
-        $this->preferSinhalaForLegacyNic($result, $documentType);
+        // Preserve the exact Sinhala/Tamil transcription separately, then use
+        // Gemini to produce the English value shown to the visitor. This keeps
+        // the English rendering tied to the text actually read from the NIC.
+        $this->translateNativeIdentityFields($result);
 
         if (filled($result['full_name'])
             && preg_match('/\p{Latin}/u', $result['full_name']) === 1
@@ -217,12 +187,12 @@ Extract only text visibly supported by the document:
 - document_number: the primary number for the uploaded document type.
 - nic_number: the holder's Sri Lankan NIC number. A valid Sri Lankan NIC is either exactly 9 digits followed by V or X, or exactly 12 digits. Preserve all digits and the final V/X. On a Sri Lankan driving licence this is specifically field 4c; never return field 5 here.
 - driving_license_number: only the driving-licence number printed at field 5 (often one letter followed by seven digits). Keep this separate from nic_number.
-- For an old NIC (9 digits followed by V or X): when Sinhala text is visible, set full_name and address to that exact Sinhala text, preserving its characters and order. Do not translate, transliterate, correct, shorten, or replace it with the Tamil duplicate. Set full_name_original and address_original to the same Sinhala values. Use Tamil only when Sinhala is absent.
-- full_name_lines: one item for EACH physical printed line belonging to the holder's name, in the selected source script for an old NIC and exact printed English for other documents. Start after the name label and continue through every consecutive name line until the next field label. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained.
-- full_name: copy the selected printed name exactly, character-for-character. For documents that print English, use that English value exactly. Do not correct spelling, shorten it, or use a parent/guardian name.
-- address_lines: one item for each physical address line in the selected source script for an old NIC, otherwise exact printed English.
-- address: copy the complete selected printed residential address exactly, including house numbers and postal codes. Do not translate, correct spelling, replace a locality, or infer missing parts.
-- full_name_original and address_original: the source-script values when Sinhala or Tamil was used; otherwise empty strings.
+- When Sinhala or Tamil is visible, first transcribe the clearest single language version exactly into full_name_original and address_original. Prefer Sinhala; use Tamil only when Sinhala is absent. Do not merge the duplicated language versions.
+- full_name_lines: one item for EACH physical printed line belonging to the holder's name, translated/transliterated into English in the same order. Start after the name label and continue through every consecutive name line until the next field label. A surname repeated on the next physical line is part of the legal name, not a duplicate, and must be retained.
+- full_name: English for the exact printed holder name. For Sinhala/Tamil names, use a faithful Latin-script transliteration of every name component in order, not a shortened name, parent/guardian name, or guessed common spelling. For documents that print English, copy that English value exactly.
+- address_lines: one item for each physical address line, translated into English in the same order.
+- address: complete English rendering of the exact printed residential address, including house numbers and postal codes. Translate address words and transliterate proper place names; do not omit, replace, or infer any part.
+- full_name_original and address_original: exact source-script transcriptions when Sinhala or Tamil was used; otherwise empty strings.
 
 confidence is a number from 0 to 100 describing visual readability only. Cross-check repeated Sinhala, Tamil, and English text and both document sides, but use only one language version of each field; do not concatenate equivalent translations as separate name or address lines. Do not infer, autocomplete, correct from world knowledge, or invent obscured characters. Return an empty string for an unreadable string field and an empty array for unreadable line arrays.
 PROMPT;
@@ -428,24 +398,128 @@ PROMPT;
             && str_contains($candidateComparable, $currentComparable);
     }
 
-    private function preferSinhalaForLegacyNic(array &$result, ?string $documentType): void
+    /**
+     * Translate the exact native-script transcription, rather than asking the
+     * image reader to guess a Latin spelling from a noisy card image.
+     */
+    private function translateNativeIdentityFields(array &$result): void
     {
-        if ($this->normalizeDocumentType($documentType) !== 'nic'
-            || preg_match('/^\d{9}[VX]$/', $this->normalizeNicNumber((string) data_get($result, 'document_number'))) !== 1) {
+        $source = [];
+        foreach (['full_name', 'address'] as $field) {
+            $original = trim((string) data_get($result, $field.'_original'));
+            $current = trim((string) data_get($result, $field));
+            $native = $this->containsSinhalaOrTamil($original)
+                ? $original
+                : ($this->containsSinhalaOrTamil($current) ? $current : '');
+
+            if ($native !== '') {
+                $result[$field.'_original'] = $native;
+                $source[$field] = $native;
+            }
+        }
+
+        if ($source === []) {
             return;
         }
 
-        foreach (['full_name', 'address'] as $field) {
-            $original = trim((string) data_get($result, $field.'_original'));
-            if ($this->containsSinhala($original)) {
-                $result[$field] = $original;
+        try {
+            $translation = $this->translateExactNicText($source);
+            foreach ($source as $field => $native) {
+                $english = trim((string) data_get($translation, $field));
+                if ($english !== '' && ! $this->containsSinhalaOrTamil($english)) {
+                    $result[$field] = $english;
+                }
             }
+        } catch (\Throwable $exception) {
+            Log::info('Gemini NIC text translation failed; keeping the extraction result.', [
+                'message' => $exception->getMessage(),
+            ]);
         }
     }
 
-    private function containsSinhala(string $value): bool
+    private function translateExactNicText(array $source): array
     {
-        return preg_match('/[\x{0D80}-\x{0DFF}]/u', $value) === 1;
+        $apiKey = trim((string) config('services.gemini.api_key'));
+        $model = trim((string) config('services.gemini.model', 'gemini-1.5-flash'));
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+            .rawurlencode($model).':generateContent';
+
+        $response = $this->geminiRequest($apiKey, 30)
+            ->post($url, [
+                'contents' => [[
+                    'role' => 'user',
+                    'parts' => [[
+                        'text' => 'Convert these exact Sri Lankan NIC fields to English. '
+                            .'For full_name, faithfully transliterate every name component into Latin script; do not shorten, translate its meaning, or guess an alternative spelling. '
+                            .'For address, translate address words and transliterate proper place names while preserving every number and component. '
+                            .'Return only JSON with full_name and address strings. Input: '
+                            .json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    ]],
+                ]],
+                'generationConfig' => [
+                    'temperature' => 0,
+                    'responseMimeType' => 'application/json',
+                    'responseJsonSchema' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'full_name' => ['type' => 'string'],
+                            'address' => ['type' => 'string'],
+                        ],
+                        'required' => ['full_name', 'address'],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ]);
+
+        if (! $response->successful()) {
+            throw new RuntimeException('Gemini rejected the NIC text translation.');
+        }
+
+        $text = collect(data_get($response->json(), 'candidates.0.content.parts', []))
+            ->pluck('text')
+            ->filter()
+            ->implode('');
+        $decoded = json_decode($this->cleanGeminiJsonResponse($text), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function geminiRequest(string $apiKey, int $timeout)
+    {
+        $request = Http::acceptJson()
+            ->withHeaders(['x-goog-api-key' => $apiKey])
+            ->connectTimeout(8)
+            ->timeout($timeout);
+
+        $caBundle = config('services.gemini.ca_bundle');
+        if (filled($caBundle)) {
+            $path = str_starts_with((string) $caBundle, '/')
+                || preg_match('/^[A-Za-z]:[\\\/]/', (string) $caBundle)
+                ? (string) $caBundle
+                : base_path((string) $caBundle);
+
+            return $request->withOptions(['verify' => $path]);
+        }
+
+        foreach (array_filter([
+            ini_get('curl.cainfo'),
+            ini_get('openssl.cafile'),
+            'C:\\xampp\\apache\\bin\\curl-ca-bundle.crt',
+            'C:\\Program Files\\Git\\mingw64\\etc\\ssl\\certs\\ca-bundle.crt',
+        ]) as $candidate) {
+            if (is_string($candidate) && file_exists($candidate)) {
+                return $request->withOptions(['verify' => $candidate]);
+            }
+        }
+
+        return app()->isLocal()
+            ? $request->withOptions(['verify' => false])
+            : $request;
+    }
+
+    private function containsSinhalaOrTamil(string $value): bool
+    {
+        return preg_match('/[\x{0B80}-\x{0BFF}\x{0D80}-\x{0DFF}]/u', $value) === 1;
     }
 
     private function cleanExtractedLines($lines): array
