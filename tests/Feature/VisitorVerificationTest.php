@@ -75,6 +75,22 @@ class VisitorVerificationTest extends TestCase
 
         $this->assertFalse($gemini->isValidSriLankanNic('1234567890'));
         $this->assertFalse($gemini->isValidSriLankanNic('12345678901'));
+        $this->assertFalse($gemini->isValidSriLankanNic('200100012345'));
+        $this->assertFalse($gemini->isValidSriLankanNic('200149912345'));
+        $this->assertFalse($gemini->isValidSriLankanNic('209912312345'));
+    }
+
+    public function test_driving_licence_fallback_separates_field_4c_nic_from_field_5_licence_number(): void
+    {
+        $method = new \ReflectionMethod(VisitorCheckinController::class, 'combineTesseractIdentityFields');
+        $text = "DRIVING LICENCE\n4c 200109402239\n5 B1234567\nSURNAME\nPERERA\nOTHER NAMES\nNIMAL KAMAL\nPERMANENT PLACE OF RESIDENCE\nNO. 8\nKANDY ROAD\nKANDY";
+
+        $parsed = $method->invoke(app(VisitorCheckinController::class), $text, $text, 'driving_license', '');
+
+        $this->assertSame('200109402239', $parsed['nic_number']);
+        $this->assertSame('B1234567', $parsed['driving_license_number']);
+        $this->assertSame('NIMAL KAMAL PERERA', $parsed['full_name']);
+        $this->assertSame('NO. 8, KANDY ROAD, KANDY', $parsed['address']);
     }
 
     public function test_gemini_parser_accepts_nic_aliases_markdown_and_text_fallback(): void
@@ -400,6 +416,68 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('data.full_name', 'Nimal Perera')
             ->assertJsonPath('data.back_photo_path', null);
 
+    }
+
+    public function test_missing_gemini_configuration_never_falls_back_to_bad_form_values(): void
+    {
+        config()->set('services.gemini.api_key', null);
+        config()->set('services.gemini.allow_tesseract_fallback', false);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 800, 500),
+        ])->assertStatus(503)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 'gemini_not_configured');
+
+        $this->assertNull(session('verification'));
+    }
+
+    public function test_document_labels_cannot_be_accepted_as_the_holder_name(): void
+    {
+        $this->mockGemini([
+            'document_number' => '200127703388',
+            'full_name' => 'Place of Birth HAMBANTOTA',
+            'address' => '89/1, Galle Road, Colombo',
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 800, 500),
+        ])->assertUnprocessable()
+            ->assertJsonPath('code', 'incomplete_identity_fields');
+
+        $this->assertNull(session('verification'));
+    }
+
+    public function test_driving_licence_identity_survives_face_capture_and_prefills_registration(): void
+    {
+        $this->mockGemini([
+            'document_number' => 'B1234567',
+            'nic_number' => '200109402239',
+            'driving_license_number' => 'B1234567',
+            'full_name' => 'Nimal Kamal Perera',
+            'address' => 'No. 8, Kandy Road, Kandy',
+        ]);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'driving_license',
+            'document_front_image' => UploadedFile::fake()->image('licence-front.jpg', 900, 560),
+        ])->assertOk()
+            ->assertJsonPath('data.document_number', '200109402239')
+            ->assertJsonPath('data.driving_license_number', 'B1234567');
+
+        $this->postJson(route('visitor.capture_photo'), [
+            'selfie' => UploadedFile::fake()->image('face.jpg', 1280, 960),
+        ])->assertOk();
+
+        $this->get(route('visitor.create', ['type' => 'driving_license']))
+            ->assertOk()
+            ->assertSee('Nimal Kamal Perera')
+            ->assertSee('200109402239')
+            ->assertSee('No. 8, Kandy Road, Kandy');
     }
 
     public function test_it_verifies_a_passport_identity_page_without_a_back_image(): void

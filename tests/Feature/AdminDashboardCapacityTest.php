@@ -27,6 +27,7 @@ class AdminDashboardCapacityTest extends TestCase
             ->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('EVENT OCCUPANCY CONTROL')
+            ->assertSee('Receipt Manager')
             ->assertSee('Update Count');
 
         $this->withSession($session)

@@ -35,4 +35,21 @@ class AdminEventConfigurationController extends Controller
             ->route('admin.configurations.event.edit')
             ->with('status', 'Event configuration saved successfully.');
     }
+
+    public function destroy(): RedirectResponse
+    {
+        $eventConfiguration = EventConfiguration::where('singleton_key', EventConfiguration::SINGLETON_KEY)->first();
+
+        if (! $eventConfiguration) {
+            return redirect()
+                ->route('admin.configurations.event.edit')
+                ->with('status', 'There is no event configuration to remove.');
+        }
+
+        $eventConfiguration->delete();
+
+        return redirect()
+            ->route('admin.configurations.event.edit')
+            ->with('status', 'Event configuration removed successfully.');
+    }
 }

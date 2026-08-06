@@ -14,30 +14,59 @@
 <div class="admin-dashboard-shell">
     <aside id="adminSidebar" class="admin-sidebar">
         <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+        @php
+            $perms = session('admin_permissions');
+            $isSuperadmin = session('superadmin_authenticated', false);
+            $canAccess = fn($section) => $isSuperadmin || empty($perms) || in_array($section, (array) $perms);
+            // Receipt Manager was added after the first admin accounts. Visitor
+            // access remains a valid permission for this payment workflow.
+            $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
+        @endphp
         <nav aria-label="Admin navigation">
-            <a href="{{ route('admin.dashboard') }}" class="admin-nav-link @if(request()->routeIs('admin.dashboard*')) active @endif"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
-            <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link @if(request()->routeIs('admin.visitors*')) active @endif"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path></svg><span>Visitors</span></a>
-            <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
-                <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
-                    <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63h.01A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9v.01A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
-                    <span>Master Configurations</span>
-                    <svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
-                </button>
-                <div class="admin-nav-subtabs">
-                    <a href="{{ route('admin.configurations.event.edit') }}" class="@if(request()->routeIs('admin.configurations.event*')) active @endif">Event Configurations</a>
-                    <a href="{{ route('admin.configurations.capacity.edit') }}" class="@if(request()->routeIs('admin.configurations.capacity*')) active @endif">Occupancy Limit</a>
-                    <a href="{{ route('admin.configurations.categories.index') }}" class="@if(request()->routeIs('admin.configurations.categories*')) active @endif">Visitor Categories</a>
-                    <a href="{{ route('admin.configurations.users.index') }}" class="@if(request()->routeIs('admin.configurations.users*')) active @endif">Users &amp; Access</a>
+            @if($canAccess('Dashboard'))
+                <a href="{{ route('admin.dashboard') }}" class="admin-nav-link @if(request()->routeIs('admin.dashboard*')) active @endif"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
+            @endif
+
+            @if($canAccess('Visitors'))
+                <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link @if(request()->routeIs('admin.visitors*')) active @endif"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path></svg><span>Visitors</span></a>
+            @endif
+
+            @if($canAccessReceipts)
+                <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link @if(request()->routeIs('admin.receipts*')) active @endif"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>
+            @endif
+
+            @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
+                <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
+                        <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63h.01A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9v.01A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
+                        <span>Master Configurations</span>
+                        <svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Event Configurations'))
+                            <a href="{{ route('admin.configurations.event.edit') }}" class="@if(request()->routeIs('admin.configurations.event*')) active @endif">Event Configurations</a>
+                        @endif
+                        @if($canAccess('Occupancy Limit'))
+                            <a href="{{ route('admin.configurations.capacity.edit') }}" class="@if(request()->routeIs('admin.configurations.capacity*')) active @endif">Occupancy Limit</a>
+                        @endif
+                        @if($canAccess('Visitor Categories'))
+                            <a href="{{ route('admin.configurations.categories.index') }}" class="@if(request()->routeIs('admin.configurations.categories*')) active @endif">Visitor Categories</a>
+                        @endif
+                        @if($canAccess('Users & Access'))
+                            <a href="{{ route('admin.configurations.users.index') }}" class="@if(request()->routeIs('admin.configurations.users*')) active @endif">Users &amp; Access</a>
+                        @endif
+                    </div>
                 </div>
-            </div>
+            @endif
         </nav>
+
         <form action="{{ route('admin.logout') }}" method="POST" class="admin-logout-form">@csrf<button type="submit" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg><span>Sign Out</span></button></form>
     </aside>
     <main class="admin-main">
         <header class="admin-topbar">
             <button id="adminMenuToggle" class="admin-menu-toggle" aria-label="Open navigation" aria-controls="adminSidebar" aria-expanded="false"><span></span><span></span><span></span></button>
             @yield('header')
-            <div class="admin-user-chip"><span>A</span><div><strong>{{ session('admin_username') }}</strong><small>Administrator</small></div></div>
+            <div class="admin-user-chip"><span>A</span><div><strong>{{ session('admin_username') }}</strong><small>{{ session('admin_role', 'Administrator') }}</small></div></div>
         </header>
         @yield('content')
     </main>

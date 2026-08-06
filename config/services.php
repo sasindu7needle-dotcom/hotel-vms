@@ -44,6 +44,7 @@ return [
         'api_key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
         'ca_bundle' => env('GEMINI_CA_BUNDLE', env('GOOGLE_VISION_CA_BUNDLE')),
+        'allow_tesseract_fallback' => env('GEMINI_ALLOW_TESSERACT_FALLBACK', false),
     ],
 
 ];

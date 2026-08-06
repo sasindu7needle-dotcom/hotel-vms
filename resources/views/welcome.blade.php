@@ -18,6 +18,7 @@
             </p>
             <div class="cta-buttons">
                 <a href="{{ route('visitor.start') }}" class="btn btn-primary btn-large">Register</a>
+                <a href="{{ route('visitor.manual.create') }}" class="btn btn-secondary btn-large">Manual Registration</a>
             </div>
         </div>
 

@@ -92,17 +92,37 @@
     <div class="admin-dashboard-shell">
         <aside id="adminSidebar" class="admin-sidebar">
             <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+            @php
+                $permissions = session('admin_permissions', []);
+                $isSuperadmin = session('superadmin_authenticated', false);
+                $canAccess = fn ($permission) => $isSuperadmin || empty($permissions) || in_array($permission, (array) $permissions);
+                $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
+            @endphp
             <nav aria-label="Admin navigation">
-                <a href="{{ route('admin.dashboard') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
-                <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                @if($canAccess('Dashboard'))
+                    <a href="{{ route('admin.dashboard') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
+                @endif
+                @if($canAccess('Visitors'))
+                    <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                @endif
+                @if($canAccessReceipts)
+                    <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>
+                @endif
+                @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
                 <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
                     <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
                         <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.92V21h-4v-.08A1.7 1.7 0 0 0 9 19.37l-1.94.4-2.83-2.83.4-1.94A1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9l-.4-1.94 2.83-2.83L9 4.63A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63l1.94-.4 2.83 2.83-.4 1.94A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
                         <span>Master Configurations</span>
                         <svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
                     </button>
-                    <div class="admin-nav-subtabs"><a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a><a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a><a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a><a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a></div>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>@endif
+                        @if($canAccess('Occupancy Limit'))<a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a>@endif
+                        @if($canAccess('Visitor Categories'))<a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>@endif
+                        @if($canAccess('Users & Access'))<a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a>@endif
+                    </div>
                 </div>
+                @endif
             </nav>
             <form action="{{ route('admin.logout') }}" method="POST" class="admin-logout-form">@csrf<button type="submit" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg><span>Sign Out</span></button></form>
         </aside>
@@ -134,7 +154,7 @@
             <section class="admin-panel admin-visitors-panel">
                 <form method="GET" action="{{ route('admin.visitors.index') }}" class="admin-visitor-filters">
                     <div class="admin-search-field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg><input name="search" value="{{ data_get($filters, 'search') }}" placeholder="Search name, NIC, phone or company…" aria-label="Search visitors"></div>
-                    <select name="payment_status" aria-label="Filter by payment"><option value="">All payments</option>@foreach(['pending' => 'Pending', 'cash_pending' => 'Cash pending', 'card_pending' => 'Card pending', 'paid' => 'Paid'] as $value => $label)<option value="{{ $value }}" @selected(data_get($filters, 'payment_status') === $value)>{{ $label }}</option>@endforeach</select>
+                    <select name="payment_status" aria-label="Filter by payment"><option value="">All payments</option>@foreach(['pending' => 'Pending', 'paid' => 'Paid'] as $value => $label)<option value="{{ $value }}" @selected(data_get($filters, 'payment_status') === $value)>{{ $label }}</option>@endforeach</select>
                     <select name="checkin_status" aria-label="Filter by check-in"><option value="">All locations</option><option value="inside" @selected(data_get($filters, 'checkin_status') === 'inside')>Currently inside</option><option value="outside" @selected(data_get($filters, 'checkin_status') === 'outside')>Not inside</option></select>
                     <button class="btn btn-primary" type="submit">Filter</button>
                     @if(request()->hasAny(['search', 'payment_status', 'checkin_status']))<a href="{{ route('admin.visitors.index') }}" class="admin-clear-filter">Clear</a>@endif
@@ -148,6 +168,11 @@
                                 @php
                                     $mediaVersion = $visitor->updated_at?->format('Uu') ?: $visitor->id;
                                 @endphp
+                                @php
+                                    $displayPaymentStatus = in_array($visitor->payment_status, ['cash_pending', 'card_pending'], true)
+                                        ? 'pending'
+                                        : $visitor->payment_status;
+                                @endphp
                                 <tr>
                                     <td class="admin-record-index">{{ ($visitors->firstItem() ?: 1) + $loop->index }}</td>
                                     <td><div class="admin-visitor-cell">
@@ -156,7 +181,7 @@
                                     </div></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->category ?: 'Not assigned' }}</strong><small class="admin-cell-secondary">{{ $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : 'No fee' }}</small></td>
-                                    <td><div class="admin-status-stack"><span class="admin-payment-badge admin-payment-{{ $visitor->payment_status }}">{{ strtoupper(str_replace('_', ' ', $visitor->payment_status)) }}</span><small class="admin-status-detail">{{ strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: 'Not selected')) }}</small></div></td>
+                                    <td><div class="admin-status-stack"><span class="admin-payment-badge admin-payment-{{ $displayPaymentStatus }}">{{ strtoupper($displayPaymentStatus) }}</span><small class="admin-status-detail">{{ strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: 'Not selected')) }}</small></div></td>
                                     <td><div class="admin-status-stack"><span class="admin-face-badge admin-face-status-{{ $visitor->selfie_path ? 'verified' : 'pending' }}">{{ $visitor->selfie_path ? 'Photo captured' : 'Pending' }}</span><small class="admin-status-detail">{{ $visitor->selfie_path ? 'Stored with visitor record' : 'No visitor photo' }}</small></div></td>
                                     <td>{{ ($visitor->verified_at ?: $visitor->created_at)?->format('M j, Y') }}<small class="admin-cell-secondary">{{ ($visitor->verified_at ?: $visitor->created_at)?->format('g:i A') }}</small></td>
                                     <td><div class="admin-row-actions"><button type="button" class="admin-view-button" data-dialog="visitor-{{ $visitor->id }}">View</button>@if($visitor->selfie_path)<a class="admin-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print</a>@else<span class="admin-print-button admin-print-disabled" title="A captured visitor photo is required">Print</span>@endif<button type="button" class="admin-edit-button" data-dialog="edit-visitor-{{ $visitor->id }}">Edit</button><button type="button" class="admin-row-delete-button" data-dialog="delete-visitor-{{ $visitor->id }}" aria-label="Delete {{ $visitor->full_name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg></button></div></td>
@@ -189,7 +214,7 @@
                                     'Category' => $visitor->category,
                                     'Entrance Fee' => $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : null,
                                     'Payment Method' => strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: '')),
-                                    'Payment Status' => strtoupper(str_replace('_', ' ', $visitor->payment_status)),
+                                    'Payment Status' => strtoupper(in_array($visitor->payment_status, ['cash_pending', 'card_pending'], true) ? 'pending' : $visitor->payment_status),
                                     'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',
                                     'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
                                     'Visitor Photo' => $visitor->selfie_path ? 'CAPTURED' : 'NOT CAPTURED',
@@ -248,7 +273,7 @@
                                 <label>Category<input name="category" value="{{ $visitor->category }}"></label>
                                 <label>Entrance fee<input name="entrance_fee" type="number" min="0" step="0.01" value="{{ $visitor->entrance_fee }}"></label>
                                 <label>Payment method<select name="payment_method"><option value="">Not selected</option>@foreach(['cash'=>'Cash','visa_master'=>'Visa / MasterCard','amex'=>'American Express'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_method===$value)>{{ $label }}</option>@endforeach</select></label>
-                                <label>Payment status<select name="payment_status" required>@foreach(['pending'=>'Pending','cash_pending'=>'Cash pending','card_pending'=>'Card pending','paid'=>'Paid'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_status===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label>Payment status<select name="payment_status" required>@foreach(['pending'=>'Pending','paid'=>'Paid'] as $value=>$label)<option value="{{ $value }}" @selected(($value === 'pending' && in_array($visitor->payment_status, ['pending', 'cash_pending', 'card_pending'], true)) || $visitor->payment_status === $value)>{{ $label }}</option>@endforeach</select></label>
                                 <label>Access status<select name="is_blocked" required><option value="0" @selected(!$visitor->is_blocked)>Allowed</option><option value="1" @selected($visitor->is_blocked)>Blocked</option></select></label>
                             </div>
                             <div class="admin-edit-actions"><button type="button" class="admin-modal-close-button" data-close>Cancel</button><div><button type="submit" class="btn btn-primary">Save changes</button></div></div>

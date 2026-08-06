@@ -15,11 +15,13 @@ class VisitorCategory extends Model
         'description',
         'badge_color',
         'entrance_fee',
+        'access_schedule',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'entrance_fee' => 'decimal:2',
+        'access_schedule' => 'array',
     ];
 }

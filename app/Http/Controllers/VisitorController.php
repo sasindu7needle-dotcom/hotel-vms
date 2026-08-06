@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Visitor;
 use App\Models\VerifiedVisitor;
+use App\Models\VisitorCategory;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +28,73 @@ class VisitorController extends Controller
         ]);
 
         return redirect()->route('visitor.create');
+    }
+
+    /** Display the staff-operated registration form for walk-in visitors. */
+    public function manualCreate()
+    {
+        $categories = VisitorCategory::query()->where('is_active', true)->orderBy('name')->get();
+
+        return view('visitor.manual_registration', compact('categories'));
+    }
+
+    /** Store a manually registered visitor in the same directory used by Admin. */
+    public function manualStore(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:180'],
+            'document_type' => ['required', 'in:nic,driving_license,passport'],
+            'document_number' => ['required', 'string', 'max:30'],
+            'mobile_number' => ['required', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
+            'whatsapp_number' => ['nullable', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
+            'address' => ['required', 'string', 'max:500'],
+            'occupation' => ['required', 'string', 'max:100'],
+            'company' => ['required', 'string', 'max:150'],
+            'category_id' => ['nullable', 'exists:visitor_categories,id'],
+            'entrance_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'],
+            'document_front' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'document_back' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'face_photo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+        ]);
+
+        if ($validated['document_type'] === 'nic' && ! $request->hasFile('document_back')) {
+            return back()->withInput()->withErrors(['document_back' => 'Upload the back of the NIC as well.']);
+        }
+
+        $verificationId = (string) Str::uuid();
+        $documentFront = $this->storeManualImage($request->file('document_front'), $verificationId.'-document-front');
+        $documentBack = $request->hasFile('document_back')
+            ? $this->storeManualImage($request->file('document_back'), $verificationId.'-document-back')
+            : null;
+        $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
+        $category = ! empty($validated['category_id']) ? VisitorCategory::find($validated['category_id']) : null;
+
+        $this->persistVerifiedVisitor([
+            'verification_id' => $verificationId,
+            'document_type' => $validated['document_type'],
+            'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
+            'full_name' => $validated['full_name'],
+            'full_name_latin' => $validated['full_name'],
+            'address' => $validated['address'],
+            'address_latin' => $validated['address'],
+            'mobile_number' => $this->normaliseSriLankanPhone($validated['mobile_number']),
+            'whatsapp_number' => $this->normaliseSriLankanPhone($validated['whatsapp_number'] ?: $validated['mobile_number']),
+            'occupation' => $validated['occupation'],
+            'company' => $validated['company'],
+            'category' => $category?->name ?: 'Manual registration',
+            'entrance_fee' => $validated['entrance_fee'],
+            'photo_path' => $documentFront['path'],
+            'photo_mime' => $documentFront['mime'],
+            'back_photo_path' => $documentBack['path'] ?? null,
+            'back_photo_mime' => $documentBack['mime'] ?? null,
+            'selfie_path' => $facePhoto['path'],
+            'selfie_mime' => $facePhoto['mime'],
+            'identity_reviewed_at' => now(),
+            'verified_at' => now(),
+            'ocr_provider' => 'manual_registration',
+        ], ['face_verification_status' => 'manual_review']);
+
+        return redirect()->route('visitor.manual.create')->with('status', 'Visitor registered successfully. Payment can now be confirmed in Receipt Manager.');
     }
 
     /**
@@ -225,7 +293,9 @@ class VisitorController extends Controller
         $request->session()->put('visitor_registration.payment_method', $validated['payment_method']);
 
         $details = $request->session()->get('visitor_registration');
-        $paymentStatus = $validated['payment_method'] === 'cash' ? 'cash_pending' : 'card_pending';
+        // The method is saved separately, so the status remains a clear
+        // state instead of repeating it (for example, Cash + Pending).
+        $paymentStatus = 'pending';
         try {
             $visitor = $this->persistVerifiedVisitor($details, [
                 'payment_method' => $validated['payment_method'],
@@ -451,6 +521,27 @@ class VisitorController extends Controller
             ['verification_id' => $verificationId],
             $values
         );
+    }
+
+    private function storeManualImage($file, string $filename): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $path = $file->storeAs('verified-visitors', $filename.'.'.$extension, 'local');
+
+        return ['path' => $path, 'mime' => $file->getMimeType() ?: 'image/jpeg'];
+    }
+
+    private function normaliseSriLankanPhone(string $number): string
+    {
+        $digits = preg_replace('/\D+/', '', $number);
+        if (str_starts_with($digits, '0')) {
+            $digits = '94'.substr($digits, 1);
+        }
+        if (! str_starts_with($digits, '94')) {
+            $digits = '94'.$digits;
+        }
+
+        return substr($digits, 2);
     }
 
     private function hasCompleteIdentityFields(array $verification): bool

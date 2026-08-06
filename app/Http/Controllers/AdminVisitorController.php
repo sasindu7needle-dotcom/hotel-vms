@@ -17,7 +17,7 @@ class AdminVisitorController extends Controller
     {
         $filters = $request->validate([
             'search' => 'nullable|string|max:100',
-            'payment_status' => 'nullable|in:pending,cash_pending,card_pending,paid',
+            'payment_status' => 'nullable|in:pending,paid',
             'checkin_status' => 'nullable|in:inside,outside',
         ]);
 
@@ -34,7 +34,8 @@ class AdminVisitorController extends Controller
                         ->orWhere('company', 'like', "%{$search}%");
                 });
             })
-            ->when(data_get($filters, 'payment_status'), fn ($query, $status) => $query->where('payment_status', $status))
+            ->when(data_get($filters, 'payment_status') === 'pending', fn ($query) => $query->whereIn('payment_status', ['pending', 'cash_pending', 'card_pending']))
+            ->when(data_get($filters, 'payment_status') === 'paid', fn ($query) => $query->where('payment_status', 'paid'))
             ->when(data_get($filters, 'checkin_status') === 'inside', fn ($query) => $query->whereHas('gateLogs', fn ($logs) => $logs->whereIn('id', $latestGateLogIds)->where('direction', 'in')))
             ->when(data_get($filters, 'checkin_status') === 'outside', fn ($query) => $query->whereDoesntHave('gateLogs', fn ($logs) => $logs->whereIn('id', $latestGateLogIds)->where('direction', 'in')))
             ->latest()
@@ -85,7 +86,7 @@ class AdminVisitorController extends Controller
             'category' => 'nullable|string|max:100',
             'entrance_fee' => 'nullable|numeric|min:0|max:9999999999',
             'payment_method' => 'nullable|in:visa_master,amex,cash',
-            'payment_status' => 'required|in:pending,cash_pending,card_pending,paid',
+            'payment_status' => 'required|in:pending,paid',
             'is_blocked' => 'required|boolean',
         ]);
 
