@@ -38,8 +38,13 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="document_number" class="form-label-premium">NIC/Passport</label>
+                        <label for="document_number" class="form-label-premium">
+                            {{ $type === 'passport' ? 'Passport Number' : 'NIC Number' }}
+                        </label>
                         <input id="document_number" name="document_number" class="form-control-premium @error('document_number') is-invalid @enderror" value="{{ old('document_number', data_get($verification, 'document_number')) }}" required>
+                        @if($type === 'driving_license' && data_get($verification, 'driving_license_number'))
+                            <span class="field-microcopy">NIC read from field 4c · Licence {{ data_get($verification, 'driving_license_number') }}</span>
+                        @endif
                         @error('document_number')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
 

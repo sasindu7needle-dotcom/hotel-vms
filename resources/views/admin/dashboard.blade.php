@@ -30,17 +30,37 @@
     <div class="admin-dashboard-shell">
         <aside id="adminSidebar" class="admin-sidebar">
             <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+            @php
+                $permissions = session('admin_permissions', []);
+                $isSuperadmin = session('superadmin_authenticated', false);
+                $canAccess = fn ($permission) => $isSuperadmin || empty($permissions) || in_array($permission, (array) $permissions);
+                $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
+            @endphp
             <nav aria-label="Admin navigation">
-                <a href="{{ route('admin.dashboard') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
-                <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                @if($canAccess('Dashboard'))
+                    <a href="{{ route('admin.dashboard') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg><span>Dashboard</span></a>
+                @endif
+                @if($canAccess('Visitors'))
+                    <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                @endif
+                @if($canAccessReceipts)
+                    <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>
+                @endif
+                @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
                 <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
                     <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
                         <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.92V21h-4v-.08A1.7 1.7 0 0 0 9 19.37l-1.94.4-2.83-2.83.4-1.94A1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9l-.4-1.94 2.83-2.83L9 4.63A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63l1.94-.4 2.83 2.83-.4 1.94A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
                         <span>Master Configurations</span>
                         <svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
                     </button>
-                    <div class="admin-nav-subtabs"><a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a><a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a><a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a><a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a></div>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>@endif
+                        @if($canAccess('Occupancy Limit'))<a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a>@endif
+                        @if($canAccess('Visitor Categories'))<a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>@endif
+                        @if($canAccess('Users & Access'))<a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a>@endif
+                    </div>
                 </div>
+                @endif
             </nav>
             <form action="{{ route('admin.logout') }}" method="POST" class="admin-logout-form">@csrf<button type="submit" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg><span>Sign Out</span></button></form>
         </aside>
@@ -49,7 +69,7 @@
             <header class="admin-topbar">
                 <button id="adminMenuToggle" class="admin-menu-toggle" aria-label="Open navigation" aria-controls="adminSidebar" aria-expanded="false"><span></span><span></span><span></span></button>
                 <div><span class="tagline no-margin">ADMIN OVERVIEW</span><h1>Visitor Dashboard<span>.</span></h1><p>{{ now()->format('l, F j, Y') }}</p></div>
-                <div class="admin-user-chip"><span>A</span><div><strong>{{ session('admin_username') }}</strong><small>Administrator</small></div></div>
+                <div class="admin-user-chip"><span>A</span><div><strong>{{ session('admin_username') }}</strong><small>{{ session('admin_role', 'Administrator') }}</small></div></div>
             </header>
 
             <section class="admin-stat-grid" aria-label="Visitor statistics">

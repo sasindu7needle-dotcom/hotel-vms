@@ -11,12 +11,6 @@
 @endsection
 
 @section('content')
-    <nav class="configuration-tabs" aria-label="Master configuration sections">
-        <a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>
-        <a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a>
-        <a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>
-        <a class="active" href="{{ route('admin.configurations.users.index') }}" aria-current="page">Users &amp; Access</a>
-    </nav>
 
     @if(session('status'))
         <div class="admin-page-alert configuration-success" role="status">
@@ -56,6 +50,12 @@
                     </label>
 
                     <label class="configuration-field">
+                        <span>Username <b>*</b></span>
+                        <input type="text" name="username" value="{{ old('username') }}" minlength="3" maxlength="100" pattern="[A-Za-z0-9_-]+" required autocomplete="username" placeholder="e.g. john_doe">
+                        <small style="margin-top: 5px; display: block; color: #64748b; font-size: 10px;">Used with the password on the Admin Login page.</small>
+                    </label>
+
+                    <label class="configuration-field">
                         <span>Email Address <b>*</b></span>
                         <input type="email" name="email" value="{{ old('email') }}" maxlength="255" required placeholder="e.g. john@tractionguest.com">
                     </label>
@@ -67,12 +67,7 @@
 
                     <label class="configuration-field">
                         <span>Assigned System Role <b>*</b></span>
-                        <select name="role" required style="width: 100%; height: 46px; padding: 0 14px; color: #172033; background: #fff; border: 1px solid #d8e0e7; border-radius: 9px; font: 500 12px Inter, sans-serif; outline: none; cursor: pointer;">
-                            <option value="Administrator" {{ old('role') === 'Administrator' ? 'selected' : '' }}>Administrator (Full Access)</option>
-                            <option value="Gate Guard" {{ old('role', 'Gate Guard') === 'Gate Guard' ? 'selected' : '' }}>Gate Guard (Check-In / Out Terminal)</option>
-                            <option value="Desk Officer" {{ old('role') === 'Desk Officer' ? 'selected' : '' }}>Desk Officer (Registration / Verification Desk)</option>
-                            <option value="Auditor" {{ old('role') === 'Auditor' ? 'selected' : '' }}>Auditor (Read-only Reports & Logs)</option>
-                        </select>
+                        <input type="text" name="role" value="{{ old('role') }}" maxlength="50" required placeholder="e.g. Administrator, Gate Guard, Desk Officer">
                     </label>
 
                     <label class="configuration-field">
@@ -82,6 +77,22 @@
                             <option value="suspended" {{ old('status') === 'suspended' ? 'selected' : '' }}>Suspended (Access Disabled)</option>
                         </select>
                     </label>
+
+                    <!-- PAGE PERMISSIONS CHECKBOXES -->
+                    <fieldset class="configuration-field" style="margin-top: 10px; border: none; padding: 0;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">Allowed Admin Panel Page Permissions</span>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; padding: 14px; background: #fafbf8; border: 1px solid #e1e7da; border-radius: 10px;">
+                            @foreach($availablePages as $pageKey => $pageName)
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #172033; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" name="permissions[]" value="{{ $pageKey }}" style="width: 16px; height: 16px; accent-color: #75880d; cursor: pointer;" checked>
+                                    <span>{{ $pageName }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </fieldset>
                 </div>
 
                 <div class="configuration-actions" style="margin-top: 24px; padding-top: 18px; border-top: 1px solid #edf0f2;">
@@ -106,13 +117,13 @@
             </div>
 
             <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table class="admin-visitors-table" style="width: 100%; min-width: 580px; border-collapse: separate; border-spacing: 0;">
+                <table class="admin-visitors-table" style="width: 100%; min-width: 650px; border-collapse: separate; border-spacing: 0;">
                     <thead>
                         <tr style="background: #f8fafc; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b;">
                             <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2;">User &amp; Email</th>
                             <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2;">Role</th>
+                            <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2;">Permissions</th>
                             <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2;">Status</th>
-                            <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2;">Created</th>
                             <th style="padding: 12px 14px; border-bottom: 1px solid #edf0f2; text-align: right;">Action</th>
                         </tr>
                     </thead>
@@ -143,6 +154,24 @@
                                     <span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; {{ $style }}">
                                         {{ $user->role }}
                                     </span>
+                                </td>
+                                <td style="padding: 14px; vertical-align: middle;">
+                                    @php
+                                        $userPerms = is_array($user->permissions) ? $user->permissions : [];
+                                        $allCount = count($availablePages);
+                                        $permCount = count($userPerms);
+                                    @endphp
+                                    @if($permCount === 0)
+                                        <span style="font-size: 10px; color: #94a3b8; font-style: italic;">No Permissions</span>
+                                    @elseif($permCount >= $allCount)
+                                        <span style="display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">Full Access</span>
+                                    @else
+                                        <div style="display: flex; flex-wrap: wrap; gap: 2px; max-width: 200px;">
+                                            @foreach($userPerms as $perm)
+                                                <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">{{ $perm }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </td>
                                 <td style="padding: 14px; vertical-align: middle;">
                                     <form method="POST" action="{{ route('admin.configurations.users.toggle', $user) }}">

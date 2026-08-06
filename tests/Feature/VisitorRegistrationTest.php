@@ -71,7 +71,7 @@ class VisitorRegistrationTest extends TestCase
             ->assertSee('Tampered Name')
             ->assertSee('LKR 1,500.00')
             ->assertSee('+94 771234567')
-            ->assertSee('https://example.test/verified-photo.jpg')
+            ->assertSee(route('visitor.session_photo', ['type' => 'selfie']))
             ->assertSee('Choose a payment method');
 
         $this->assertDatabaseHas('verified_visitors', [
@@ -136,7 +136,7 @@ class VisitorRegistrationTest extends TestCase
                 'full_name' => 'Nimal Perera',
                 'category' => 'Adult',
                 'payment_method' => 'visa_master',
-                'payment_status' => 'card_pending',
+                 'payment_status' => 'pending',
                 'registration_status' => 'payment_pending',
             ], Schema::hasColumn('verified_visitors', 'didit_session_id') ? [
                 'didit_session_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',

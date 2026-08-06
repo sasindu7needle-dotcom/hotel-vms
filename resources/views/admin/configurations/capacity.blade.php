@@ -36,12 +36,6 @@
 @endsection
 
 @section('content')
-    <nav class="configuration-tabs" aria-label="Master configuration sections">
-        <a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>
-        <a class="active" href="{{ route('admin.configurations.capacity.edit') }}" aria-current="page">Occupancy Limit</a>
-        <a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>
-        <a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a>
-    </nav>
 
     @if(session('status'))
         <div class="admin-page-alert configuration-success" role="status">

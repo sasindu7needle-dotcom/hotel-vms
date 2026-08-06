@@ -8,15 +8,20 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminCapacityController;
 use App\Http\Controllers\AdminVisitorController;
+use App\Http\Controllers\AdminReceiptController;
 use App\Http\Controllers\GateTerminalController;
 use App\Http\Controllers\AdminEventConfigurationController;
 use App\Http\Controllers\AdminVisitorCategoryController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\SuperAdminAuthController;
+use App\Http\Controllers\SuperAdminDashboardController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 Route::get('/visitor/new', [VisitorController::class, 'startNew'])->name('visitor.start');
+Route::get('/visitor/manual-registration', [VisitorController::class, 'manualCreate'])->name('visitor.manual.create');
+Route::post('/visitor/manual-registration', [VisitorController::class, 'manualStore'])->name('visitor.manual.store');
 Route::get('/visitor/create', [VisitorController::class, 'create'])->name('visitor.create');
 Route::get('/visitor/upload-document', [VisitorController::class, 'showUploadDocument'])->name('visitor.upload_document');
 Route::get('/visitor/photo-capture', [VisitorController::class, 'showPhotoCapture'])->name('visitor.photo_capture');
@@ -51,6 +56,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/dashboard/inside-count', [AdminDashboardController::class, 'updateInsideCount'])->name('dashboard.inside_count');
         Route::get('/configurations/event', [AdminEventConfigurationController::class, 'edit'])->name('configurations.event.edit');
         Route::put('/configurations/event', [AdminEventConfigurationController::class, 'update'])->name('configurations.event.update');
+        Route::delete('/configurations/event', [AdminEventConfigurationController::class, 'destroy'])->name('configurations.event.destroy');
         Route::get('/configurations/capacity', [AdminCapacityController::class, 'edit'])->name('configurations.capacity.edit');
         Route::put('/configurations/capacity', [AdminCapacityController::class, 'update'])->name('configurations.capacity.update');
 
@@ -66,6 +72,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/configurations/users/{user}/toggle', [AdminUserController::class, 'toggleStatus'])->name('configurations.users.toggle');
         Route::delete('/configurations/users/{user}', [AdminUserController::class, 'destroy'])->name('configurations.users.destroy');
         Route::get('/visitors', [AdminVisitorController::class, 'index'])->name('visitors.index');
+        Route::get('/receipts', [AdminReceiptController::class, 'index'])->name('receipts.index');
+        Route::post('/receipts/{visitor}/confirm', [AdminReceiptController::class, 'confirm'])->name('receipts.confirm');
         Route::get('/visitors/{visitor}', fn (VerifiedVisitor $visitor) => redirect()->route('admin.visitors.index'))->name('visitors.show');
         Route::patch('/visitors/{visitor}/checkin', [AdminVisitorController::class, 'toggleCheckin'])->name('visitors.checkin');
         Route::patch('/visitors/{visitor}', [AdminVisitorController::class, 'update'])->name('visitors.update');
@@ -74,6 +82,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/visitors/{visitor}/badge', [AdminVisitorController::class, 'badge'])->name('visitors.badge');
         Route::get('/visitors/{visitor}/back-photo', [AdminVisitorController::class, 'backPhoto'])->name('visitors.back_photo');
         Route::get('/visitors/{visitor}/selfie', [AdminVisitorController::class, 'selfie'])->name('visitors.selfie');
-        Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+    });
+
+    // Logout must remain reachable even when an old or mixed session fails
+    // the access middleware; it always invalidates the whole browser session.
+    Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+});
+
+Route::prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::get('/login', [SuperAdminAuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [SuperAdminAuthController::class, 'login'])->middleware('throttle:5,1')->name('login.submit');
+
+    Route::middleware('superadmin.auth')->group(function () {
+        Route::get('/dashboard', [SuperAdminDashboardController::class, 'index'])->name('dashboard');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::patch('/users/{user}/toggle', [AdminUserController::class, 'toggleStatus'])->name('users.toggle');
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/logout', [SuperAdminAuthController::class, 'logout'])->name('logout');
     });
 });

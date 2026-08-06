@@ -14,37 +14,54 @@ class AdminUserController extends Controller
     {
         $users = User::orderBy('created_at', 'desc')->get();
 
-        return view('admin.configurations.users', compact('users'));
+        $availablePages = [
+            'Dashboard' => 'Dashboard',
+            'Visitors' => 'Visitors',
+            'Event Configurations' => 'Event Configurations',
+            'Occupancy Limit' => 'Occupancy Limit',
+            'Visitor Categories' => 'Visitor Categories',
+            'Receipt Manager' => 'Receipt Manager',
+            'Users & Access' => 'Users & Access',
+        ];
+
+        return view('admin.configurations.users', compact('users', 'availablePages'));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'username' => ['required', 'string', 'min:3', 'max:100', 'alpha_dash', 'unique:users,username'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
             'role' => ['required', 'string', 'max:50'],
             'status' => ['required', 'string', 'in:active,suspended'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string'],
         ]);
 
+        $validated['permissions'] = $request->input('permissions', []);
         $validated['password'] = Hash::make($validated['password']);
 
         User::create($validated);
 
-        return redirect()
-            ->route('admin.configurations.users.index')
-            ->with('status', 'User account created successfully.');
+        return back()->with('status', 'User account created successfully.');
     }
 
     public function update(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'username' => ['required', 'string', 'min:3', 'max:100', 'alpha_dash', 'unique:users,username,' . $user->id],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'password' => ['nullable', 'string', 'min:6'],
             'role' => ['required', 'string', 'max:50'],
             'status' => ['required', 'string', 'in:active,suspended'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string'],
         ]);
+
+        $validated['permissions'] = $request->input('permissions', []);
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -54,9 +71,7 @@ class AdminUserController extends Controller
 
         $user->update($validated);
 
-        return redirect()
-            ->route('admin.configurations.users.index')
-            ->with('status', 'User account updated successfully.');
+        return back()->with('status', 'User account updated successfully.');
     }
 
     public function toggleStatus(User $user): RedirectResponse
@@ -64,23 +79,17 @@ class AdminUserController extends Controller
         $newStatus = $user->status === 'active' ? 'suspended' : 'active';
         $user->update(['status' => $newStatus]);
 
-        return redirect()
-            ->route('admin.configurations.users.index')
-            ->with('status', 'User account status updated.');
+        return back()->with('status', 'User account status updated.');
     }
 
-    public function destroy(User $user): RedirectResponse
+    public function destroy(Request $request, User $user): RedirectResponse
     {
-        if (User::count() <= 1) {
-            return redirect()
-                ->route('admin.configurations.users.index')
-                ->withErrors(['user' => 'Cannot remove the last remaining administrator account.']);
-        }
-
         $user->delete();
 
-        return redirect()
-            ->route('admin.configurations.users.index')
-            ->with('status', 'User account removed successfully.');
+        if ($request->session()->get('superadmin_authenticated', false)) {
+            return redirect()->route('superadmin.dashboard')->with('status', 'User account removed successfully.');
+        }
+
+        return back()->with('status', 'User account removed successfully.');
     }
 }

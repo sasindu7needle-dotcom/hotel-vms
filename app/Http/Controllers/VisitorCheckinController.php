@@ -49,7 +49,21 @@ class VisitorCheckinController extends Controller
                 $docType,
             );
         } catch (\Throwable $exception) {
-            logger()->warning('Gemini document extraction failed: '.$exception->getMessage().'. Attempting fallback to local Tesseract OCR...');
+            logger()->warning('Gemini document extraction failed: '.$exception->getMessage());
+
+            if (! config('services.gemini.allow_tesseract_fallback', false)) {
+                $configurationError = str_contains(strtolower($exception->getMessage()), 'api key');
+
+                return response()->json([
+                    'success' => false,
+                    'error' => $configurationError
+                        ? 'Gemini document verification is not configured. Add the Gemini API key and try again.'
+                        : 'Gemini could not read the document. Retake clear, glare-free photos and try again.',
+                    'code' => $configurationError ? 'gemini_not_configured' : 'gemini_extraction_failed',
+                ], $configurationError ? 503 : 502);
+            }
+
+            logger()->warning('Attempting the explicitly enabled local Tesseract OCR fallback.');
 
             try {
                 $tesseract = app(\App\Services\TesseractOcrService::class);
@@ -175,6 +189,8 @@ class VisitorCheckinController extends Controller
             'full_name_latin' => $parsed['full_name_latin'],
             'full_name_original' => data_get($parsed, 'full_name_original'),
             'document_number' => $parsed['document_number'],
+            'nic_number' => data_get($parsed, 'nic_number'),
+            'driving_license_number' => data_get($parsed, 'driving_license_number'),
             'address' => $parsed['address'],
             'address_latin' => $parsed['address_latin'],
             'address_original' => data_get($parsed, 'address_original'),
@@ -417,6 +433,8 @@ class VisitorCheckinController extends Controller
         return [
             'document_number' => data_get($english, 'document_number')
                 ?: data_get($multilingual, 'document_number', ''),
+            'nic_number' => $this->extractSriLankanNic($englishText."\n".$multilingualText),
+            'driving_license_number' => $this->extractDrivingLicenseNumber($englishText."\n".$multilingualText),
             'full_name' => trim((string) $name),
             'full_name_latin' => $this->containsSinhalaOrTamil((string) $name)
                 ? ''
@@ -620,10 +638,58 @@ class VisitorCheckinController extends Controller
     {
         $value = $this->normalizeDocumentNumber($value, $docType);
         if (in_array($docType, ['nic', 'driving_license'], true)) {
-            return preg_match('/^(?:\d{9}[VX]|\d{12})$/', $value) === 1;
+            if (preg_match('/^\d{9}[VX]$/', $value) === 1) {
+                return $this->isValidNicDay((int) substr($value, 2, 3));
+            }
+            if (preg_match('/^\d{12}$/', $value) !== 1) {
+                return false;
+            }
+
+            $year = (int) substr($value, 0, 4);
+
+            return $year >= 1900
+                && $year <= (int) date('Y')
+                && $this->isValidNicDay((int) substr($value, 4, 3));
         }
 
         return preg_match('/^[A-Z0-9]{7,12}$/', $value) === 1;
+    }
+
+    private function isValidNicDay(int $day): bool
+    {
+        return ($day >= 1 && $day <= 366) || ($day >= 501 && $day <= 866);
+    }
+
+    private function extractSriLankanNic(string $text): string
+    {
+        foreach ([
+            '/(?:4\s*[cC]|NIC|NATIONAL\s+(?:IDENTITY|ID)(?:\s+CARD)?|ID\s*(?:NO|NUMBER))\s*[:.#-]?\s*((?:\d[\s-]*){9}[VXvx]|(?:\d[\s-]*){12})/iu',
+            '/(?<!\d)((?:\d[\s-]*){9}[VXvx]|(?:\d[\s-]*){12})(?!\d)/u',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $matches)) {
+                $nic = strtoupper((string) preg_replace('/[^0-9VX]/i', '', $matches[1]));
+                if ($this->isPlausibleDocumentNumber($nic, 'nic')) {
+                    return $nic;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function extractDrivingLicenseNumber(string $text): string
+    {
+        foreach ([
+            '/(?:FIELD\s*)?5\s*[:.#-]?\s*([A-Z]{1,2}\s?\d{7,8})/iu',
+            '/(?:LICEN[CS]E|DL)\s*(?:NO|NUMBER)?\s*[:.#-]?\s*([A-Z]{1,2}\s?\d{7,8})/iu',
+            '/\b([A-Z]{1,2}\s?\d{7,8})\b/iu',
+        ] as $pattern) {
+            if (preg_match($pattern, $text, $matches)) {
+                return strtoupper((string) preg_replace('/\s+/', '', $matches[1]));
+            }
+        }
+
+        return '';
     }
 
     private function normalizeDocumentNumber(string $value, string $docType): string
@@ -657,6 +723,13 @@ class VisitorCheckinController extends Controller
 
             return $nativeCharacters >= ($field === 'name' ? 4 : 6)
                 && ($field === 'name' || preg_match('/\p{N}|[\p{L}\p{M}]{3,}/u', $value) === 1);
+        }
+
+        if ($field === 'name' && preg_match(
+            '/\b(?:place|date)\s+of\s+birth\b|\b(?:nationality|occupation|address|signature|sex|gender|blood\s+group|date\s+of\s+(?:issue|expiry)|department)\b/iu',
+            $value
+        )) {
+            return false;
         }
 
         $allowed = mb_strlen((string) preg_replace('/[^\p{Latin}\p{N}\s,.\'\/\-#()]/u', '', $value));
