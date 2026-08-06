@@ -526,6 +526,49 @@
             updateButtonState();
         }
 
+        async function prepareDocumentUpload(file) {
+            // Camera photos are often 8–20 MB. Gemini receives the image data
+            // inline, so a sensibly sized image substantially reduces both the
+            // browser upload and the model processing time while retaining
+            // enough detail for document text.
+            if (!file || !file.type.startsWith('image/')) return file;
+
+            try {
+                const image = await new Promise((resolve, reject) => {
+                    const objectUrl = URL.createObjectURL(file);
+                    const preview = new Image();
+                    preview.onload = () => {
+                        URL.revokeObjectURL(objectUrl);
+                        resolve(preview);
+                    };
+                    preview.onerror = () => {
+                        URL.revokeObjectURL(objectUrl);
+                        reject(new Error('Unable to prepare image'));
+                    };
+                    preview.src = objectUrl;
+                });
+                const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
+                if (longestSide <= 1800 && file.size <= 2 * 1024 * 1024) return file;
+
+                const scale = Math.min(1, 1800 / longestSide);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+                if (!blob) return file;
+
+                const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                return new File([blob], name, { type: 'image/jpeg', lastModified: file.lastModified });
+            } catch (_) {
+                // Keep the original image if this browser cannot resize it.
+                return file;
+            }
+        }
+
         bindDocumentPreview(documentFrontImage, 'frontContent', 'frontPreviewContainer', 'frontPreview', 'frontFileName');
         bindDocumentPreview(documentBackImage, 'backContent', 'backPreviewContainer', 'backPreview', 'backFileName');
         updateDocumentSides();
@@ -587,14 +630,19 @@
             }
 
             const originalText = this.innerText;
-            this.innerText = "Extracting text from document...";
+            this.innerText = "Preparing document photos...";
             this.disabled = true;
 
             try {
+                const [frontUpload, backUpload] = await Promise.all([
+                    prepareDocumentUpload(documentFrontImage.files[0]),
+                    needsBack ? prepareDocumentUpload(documentBackImage.files[0]) : Promise.resolve(null),
+                ]);
+                this.innerText = "Extracting text from document...";
                 const formData = new FormData();
                 formData.append('document_type', hiddenInput.value);
-                formData.append('document_front_image', documentFrontImage.files[0]);
-                if (needsBack) formData.append('document_back_image', documentBackImage.files[0]);
+                formData.append('document_front_image', frontUpload);
+                if (needsBack) formData.append('document_back_image', backUpload);
 
                 const response = await fetch("{{ route('visitor.verify_vision') }}", {
                     method: "POST",

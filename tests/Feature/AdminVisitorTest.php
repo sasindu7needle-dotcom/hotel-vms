@@ -241,25 +241,28 @@ class AdminVisitorTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_attendance_section_is_removed_from_admin_navigation_and_routes(): void
+    public function test_attendance_section_is_available_to_an_authorized_admin(): void
     {
-        $session = ['admin_authenticated' => true, 'admin_username' => 'admin'];
+        $session = [
+            'admin_authenticated' => true,
+            'admin_username' => 'admin',
+            'admin_permissions' => ['Dashboard', 'Attendance Summary', 'Attendance Detail'],
+        ];
 
         $this->withSession($session)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertDontSee('>Attendance<', false);
+            ->assertSee('>Attendance<', false)
+            ->assertSee('Attendance Summary');
 
         $this->withSession($session)
-            ->get(route('admin.visitors.index'))
+            ->get(route('admin.attendance.summary'))
             ->assertOk()
-            ->assertDontSee('>Attendance<', false);
+            ->assertSee('Attendance Summary');
 
         $this->withSession($session)
-            ->get('/admin/reports/attendance')
-            ->assertNotFound();
-        $this->withSession($session)
-            ->get('/admin/reports/attendance/detail')
-            ->assertNotFound();
+            ->get(route('admin.attendance.detail_with_photo'))
+            ->assertOk()
+            ->assertSee('Attendance Detail with Photos');
     }
 }

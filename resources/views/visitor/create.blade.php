@@ -23,8 +23,11 @@
             <div class="registration-heading">
                 <span class="tagline no-margin">VERIFIED IDENTITY</span>
                 <h1 id="registration-title" class="headline">Complete your details<span class="dot">.</span></h1>
-                <p>Review the identity details extracted by Gemini. Sinhala and Tamil names and addresses are converted to English automatically.</p>
             </div>
+
+            @error('verification')
+                <div class="form-error-msg" role="alert" style="margin: 0 0 18px; text-align: center;">{{ $message }}</div>
+            @enderror
 
             <form method="POST" action="{{ route('visitor.confirm') }}" class="registration-form">
                 @csrf

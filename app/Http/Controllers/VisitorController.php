@@ -206,6 +206,16 @@ class VisitorController extends Controller
             'didit_session_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
             'full_name' => $validated['full_name'],
             'full_name_latin' => $validated['full_name'],
+            'sinhala_name' => data_get($verification, 'sinhala_name'),
+            'tamil_name' => data_get($verification, 'tamil_name'),
+            'printed_english_name' => data_get($verification, 'printed_english_name'),
+            'suggested_english_name' => data_get($verification, 'suggested_english_name'),
+            'sinhala_transliteration' => data_get($verification, 'sinhala_transliteration'),
+            'tamil_transliteration' => data_get($verification, 'tamil_transliteration'),
+            'english_name_alternatives' => data_get($verification, 'english_name_alternatives', []),
+            'name_review_status' => $validated['document_type'] === 'nic'
+                ? ($this->sameIdentityName($validated['full_name'], (string) data_get($verification, 'suggested_english_name')) ? 'confirmed' : 'corrected')
+                : 'not_required',
             'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
             'address' => $validated['address'],
             'address_latin' => $validated['address'],
@@ -381,6 +391,7 @@ class VisitorController extends Controller
 
         $visitor->update([
             'payment_status' => 'paid',
+            'paid_at' => $visitor->paid_at ?: now(),
             'registration_status' => 'registered',
         ]);
 
@@ -549,6 +560,13 @@ class VisitorController extends Controller
         return filled(data_get($verification, 'document_number'))
             && filled(data_get($verification, 'full_name'))
             && filled(data_get($verification, 'address'));
+    }
+
+    private function sameIdentityName(string $left, string $right): bool
+    {
+        $normalise = fn (string $value): string => mb_strtolower((string) preg_replace('/[^\p{L}\p{N}]+/u', '', $value));
+
+        return $normalise($left) !== '' && $normalise($left) === $normalise($right);
     }
 
     private function maskDocumentNumber(string $value): string

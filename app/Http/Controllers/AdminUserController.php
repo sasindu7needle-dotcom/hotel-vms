@@ -17,6 +17,10 @@ class AdminUserController extends Controller
         $availablePages = [
             'Dashboard' => 'Dashboard',
             'Visitors' => 'Visitors',
+            'Attendance Summary' => 'Attendance - Summary',
+            'Attendance Detail' => 'Attendance - Detail',
+            'Revenue Summary' => 'Revenue - Summary',
+            'Revenue Detail' => 'Revenue - Detail',
             'Event Configurations' => 'Event Configurations',
             'Occupancy Limit' => 'Occupancy Limit',
             'Visitor Categories' => 'Visitor Categories',

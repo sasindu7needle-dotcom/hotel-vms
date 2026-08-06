@@ -35,6 +35,7 @@
                 $isSuperadmin = session('superadmin_authenticated', false);
                 $canAccess = fn ($permission) => $isSuperadmin || empty($permissions) || in_array($permission, (array) $permissions);
                 $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
+                $canAccessRevenue = $canAccess('Revenue Summary') || $canAccess('Revenue Detail') || $canAccessReceipts;
             @endphp
             <nav aria-label="Admin navigation">
                 @if($canAccess('Dashboard'))
@@ -42,6 +43,21 @@
                 @endif
                 @if($canAccess('Visitors'))
                     <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                @endif
+                @if($canAccess('Attendance Summary') || $canAccess('Attendance Detail'))
+                <div class="admin-nav-group collapsed">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="false"><svg class="admin-nav-group-icon" viewBox="0 0 24 24"><path d="M8 3v3M16 3v3M4 9h16"></path><rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 13h.01M12 13h.01M16 13h.01"></path></svg><span>Attendance</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg></button>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Attendance Summary'))<a href="{{ route('admin.attendance.entries') }}">Count-wise Register</a><a href="{{ route('admin.attendance.summary') }}">Attendance Summary</a>@endif
+                        @if($canAccess('Attendance Detail'))<a href="{{ route('admin.attendance.detail') }}">Attendance Detail</a><a href="{{ route('admin.attendance.detail_with_photo') }}">Detail with Photos</a>@endif
+                    </div>
+                </div>
+                @endif
+                @if($canAccessRevenue)
+                <div class="admin-nav-group collapsed">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="false"><svg class="admin-nav-group-icon" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg><span>Revenue</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg></button>
+                    <div class="admin-nav-subtabs">@if($canAccess('Revenue Summary') || $canAccessReceipts)<a href="{{ route('admin.revenue.summary') }}">Revenue Summary</a>@endif @if($canAccess('Revenue Detail') || $canAccessReceipts)<a href="{{ route('admin.revenue.detail') }}">Revenue Detail</a>@endif</div>
+                </div>
                 @endif
                 @if($canAccessReceipts)
                     <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>

@@ -92,6 +92,35 @@ class VisitorCheckinController extends Controller
             }
         }
 
+        // The image extraction already returns a suggested English name. The
+        // detailed NIC spelling review adds two or more sequential Gemini
+        // calls, so it is opt-in for installations that need it.
+        $nameReview = $this->nameReviewFromExtraction($parsed, $docType);
+        if ($docType === 'nic' && config('services.gemini.nic_name_review', false)) {
+            try {
+                $nameReview = $gemini->extractNicNameReview(
+                    $file->getRealPath(),
+                    $mime,
+                    $backFile?->getRealPath(),
+                    $backFile?->getMimeType(),
+                );
+                $suggestedName = trim((string) data_get($nameReview, 'suggested_english_name'));
+                if ($suggestedName !== '' && $this->isPlausibleIdentityField($suggestedName, 'name')) {
+                    $parsed['full_name'] = $suggestedName;
+                }
+
+                $sinhalaName = trim((string) data_get($nameReview, 'sinhala_name'));
+                $tamilName = trim((string) data_get($nameReview, 'tamil_name'));
+                if ($sinhalaName !== '' || $tamilName !== '') {
+                    $parsed['full_name_original'] = $sinhalaName ?: $tamilName;
+                }
+            } catch (\Throwable $exception) {
+                Log::info('Dedicated NIC name review failed; retaining the document extraction result.', [
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        }
+
         $parsed['full_name_latin'] = $this->containsSinhalaOrTamil((string) data_get($parsed, 'full_name'))
             ? ''
             : (string) data_get($parsed, 'full_name', '');
@@ -188,6 +217,17 @@ class VisitorCheckinController extends Controller
             'full_name' => $parsed['full_name'],
             'full_name_latin' => $parsed['full_name_latin'],
             'full_name_original' => data_get($parsed, 'full_name_original'),
+            'sinhala_name' => data_get($nameReview, 'sinhala_name'),
+            'tamil_name' => data_get($nameReview, 'tamil_name'),
+            'printed_english_name' => data_get($nameReview, 'printed_english_name'),
+            'suggested_english_name' => data_get($nameReview, 'suggested_english_name', data_get($parsed, 'full_name')),
+            'sinhala_transliteration' => data_get($nameReview, 'sinhala_transliteration'),
+            'tamil_transliteration' => data_get($nameReview, 'tamil_transliteration'),
+            'english_name_alternatives' => data_get($nameReview, 'english_name_alternatives', []),
+            'name_review_status' => $docType === 'nic'
+                ? data_get($nameReview, 'review_status', 'pending')
+                : 'not_required',
+            'name_scripts_agree' => data_get($nameReview, 'scripts_agree'),
             'document_number' => $parsed['document_number'],
             'nic_number' => data_get($parsed, 'nic_number'),
             'driving_license_number' => data_get($parsed, 'driving_license_number'),
@@ -215,6 +255,24 @@ class VisitorCheckinController extends Controller
             'redirect_url' => route('visitor.photo_capture'),
             'data' => $verification,
         ]);
+    }
+
+    private function nameReviewFromExtraction(array $parsed, string $docType): array
+    {
+        $name = trim((string) data_get($parsed, 'full_name'));
+        $original = trim((string) data_get($parsed, 'full_name_original'));
+
+        return [
+            'sinhala_name' => preg_match('/[\x{0D80}-\x{0DFF}]/u', $original) === 1 ? $original : '',
+            'tamil_name' => preg_match('/[\x{0B80}-\x{0BFF}]/u', $original) === 1 ? $original : '',
+            'printed_english_name' => '',
+            'suggested_english_name' => $name,
+            'sinhala_transliteration' => '',
+            'tamil_transliteration' => '',
+            'english_name_alternatives' => $name !== '' ? [$name] : [],
+            'review_status' => $docType === 'nic' ? 'pending' : 'not_required',
+            'scripts_agree' => null,
+        ];
     }
 
     /** Store the visitor photo captured by the camera. */

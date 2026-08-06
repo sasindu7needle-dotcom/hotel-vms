@@ -13,6 +13,7 @@ class VerifiedVisitor extends Model
         'entrance_fee' => 'decimal:2',
         'checkin_status' => 'boolean',
         'verified_at' => 'datetime',
+        'paid_at' => 'datetime',
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
         'identity_reviewed_at' => 'datetime',

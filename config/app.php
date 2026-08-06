@@ -165,6 +165,7 @@ return [
         /*
          * Package Service Providers...
          */
+        F9WebLtd\QrCode\QrCodeServiceProvider::class,
 
         /*
          * Application Service Providers...

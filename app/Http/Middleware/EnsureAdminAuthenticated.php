@@ -66,9 +66,21 @@ class EnsureAdminAuthenticated
 
         $routeName = $request->route() ? (string) $request->route()->getName() : '';
 
+        // Attendance Detail with Photos intentionally exposes only the captured
+        // visitor selfie. Permit that report's users to fetch those private
+        // images without granting the wider visitor-management page access.
+        if ($routeName === 'admin.visitors.selfie' && in_array('Attendance Detail', $perms, true)) {
+            return $next($request);
+        }
+
         $routePermissionMap = [
             'admin.dashboard' => 'Dashboard',
             'admin.visitors' => 'Visitors',
+            'admin.attendance.entries' => 'Attendance Summary',
+            'admin.attendance.summary' => 'Attendance Summary',
+            'admin.attendance.detail' => 'Attendance Detail',
+            'admin.revenue.summary' => 'Revenue Summary',
+            'admin.revenue.detail' => 'Revenue Detail',
             'admin.receipts' => 'Receipt Manager',
             'admin.configurations.event' => 'Event Configurations',
             'admin.configurations.capacity' => 'Occupancy Limit',
@@ -81,7 +93,9 @@ class EnsureAdminAuthenticated
                 // Existing Visitor-access accounts can use the receipt workflow
                 // without needing their saved permissions re-created.
                 $receiptAccess = $requiredPerm === 'Receipt Manager' && in_array('Visitors', $perms);
-                if (! in_array($requiredPerm, $perms) && ! $receiptAccess) {
+                $revenueAccess = str_starts_with($requiredPerm, 'Revenue')
+                    && (in_array('Receipt Manager', $perms) || in_array('Visitors', $perms));
+                if (! in_array($requiredPerm, $perms) && ! $receiptAccess && ! $revenueAccess) {
                     return $this->redirectToFirstAllowedRoute($perms);
                 }
             }
@@ -95,6 +109,10 @@ class EnsureAdminAuthenticated
         $routeMap = [
             'Dashboard' => 'admin.dashboard',
             'Visitors' => 'admin.visitors.index',
+            'Attendance Summary' => 'admin.attendance.summary',
+            'Attendance Detail' => 'admin.attendance.detail',
+            'Revenue Summary' => 'admin.revenue.summary',
+            'Revenue Detail' => 'admin.revenue.detail',
             'Receipt Manager' => 'admin.receipts.index',
             'Event Configurations' => 'admin.configurations.event.edit',
             'Occupancy Limit' => 'admin.configurations.capacity.edit',

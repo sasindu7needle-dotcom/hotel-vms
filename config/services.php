@@ -45,6 +45,10 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
         'ca_bundle' => env('GEMINI_CA_BUNDLE', env('GOOGLE_VISION_CA_BUNDLE')),
         'allow_tesseract_fallback' => env('GEMINI_ALLOW_TESSERACT_FALLBACK', false),
+        // Detailed NIC spelling review requires extra Gemini requests. Keep
+        // normal visitor check-in fast; enable only when that extra review is
+        // needed for a deployment.
+        'nic_name_review' => env('GEMINI_NIC_NAME_REVIEW', false),
     ],
 
 ];

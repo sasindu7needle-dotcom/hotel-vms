@@ -125,7 +125,7 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('code', 'document_number_not_detected');
     }
 
-    public function test_gemini_service_joins_every_wrapped_name_line_from_the_back(): void
+    public function test_gemini_service_uses_the_combined_card_read_when_identity_fields_are_complete(): void
     {
         config()->set('services.gemini.api_key', 'test-key');
         Http::fake([
@@ -162,10 +162,8 @@ class VisitorVerificationTest extends TestCase
             'image/jpeg'
         );
 
-        $this->assertSame(
-            'Senarath Wickramanayaka Mudiyanselage Bimasara Nisal Wickramanayaka',
-            $result['full_name']
-        );
+        $this->assertSame('Senarath Wickramanayaka Mudiyanselage Bimasara', $result['full_name']);
+        Http::assertSentCount(1);
     }
 
     public function test_back_only_extraction_cannot_replace_conflicting_combined_identity_fields(): void
@@ -206,6 +204,7 @@ class VisitorVerificationTest extends TestCase
 
         $this->assertSame('Madikes Paramanandake Poojana Sasithu Legonj Fernando', $result['full_name']);
         $this->assertSame('07, Thiyelagoda Mallama, Puttalam', $result['address']);
+        Http::assertSentCount(1);
     }
 
     public function test_gemini_service_preserves_repeated_physical_name_lines(): void
@@ -601,6 +600,7 @@ class VisitorVerificationTest extends TestCase
                 'full_name_original' => '',
                 'address_original' => '',
             ], $result));
+            $mock->shouldReceive('extractNicNameReview')->andReturn([]);
         });
     }
 

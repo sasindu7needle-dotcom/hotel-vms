@@ -93,7 +93,7 @@ class AdminAuthController extends Controller
                 'admin_authenticated' => true,
                 'admin_username' => config('admin.username'),
                 'admin_role' => 'Administrator',
-                'admin_permissions' => ['Dashboard', 'Visitors', 'Event Configurations', 'Occupancy Limit', 'Visitor Categories', 'Users & Access'],
+                'admin_permissions' => ['Dashboard', 'Visitors', 'Attendance Summary', 'Attendance Detail', 'Revenue Summary', 'Revenue Detail', 'Event Configurations', 'Occupancy Limit', 'Visitor Categories', 'Users & Access'],
                 'admin_authenticated_at' => now()->toIso8601String(),
             ]);
 
@@ -124,6 +124,10 @@ class AdminAuthController extends Controller
 
         $routeMap = [
             'Visitors' => 'admin.visitors.index',
+            'Attendance Summary' => 'admin.attendance.summary',
+            'Attendance Detail' => 'admin.attendance.detail',
+            'Revenue Summary' => 'admin.revenue.summary',
+            'Revenue Detail' => 'admin.revenue.detail',
             'Event Configurations' => 'admin.configurations.event.edit',
             'Occupancy Limit' => 'admin.configurations.capacity.edit',
             'Visitor Categories' => 'admin.configurations.categories.index',

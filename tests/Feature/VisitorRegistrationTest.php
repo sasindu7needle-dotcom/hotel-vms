@@ -128,6 +128,26 @@ class VisitorRegistrationTest extends TestCase
             ->assertSessionHasErrors(['mobile_number', 'whatsapp_number']);
     }
 
+    public function test_nic_name_must_be_confirmed_before_registration(): void
+    {
+        $this->withSession([
+            'verification' => $this->verification,
+            'didit_verification' => $this->verification,
+            'visitor_category' => $this->category,
+        ])->from(route('visitor.create', ['type' => 'nic']))
+            ->post(route('visitor.confirm'), [
+                'document_type' => 'nic',
+                'full_name' => 'Nimal Perera',
+                'document_number' => '199012345678',
+                'address' => '12 Galle Road, Colombo',
+                'mobile_number' => '771234567',
+                'whatsapp_number' => '771234567',
+                'occupation' => 'Engineer',
+                'company' => 'Acme',
+            ])->assertRedirect()
+            ->assertSessionHasErrors('name_confirmation');
+    }
+
     public function test_payment_confirmation_displays_the_server_generated_visitor_badge(): void
     {
         $visitor = VerifiedVisitor::updateOrCreate(

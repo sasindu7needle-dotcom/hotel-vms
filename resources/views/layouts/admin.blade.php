@@ -21,6 +21,9 @@
             // Receipt Manager was added after the first admin accounts. Visitor
             // access remains a valid permission for this payment workflow.
             $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
+            // Revenue reports are a read-only extension of the existing receipt
+            // workflow, so older cashier accounts continue to see them.
+            $canAccessRevenue = $canAccess('Revenue Summary') || $canAccess('Revenue Detail') || $canAccessReceipts;
         @endphp
         <nav aria-label="Admin navigation">
             @if($canAccess('Dashboard'))
@@ -29,6 +32,32 @@
 
             @if($canAccess('Visitors'))
                 <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link @if(request()->routeIs('admin.visitors*')) active @endif"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path></svg><span>Visitors</span></a>
+            @endif
+
+            @if($canAccess('Attendance Summary') || $canAccess('Attendance Detail'))
+                <div class="admin-nav-group @if(request()->routeIs('admin.attendance*')) active @else collapsed @endif">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.attendance*') ? 'true' : 'false' }}">
+                        <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><path d="M8 3v3M16 3v3M4 9h16"></path><rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01"></path></svg>
+                        <span>Attendance</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Attendance Summary'))<a href="{{ route('admin.attendance.entries') }}" class="@if(request()->routeIs('admin.attendance.entries')) active @endif">Count-wise Register</a><a href="{{ route('admin.attendance.summary') }}" class="@if(request()->routeIs('admin.attendance.summary')) active @endif">Attendance Summary</a>@endif
+                        @if($canAccess('Attendance Detail'))<a href="{{ route('admin.attendance.detail') }}" class="@if(request()->routeIs('admin.attendance.detail')) active @endif">Attendance Detail</a><a href="{{ route('admin.attendance.detail_with_photo') }}" class="@if(request()->routeIs('admin.attendance.detail_with_photo')) active @endif">Detail with Photos</a>@endif
+                    </div>
+                </div>
+            @endif
+
+            @if($canAccessRevenue)
+                <div class="admin-nav-group @if(request()->routeIs('admin.revenue*')) active @else collapsed @endif">
+                    <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.revenue*') ? 'true' : 'false' }}">
+                        <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>
+                        <span>Revenue</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg>
+                    </button>
+                    <div class="admin-nav-subtabs">
+                        @if($canAccess('Revenue Summary') || $canAccessReceipts)<a href="{{ route('admin.revenue.summary') }}" class="@if(request()->routeIs('admin.revenue.summary')) active @endif">Revenue Summary</a>@endif
+                        @if($canAccess('Revenue Detail') || $canAccessReceipts)<a href="{{ route('admin.revenue.detail') }}" class="@if(request()->routeIs('admin.revenue.detail')) active @endif">Revenue Detail</a>@endif
+                    </div>
+                </div>
             @endif
 
             @if($canAccessReceipts)

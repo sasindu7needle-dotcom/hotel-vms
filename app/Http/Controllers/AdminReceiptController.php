@@ -43,6 +43,7 @@ class AdminReceiptController extends Controller
             'entrance_fee' => $validated['entrance_fee'],
             'payment_method' => $validated['payment_method'],
             'payment_status' => 'paid',
+            'paid_at' => $visitor->paid_at ?: now(),
             'registration_status' => 'paid',
         ]);
 
