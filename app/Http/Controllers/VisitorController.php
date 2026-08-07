@@ -69,7 +69,7 @@ class VisitorController extends Controller
         $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
         $category = ! empty($validated['category_id']) ? VisitorCategory::find($validated['category_id']) : null;
 
-        $this->persistVerifiedVisitor([
+        $visitor = $this->persistVerifiedVisitor([
             'verification_id' => $verificationId,
             'document_type' => $validated['document_type'],
             'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
@@ -94,7 +94,19 @@ class VisitorController extends Controller
             'ocr_provider' => 'manual_registration',
         ], ['face_verification_status' => 'manual_review']);
 
-        return redirect()->route('visitor.manual.create')->with('status', 'Visitor registered successfully. Payment can now be confirmed in Receipt Manager.');
+        $request->session()->put('visitor_registration', [
+            'record_id' => $visitor->id,
+            'verification_id' => $visitor->verification_id,
+            'full_name' => $visitor->full_name,
+            'category' => $visitor->category,
+            'photo_path' => $visitor->photo_path,
+            'photo_mime' => $visitor->photo_mime,
+            'selfie_path' => $visitor->selfie_path,
+            'selfie_mime' => $visitor->selfie_mime,
+            'manual_registration' => true,
+        ]);
+
+        return redirect()->route('visitor.thank-you');
     }
 
     /**
@@ -405,17 +417,20 @@ class VisitorController extends Controller
     public function thankYou(Request $request)
     {
         $details = $request->session()->get('visitor_registration');
-        if (! is_array($details) || data_get($details, 'payment_status') !== 'paid') {
+        $isManualRegistration = data_get($details, 'manual_registration') === true;
+
+        if (! is_array($details) || (! $isManualRegistration && data_get($details, 'payment_status') !== 'paid')) {
             return redirect()->route('visitor.create');
         }
 
         $visitor = VerifiedVisitor::find(data_get($details, 'record_id'));
-        if (! $visitor || $visitor->payment_status !== 'paid') {
+        if (! $visitor || (! $isManualRegistration && $visitor->payment_status !== 'paid')) {
             return redirect()->route('visitor.create');
         }
 
         $eventName = config('vms.event_name');
-        $paymentReference = data_get($details, 'payment_reference');
+        $paymentReference = data_get($details, 'payment_reference')
+            ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT);
         $qrPayload = (string) ($visitor->verification_id ?: $paymentReference ?: Str::uuid());
         $qrCode = QrCode::format('svg')
             ->size(220)

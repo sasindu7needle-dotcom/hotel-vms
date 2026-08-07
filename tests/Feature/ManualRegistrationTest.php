@@ -34,8 +34,14 @@ class ManualRegistrationTest extends TestCase
             'document_front' => UploadedFile::fake()->image('nic-front.jpg'),
             'document_back' => UploadedFile::fake()->image('nic-back.jpg'),
             'face_photo' => UploadedFile::fake()->image('face.jpg'),
-        ])->assertRedirect(route('visitor.manual.create'))
-            ->assertSessionHas('status');
+        ])->assertRedirect(route('visitor.thank-you'));
+
+        $this->get(route('visitor.thank-you'))
+            ->assertOk()
+            ->assertSee('Thank you for registering')
+            ->assertSee('Manual Visitor')
+            ->assertSee('Staff')
+            ->assertSee('<svg', false);
 
         $this->assertDatabaseHas('verified_visitors', [
             'full_name' => 'Manual Visitor',
