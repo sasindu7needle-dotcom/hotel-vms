@@ -18,6 +18,7 @@ class AdminDashboardController extends Controller
     public function index()
     {
         $liveCounts = $this->liveCounts();
+        $insideParticipants = $this->insideParticipants();
         $stats = [
             'total' => VerifiedVisitor::count(),
             'today' => VerifiedVisitor::whereDate('verified_at', today())->count(),
@@ -37,7 +38,12 @@ class AdminDashboardController extends Controller
             EventConfiguration::SINGLETON_KEY
         )->first();
 
-        return view('admin.dashboard', compact('stats', 'recentVisitors', 'eventConfiguration'));
+        return view('admin.dashboard', compact(
+            'stats',
+            'insideParticipants',
+            'recentVisitors',
+            'eventConfiguration'
+        ));
     }
 
     public function counts(): JsonResponse
@@ -150,6 +156,34 @@ class AdminDashboardController extends Controller
                 EventConfiguration::SINGLETON_KEY
             )->value('capacity_limit'),
         ];
+    }
+
+    /**
+     * Group people whose latest gate activity is an entry. The photo roster
+     * and the existing live counters therefore always use the same source.
+     */
+    private function insideParticipants(): array
+    {
+        $groups = [
+            'visitor' => collect(),
+            'exhibitor' => collect(),
+            'staff' => collect(),
+        ];
+
+        $this->insideVisitorQuery()
+            ->latest('checked_in_at')
+            ->latest('id')
+            ->get()
+            ->each(function (VerifiedVisitor $participant) use (&$groups) {
+                $category = strtolower((string) $participant->category);
+                $group = str_contains($category, 'exhibitor')
+                    ? 'exhibitor'
+                    : (str_contains($category, 'staff') ? 'staff' : 'visitor');
+
+                $groups[$group]->push($participant);
+            });
+
+        return $groups;
     }
 
     private function insideVisitorQuery()

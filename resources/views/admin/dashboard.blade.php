@@ -20,9 +20,25 @@
         body.landing-page .admin-capacity-form input:focus{border-color:#aecb37;box-shadow:0 0 0 3px rgba(200,224,99,.25)}
         body.landing-page .admin-capacity-form button,body.landing-page .admin-capacity-control>.btn{display:inline-flex;min-height:44px;align-items:center;justify-content:center;white-space:nowrap}
         body.landing-page .admin-inside-breakdown{grid-template-columns:repeat(3,minmax(0,1fr))}
+        body.landing-page .admin-live-inside{margin:0 0 24px;padding:24px;background:#fff;border:1px solid #e1e6e9;border-radius:13px;box-shadow:0 10px 28px rgba(20,28,38,.05)}
+        body.landing-page .admin-live-inside-heading{margin-bottom:24px;text-align:center}
+        body.landing-page .admin-live-inside-heading>span{display:block;color:#80920f;font-size:9px;font-weight:800;letter-spacing:.12em}
+        body.landing-page .admin-live-inside-heading h2{margin:6px 0 5px;color:#111;font-size:22px;font-weight:800}
+        body.landing-page .admin-live-inside-heading p{color:#7b8795;font-size:11px}
+        body.landing-page .admin-live-category+.admin-live-category{margin-top:24px;padding-top:22px;border-top:1px solid #edf0f2}
+        body.landing-page .admin-live-category-heading{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+        body.landing-page .admin-live-category-heading h3{color:#19212c;font-size:15px;font-weight:800}
+        body.landing-page .admin-live-category-heading strong{display:inline-flex;min-width:28px;height:22px;align-items:center;justify-content:center;padding:0 7px;color:#111;background:#c8e063;border-radius:50px;font-size:10px;font-weight:800}
+        body.landing-page .admin-live-profile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:12px}
+        body.landing-page .admin-live-profile{position:relative;min-width:0;margin:0;aspect-ratio:1;overflow:hidden;background:#e9eef2;border:2px solid #d8e2e8;border-radius:9px;box-shadow:0 3px 9px rgba(20,28,38,.07)}
+        body.landing-page .admin-live-profile img{width:100%;height:100%;object-fit:cover}
+        body.landing-page .admin-live-profile-initial{display:grid;width:100%;height:100%;place-items:center;color:#405000;background:#edf6c7;font-size:21px;font-weight:800}
+        body.landing-page .admin-live-profile figcaption{position:absolute;right:0;bottom:0;left:0;padding:14px 5px 5px;overflow:hidden;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:8px;font-weight:700;line-height:1.2;text-align:center;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:opacity .16s ease}
+        body.landing-page .admin-live-profile:hover figcaption,.admin-live-profile:focus-within figcaption{opacity:1}
+        body.landing-page .admin-live-empty{display:flex;grid-column:1/-1;min-height:70px;align-items:center;justify-content:center;color:#8894a0;background:#fafbfb;border:1px dashed #d9e0e5;border-radius:9px;font-size:11px;font-weight:600}
         .admin-dashboard-message{margin:0 0 14px;padding:11px 14px;border:1px solid #cbdc83;border-radius:9px;background:#f4f9dd;color:#405000;font-size:12px;font-weight:700}.admin-dashboard-message.error{border-color:#efb7bc;background:#fff0f1;color:#94232d}
         @media(max-width:900px){body.landing-page .admin-capacity-control{grid-template-columns:46px minmax(0,1fr)}body.landing-page .admin-capacity-form,body.landing-page .admin-capacity-control>.btn{grid-column:1/-1;width:100%}body.landing-page .admin-capacity-form label{flex:1}body.landing-page .admin-capacity-form input{width:100%}}
-        @media(max-width:700px){body.landing-page .admin-inside-breakdown{grid-template-columns:1fr}body.landing-page .admin-capacity-control{grid-template-columns:40px minmax(0,1fr);padding:17px 16px}body.landing-page .admin-capacity-icon{width:40px;height:40px}}
+        @media(max-width:700px){body.landing-page .admin-inside-breakdown{grid-template-columns:1fr}body.landing-page .admin-live-inside{padding:18px 15px}body.landing-page .admin-live-profile-grid{grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:9px}body.landing-page .admin-capacity-control{grid-template-columns:40px minmax(0,1fr);padding:17px 16px}body.landing-page .admin-capacity-icon{width:40px;height:40px}}
         @media(max-width:460px){body.landing-page .admin-capacity-form{align-items:stretch;flex-direction:column}body.landing-page .admin-capacity-form button{width:100%}}
     </style>
 </head>
@@ -88,18 +104,34 @@
                 <div class="admin-user-chip"><span>A</span><div><strong>{{ session('admin_username') }}</strong><small>{{ session('admin_role', 'Administrator') }}</small></div></div>
             </header>
 
-            <section class="admin-stat-grid" aria-label="Visitor statistics">
-                @foreach([
-                    ['label' => 'Total Visitors', 'value' => $stats['total'], 'tone' => 'lime'],
-                    ['label' => 'Arrivals Today', 'value' => $stats['today'], 'tone' => 'coral'],
-                    ['label' => 'Currently Inside', 'value' => $stats['checked_in'], 'tone' => 'black', 'key' => 'inside'],
-                    ['label' => 'Checked Out', 'value' => $stats['checked_out'], 'tone' => 'slate']
-                ] as $stat)
-                    <article class="admin-stat-card admin-stat-{{ $stat['tone'] }}"><div><span>{{ $stat['label'] }}</span><strong @if(isset($stat['key'])) data-live-count="{{ $stat['key'] }}" @endif>{{ number_format($stat['value']) }}</strong></div><i></i></article>
-                @endforeach
-            </section>
             @if(session('status'))<div class="admin-dashboard-message" role="status">{{ session('status') }}</div>@endif
             @error('inside_count')<div class="admin-dashboard-message error" role="alert">{{ $message }}</div>@enderror
+            <section class="admin-live-inside" aria-labelledby="liveInsideTitle">
+                <div class="admin-live-inside-heading"><span>LIVE INSIDE</span><h2 id="liveInsideTitle">Participants currently at the event</h2><p>Profiles are grouped by participant category and reflect the latest gate activity.</p></div>
+                @foreach(['visitor' => 'Visitors', 'exhibitor' => 'Exhibitors', 'staff' => 'Staff'] as $group => $label)
+                    @php($insideStatKey = ['visitor' => 'visitors_inside', 'exhibitor' => 'exhibitors_inside', 'staff' => 'staff_inside'][$group])
+                    <section class="admin-live-category" aria-labelledby="{{ $group }}InsideTitle">
+                        <div class="admin-live-category-heading"><h3 id="{{ $group }}InsideTitle">{{ $label }}</h3><strong data-live-count="{{ $group }}">{{ number_format($stats[$insideStatKey]) }}</strong></div>
+                        <div class="admin-live-profile-grid">
+                            @forelse($insideParticipants[$group] as $participant)
+                                @php($mediaVersion = $participant->updated_at?->format('Uu'))
+                                <figure class="admin-live-profile" title="{{ $participant->full_name ?: 'Unnamed participant' }}">
+                                    @if($participant->selfie_path)
+                                        <img src="{{ route('admin.visitors.selfie', ['visitor' => $participant, 'v' => $mediaVersion]) }}" alt="Profile photo of {{ $participant->full_name ?: 'participant' }}" loading="lazy">
+                                    @elseif($participant->photo_url)
+                                        <img src="{{ $participant->photo_url }}" alt="Profile photo of {{ $participant->full_name ?: 'participant' }}" loading="lazy">
+                                    @else
+                                        <span class="admin-live-profile-initial" aria-hidden="true">{{ mb_strtoupper(mb_substr($participant->full_name ?: '?', 0, 1)) }}</span>
+                                    @endif
+                                    <figcaption>{{ $participant->full_name ?: 'Unnamed participant' }}</figcaption>
+                                </figure>
+                            @empty
+                                <div class="admin-live-empty">No {{ strtolower($label) }} are currently inside.</div>
+                            @endforelse
+                        </div>
+                    </section>
+                @endforeach
+            </section>
             <section class="admin-capacity-control" aria-label="Event occupancy control">
                 <div class="admin-capacity-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path><path d="M2 21v-2a6 6 0 0 1 12 0v2"></path><path d="M17 8v6M14 11h6"></path></svg>
@@ -126,12 +158,6 @@
                     <a href="{{ route('admin.configurations.event.edit') }}" class="btn btn-primary">Set Capacity</a>
                 @endif
             </section>
-            <section class="admin-visitor-stat-grid admin-inside-breakdown" aria-label="Currently inside by category">
-                <article><span>Visitors Inside</span><strong data-live-count="visitor">{{ number_format($stats['visitors_inside']) }}</strong></article>
-                <article><span>Exhibitors Inside</span><strong data-live-count="exhibitor">{{ number_format($stats['exhibitors_inside']) }}</strong></article>
-                <article><span>Staff Inside</span><strong data-live-count="staff">{{ number_format($stats['staff_inside']) }}</strong></article>
-            </section>
-
             <section class="admin-panel">
                 <div class="admin-panel-heading"><div><span>LIVE RECORDS</span><h2>Recent visitors</h2></div><a href="{{ route('admin.visitors.index') }}">View all <span>→</span></a></div>
                 <div class="table-responsive">

@@ -66,10 +66,13 @@ class EnsureAdminAuthenticated
 
         $routeName = $request->route() ? (string) $request->route()->getName() : '';
 
-        // Attendance Detail with Photos intentionally exposes only the captured
-        // visitor selfie. Permit that report's users to fetch those private
-        // images without granting the wider visitor-management page access.
-        if ($routeName === 'admin.visitors.selfie' && in_array('Attendance Detail', $perms, true)) {
+        // Attendance Detail with Photos and the Dashboard roster intentionally
+        // expose only the captured visitor selfie. Permit those pages to fetch
+        // that private image without granting wider visitor-management access.
+        if ($routeName === 'admin.visitors.selfie' && (
+            in_array('Attendance Detail', $perms, true)
+            || in_array('Dashboard', $perms, true)
+        )) {
             return $next($request);
         }
 

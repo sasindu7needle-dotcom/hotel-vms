@@ -6,6 +6,7 @@ use App\Models\EventConfiguration;
 use App\Models\GateLog;
 use App\Models\VerifiedVisitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -73,6 +74,41 @@ class AdminDashboardCapacityTest extends TestCase
             ->assertRedirect(route('admin.dashboard'))
             ->assertSessionHasErrors('inside_count');
         $this->assertDatabaseCount('gate_logs', 0);
+    }
+
+    public function test_dashboard_displays_profile_photos_for_people_currently_inside(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('verified-visitors/live-inside.jpg', 'profile image');
+        $participant = $this->visitor('Inside With Photo');
+        $participant->update([
+            'category' => 'Staff',
+            'selfie_path' => 'verified-visitors/live-inside.jpg',
+            'selfie_mime' => 'image/jpeg',
+        ]);
+        GateLog::create([
+            'visitor_id' => $participant->id,
+            'gate' => 'A',
+            'direction' => 'in',
+            'scanned_at' => now(),
+        ]);
+        $session = [
+            'admin_authenticated' => true,
+            'admin_username' => 'dashboard',
+            'admin_permissions' => ['Dashboard'],
+        ];
+
+        $this->withSession($session)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Participants currently at the event')
+            ->assertSee('Inside With Photo')
+            ->assertSee(route('admin.visitors.selfie', $participant), false);
+
+        $this->withSession($session)
+            ->get(route('admin.visitors.selfie', $participant))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
     }
 
     private function event(int $capacity): EventConfiguration
