@@ -6,9 +6,9 @@ use App\Exceptions\GateScanException;
 use App\Models\User;
 use App\Models\VerifiedVisitor;
 use App\Services\GateLogService;
+use App\Services\VisitorMediaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -84,12 +84,12 @@ class GateTerminalController extends Controller
     public function photo(VerifiedVisitor $visitor): Response
     {
         $path = $visitor->selfie_path ?: $visitor->photo_path;
-        abort_unless($path && Storage::disk('local')->exists($path), 404);
+        $media = app(VisitorMediaService::class);
+        abort_unless($path && $media->exists($path), 404);
 
         $mime = $visitor->selfie_path ? $visitor->selfie_mime : $visitor->photo_mime;
 
-        return Storage::disk('local')->response($path, null, [
-            'Content-Type' => $mime ?: 'image/jpeg',
+        return $media->response($path, $mime, [
             'Cache-Control' => 'private, max-age=300',
         ]);
     }

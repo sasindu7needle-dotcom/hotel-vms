@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GateLogService;
+use App\Services\VisitorMediaService;
 use F9WebLtd\QrCode\Facades\QrCode;
 
 class AdminVisitorController extends Controller
@@ -113,7 +114,8 @@ class AdminVisitorController extends Controller
         // Include any related files left by earlier registration attempts. Restrict
         // matches to a complete identifier prefix so visitor 1 cannot match visitor 10.
         $searchIds = array_filter([$visitor->verification_id, (string) $visitor->id]);
-        foreach (['local', 'public'] as $diskName) {
+        $media = app(VisitorMediaService::class);
+        foreach ($media->diskNames() as $diskName) {
             foreach (Storage::disk($diskName)->allFiles('verified-visitors') as $file) {
                 $normalized = str_replace('\\', '/', $file);
                 $filename = basename($normalized);
@@ -139,7 +141,7 @@ class AdminVisitorController extends Controller
 
         $failedDeletes = collect();
         foreach ($validPaths as $path) {
-            foreach (['local', 'public'] as $diskName) {
+            foreach ($media->diskNames() as $diskName) {
                 $disk = Storage::disk($diskName);
 
                 try {
@@ -177,7 +179,7 @@ class AdminVisitorController extends Controller
 
     public function photo(VerifiedVisitor $visitor)
     {
-        abort_unless($visitor->photo_path && Storage::disk('local')->exists($visitor->photo_path), 404);
+        abort_unless($visitor->photo_path && app(VisitorMediaService::class)->exists($visitor->photo_path), 404);
 
         return $this->currentPrivateImage($visitor->photo_path, $visitor->photo_mime);
     }
@@ -202,22 +204,21 @@ class AdminVisitorController extends Controller
 
     public function selfie(VerifiedVisitor $visitor)
     {
-        abort_unless($visitor->selfie_path && Storage::disk('local')->exists($visitor->selfie_path), 404);
+        abort_unless($visitor->selfie_path && app(VisitorMediaService::class)->exists($visitor->selfie_path), 404);
 
         return $this->currentPrivateImage($visitor->selfie_path, $visitor->selfie_mime);
     }
 
     public function backPhoto(VerifiedVisitor $visitor)
     {
-        abort_unless($visitor->back_photo_path && Storage::disk('local')->exists($visitor->back_photo_path), 404);
+        abort_unless($visitor->back_photo_path && app(VisitorMediaService::class)->exists($visitor->back_photo_path), 404);
 
         return $this->currentPrivateImage($visitor->back_photo_path, $visitor->back_photo_mime);
     }
 
     private function currentPrivateImage(string $path, ?string $mime)
     {
-        return Storage::disk('local')->response($path, null, [
-            'Content-Type' => $mime ?: 'image/jpeg',
+        return app(VisitorMediaService::class)->response($path, $mime, [
             'Cache-Control' => 'no-store, no-cache, must-revalidate, private, max-age=0',
             'Pragma' => 'no-cache',
             'Expires' => '0',

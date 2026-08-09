@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\VisitorMediaService;
 use Illuminate\View\View;
 
 class AdminExhibitorController extends Controller
@@ -76,7 +77,8 @@ class AdminExhibitorController extends Controller
         // Also find any files from an older registration flow without allowing
         // member ID 1 to match files that belong to member ID 10.
         $searchIds = array_filter([$member->verification_id, (string) $member->id]);
-        foreach (['local', 'public'] as $diskName) {
+        $media = app(VisitorMediaService::class);
+        foreach ($media->diskNames() as $diskName) {
             foreach (Storage::disk($diskName)->allFiles('verified-visitors') as $file) {
                 $normalized = str_replace('\\', '/', $file);
                 $belongsToMember = collect($searchIds)->contains(
@@ -98,7 +100,7 @@ class AdminExhibitorController extends Controller
 
         $failedDeletes = collect();
         foreach ($validPaths as $path) {
-            foreach (['local', 'public'] as $diskName) {
+            foreach ($media->diskNames() as $diskName) {
                 $disk = Storage::disk($diskName);
 
                 try {

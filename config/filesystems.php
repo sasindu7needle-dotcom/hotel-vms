@@ -42,6 +42,15 @@ return [
             'visibility' => 'public',
         ],
 
+        // Visitor documents are sensitive and must stay private. This root is
+        // deliberately outside the deployed application release by default,
+        // so updating/replacing a release cannot remove registered visitors'
+        // NIC, driving-licence, passport, or face images.
+        'visitor-media' => [
+            'driver' => 'local',
+            'root' => env('VISITOR_MEDIA_ROOT', dirname(base_path()).DIRECTORY_SEPARATOR.'visitor-media'),
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

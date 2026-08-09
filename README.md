@@ -81,4 +81,24 @@ The document-verification endpoint sends the uploaded document side(s) to Gemini
 - Point the web server document root at `public`, make `storage` and `bootstrap/cache` writable, and run `php artisan storage:link`.
 - After changing production `.env` values, run `php artisan config:clear` followed by `php artisan config:cache`.
 
+### Persistent visitor images
+
+Visitor profile photos and all identity-document images (NIC front/back, driving licence, and passport) are private files served only by the application. They are stored on the `visitor-media` disk, outside the deployed application release by default.
+
+Set a permanent, writable server directory before deploying. It must not be deleted or recreated by the deployment process:
+
+```env
+VISITOR_MEDIA_DISK=visitor-media
+VISITOR_MEDIA_ROOT=/var/www/visitor-media
+```
+
+For an existing system, keep the old `storage/app/verified-visitors` directory available for the first deployment, then copy its files once:
+
+```bash
+php artisan visitor-media:migrate --dry-run
+php artisan visitor-media:migrate
+```
+
+The application can still read old files from the previous local/public locations during this transition. Files that were already deleted by an earlier redeploy can only be restored from a backup.
+
 Registration remains locked unless Gemini returns a plausible document number, full name, and address. Empty or malformed AI output is rejected instead of being copied into the registration form.

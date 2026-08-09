@@ -9,8 +9,8 @@ use App\Models\VisitorCategory;
 use App\Models\ExhibitorProfile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\VisitorMediaService;
 use F9WebLtd\QrCode\Facades\QrCode;
 
 class VisitorController extends Controller
@@ -301,12 +301,12 @@ class VisitorController extends Controller
             $mime = data_get($registration, 'photo_mime', data_get($verification, 'photo_mime', 'image/jpeg'));
         }
 
-        if (blank($path) || ! Storage::disk('local')->exists($path)) {
+        $media = app(VisitorMediaService::class);
+        if (blank($path) || ! $media->exists($path)) {
             abort(404);
         }
 
-        return Storage::disk('local')->response($path, null, [
-            'Content-Type' => $mime ?: 'image/jpeg',
+        return $media->response($path, $mime, [
             'Cache-Control' => 'no-cache, private',
         ]);
     }
@@ -586,7 +586,7 @@ class VisitorController extends Controller
     private function storeManualImage($file, string $filename): array
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        $path = $file->storeAs('verified-visitors', $filename.'.'.$extension, 'local');
+        $path = app(VisitorMediaService::class)->storeAs($file, 'verified-visitors', $filename.'.'.$extension);
 
         return ['path' => $path, 'mime' => $file->getMimeType() ?: 'image/jpeg'];
     }

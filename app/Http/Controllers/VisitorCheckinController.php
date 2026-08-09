@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\GeminiDocumentService;
+use App\Services\VisitorMediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class VisitorCheckinController extends Controller
@@ -198,7 +198,7 @@ class VisitorCheckinController extends Controller
 
         $verificationId = (string) Str::uuid();
         $photoPath = "verified-visitors/{$verificationId}.{$extension}";
-        Storage::disk('local')->put($photoPath, $imageBytes);
+        app(VisitorMediaService::class)->put($photoPath, $imageBytes);
 
         $backPhotoPath = null;
         $backPhotoMime = null;
@@ -206,7 +206,7 @@ class VisitorCheckinController extends Controller
             $backExtension = $backFile->getClientOriginalExtension() ?: 'jpg';
             $backPhotoPath = "verified-visitors/{$verificationId}-back.{$backExtension}";
             $backPhotoMime = $backFile->getMimeType() ?: 'image/jpeg';
-            Storage::disk('local')->put($backPhotoPath, $backImageBytes);
+            app(VisitorMediaService::class)->put($backPhotoPath, $backImageBytes);
         }
 
         $verification = [
@@ -292,8 +292,9 @@ class VisitorCheckinController extends Controller
 
         $extension = $file->getClientOriginalExtension() ?: 'jpg';
         $selfiePath = 'verified-visitors/'.data_get($verification, 'verification_id').'-photo.'.$extension;
-        Storage::disk('local')->put($selfiePath, $bytes);
-        if (! Storage::disk('local')->exists($selfiePath)) {
+        $media = app(VisitorMediaService::class);
+        $media->put($selfiePath, $bytes);
+        if (! $media->exists($selfiePath)) {
             return response()->json([
                 'success' => false,
                 'error' => 'The captured photo could not be stored. Please try again.',

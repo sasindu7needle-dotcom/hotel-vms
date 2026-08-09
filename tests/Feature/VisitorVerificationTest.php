@@ -48,6 +48,10 @@ class VisitorVerificationTest extends TestCase
         $this->assertNotNull(session('verification'));
         $this->assertEquals('199012345678', session('verification.document_number'));
         $this->assertEquals('pending', session('verification.photo_capture_status'));
+        Storage::disk('visitor-media')->assertExists([
+            session('verification.photo_path'),
+            session('verification.back_photo_path'),
+        ]);
         $response->assertJsonPath('redirect_url', route('visitor.photo_capture'));
     }
 
@@ -557,7 +561,7 @@ class VisitorVerificationTest extends TestCase
 
     public function test_it_stores_a_camera_photo_and_unlocks_registration(): void
     {
-        Storage::disk('local')->put('verified-visitors/document.jpg', 'document');
+        Storage::disk('visitor-media')->put('verified-visitors/document.jpg', 'document');
         $response = $this->withSession(['verification' => [
             'session_id' => '11111111-2222-4333-8444-555555555555',
             'verification_id' => '11111111-2222-4333-8444-555555555555',
@@ -569,7 +573,7 @@ class VisitorVerificationTest extends TestCase
 
         $response->assertOk()->assertJson(['success' => true]);
         $this->assertEquals('completed', session('verification.photo_capture_status'));
-        Storage::disk('local')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-photo.jpg');
+        Storage::disk('visitor-media')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-photo.jpg');
     }
 
     public function test_it_rejects_an_invalid_camera_photo(): void
