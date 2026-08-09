@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\VisitorCategory;
+use App\Models\VerifiedVisitor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -12,10 +13,17 @@ class AdminVisitorCategoryController extends Controller
 {
     public function index(Request $request): View
     {
-        $categories = VisitorCategory::orderBy('created_at', 'desc')->get();
+        $categories = VisitorCategory::query()
+            ->withCount('visitors')
+            ->orderBy('created_at', 'desc')
+            ->get();
         $selectedCategory = $request->filled('category')
             ? $categories->firstWhere('id', (int) $request->input('category'))
             : null;
+
+        $selectedCategory?->load([
+            'visitors' => fn ($query) => $query->latest(),
+        ]);
 
         return view('admin.configurations.categories', compact('categories', 'selectedCategory'));
     }
@@ -91,6 +99,46 @@ class AdminVisitorCategoryController extends Controller
         return redirect()
             ->route('admin.configurations.categories.index')
             ->with('status', 'Visitor Category status updated.');
+    }
+
+    /**
+     * Issue a gate pass for a person who belongs to a pre-configured category
+     * (for example staff, exhibitor, sponsor or VIP).
+     */
+    public function storeMember(Request $request, VisitorCategory $category): RedirectResponse
+    {
+        abort_unless($category->is_active, 422, 'Inactive categories cannot receive new members.');
+
+        $validated = $request->validate([
+            'full_name' => ['required', 'string', 'max:180'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'mobile_number' => ['nullable', 'string', 'max:20'],
+            'company' => ['nullable', 'string', 'max:150'],
+            'occupation' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $member = VerifiedVisitor::create([
+            'verification_id' => (string) Str::uuid(),
+            'visitor_category_id' => $category->id,
+            'full_name' => $validated['full_name'],
+            'full_name_latin' => $validated['full_name'],
+            'email' => $validated['email'] ?? null,
+            'mobile_number' => $validated['mobile_number'] ?? null,
+            'company' => $validated['company'] ?? null,
+            'occupation' => $validated['occupation'] ?? null,
+            'category' => $category->name,
+            'entrance_fee' => $category->entrance_fee,
+            'payment_status' => 'paid',
+            'registration_status' => 'registered',
+            'verified_at' => now(),
+            'identity_reviewed_at' => now(),
+            'face_verification_status' => 'not_required',
+            'ocr_provider' => 'category_member',
+        ]);
+
+        return redirect()
+            ->route('admin.visitors.badge', $member)
+            ->with('status', "{$validated['full_name']} was added to {$category->name}. Print or save the QR pass.");
     }
 
     public function destroy(VisitorCategory $category): RedirectResponse

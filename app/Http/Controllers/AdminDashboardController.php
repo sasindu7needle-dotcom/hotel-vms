@@ -7,6 +7,7 @@ use App\Models\EventConfiguration;
 use App\Models\GateLog;
 use App\Models\User;
 use App\Models\VerifiedVisitor;
+use App\Models\VisitorCategory;
 use App\Services\GateLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +19,7 @@ class AdminDashboardController extends Controller
     public function index()
     {
         $liveCounts = $this->liveCounts();
-        $insideParticipants = $this->insideParticipants();
+        $insideCategories = $this->insideCategories();
         $stats = [
             'total' => VerifiedVisitor::count(),
             'today' => VerifiedVisitor::whereDate('verified_at', today())->count(),
@@ -40,7 +41,7 @@ class AdminDashboardController extends Controller
 
         return view('admin.dashboard', compact(
             'stats',
-            'insideParticipants',
+            'insideCategories',
             'recentVisitors',
             'eventConfiguration'
         ));
@@ -48,7 +49,11 @@ class AdminDashboardController extends Controller
 
     public function counts(): JsonResponse
     {
-        return response()->json($this->liveCounts());
+        $counts = $this->liveCounts();
+        $counts['categories'] = collect($this->insideCategories())
+            ->mapWithKeys(fn (array $group) => [$group['key'] => $group['participants']->count()]);
+
+        return response()->json($counts);
     }
 
     public function updateInsideCount(Request $request, GateLogService $gateLogService): RedirectResponse
@@ -162,25 +167,49 @@ class AdminDashboardController extends Controller
      * Group people whose latest gate activity is an entry. The photo roster
      * and the existing live counters therefore always use the same source.
      */
-    private function insideParticipants(): array
+    private function insideCategories(): array
     {
+        $configuredCategories = VisitorCategory::query()->orderBy('name')->get();
         $groups = [
-            'visitor' => collect(),
-            'exhibitor' => collect(),
-            'staff' => collect(),
+            'visitor' => ['key' => 'visitor', 'label' => 'Visitors', 'participants' => collect()],
+            'exhibitor' => ['key' => 'exhibitor', 'label' => 'Exhibitors', 'participants' => collect()],
+            'staff' => ['key' => 'staff', 'label' => 'Staff', 'participants' => collect()],
         ];
 
+        $categoryGroupKeys = [];
+        foreach ($configuredCategories as $category) {
+            $normalisedName = strtolower($category->name);
+            $fallbackGroup = str_contains($normalisedName, 'exhibitor')
+                ? 'exhibitor'
+                : (str_contains($normalisedName, 'staff') ? 'staff' : null);
+            $groupKey = $fallbackGroup ?: 'category-'.$category->id;
+
+            if (! $fallbackGroup) {
+                $groups[$groupKey] = [
+                    'key' => $groupKey,
+                    'label' => $category->name,
+                    'participants' => collect(),
+                ];
+            }
+
+            $categoryGroupKeys[$category->id] = $groupKey;
+        }
+
         $this->insideVisitorQuery()
+            ->with('visitorCategory')
             ->latest('checked_in_at')
             ->latest('id')
             ->get()
-            ->each(function (VerifiedVisitor $participant) use (&$groups) {
+            ->each(function (VerifiedVisitor $participant) use (&$groups, $categoryGroupKeys) {
+                $linkedGroup = $participant->visitor_category_id
+                    ? ($categoryGroupKeys[$participant->visitor_category_id] ?? null)
+                    : null;
                 $category = strtolower((string) $participant->category);
-                $group = str_contains($category, 'exhibitor')
+                $group = $linkedGroup ?: (str_contains($category, 'exhibitor')
                     ? 'exhibitor'
-                    : (str_contains($category, 'staff') ? 'staff' : 'visitor');
+                    : (str_contains($category, 'staff') ? 'staff' : 'visitor'));
 
-                $groups[$group]->push($participant);
+                $groups[$group]['participants']->push($participant);
             });
 
         return $groups;

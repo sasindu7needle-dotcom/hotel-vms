@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
-    <meta http-equiv="refresh" content="5;url={{ url('/') }}">
+    <meta http-equiv="refresh" content="{{ data_get($details, 'exhibitor_profile_token') ? '30;url='.route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) : '5;url='.url('/') }}">
 </head>
 <body class="landing-page visitor-registration-page thank-you-page">
     <main class="registration-shell thank-you-shell">
@@ -58,21 +58,29 @@
                 </div>
             </article>
 
-            <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
-            <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Redirecting to home page in <span id="redirectCountdown">5</span> seconds...</p>
+            @if(!data_get($details, 'exhibitor_profile_token'))
+                <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
+            @endif
+            @if(data_get($details, 'exhibitor_profile_token'))
+                <p class="printing-instruction">Your member registration is complete. <strong>Event administration will print the entrance card.</strong></p>
+                <div style="display:flex;justify-content:center;margin-top:18px;"><a class="btn" style="background:#fff;border:1px solid #d8e0e7;color:#172033" href="{{ route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) }}">Back to members</a></div>
+                <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Returning to your member list in <span id="redirectCountdown">30</span> seconds...</p>
+            @else
+                <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Redirecting to home page in <span id="redirectCountdown">5</span> seconds...</p>
+            @endif
         </section>
     </main>
 
     <script>
         (function() {
-            let secondsLeft = 5;
+            let secondsLeft = {{ data_get($details, 'exhibitor_profile_token') ? 30 : 5 }};
             const countdownEl = document.getElementById('redirectCountdown');
             const timer = setInterval(() => {
                 secondsLeft--;
                 if (countdownEl) countdownEl.textContent = secondsLeft;
                 if (secondsLeft <= 0) {
                     clearInterval(timer);
-                    window.location.href = "{{ url('/') }}";
+                    window.location.href = "{{ data_get($details, 'exhibitor_profile_token') ? route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) : url('/') }}";
                 }
             }, 1000);
         })();

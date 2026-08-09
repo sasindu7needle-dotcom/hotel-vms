@@ -59,6 +59,10 @@
                 @endif
                 @if($canAccess('Visitors'))
                     <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                    <div class="admin-nav-group collapsed">
+                        <button type="button" class="admin-nav-group-title" aria-expanded="false"><svg class="admin-nav-group-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"></rect><path d="M3 10h18M8 5V3M16 5V3"></path></svg><span>Exhibitors</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg></button>
+                        <div class="admin-nav-subtabs"><a href="{{ route('admin.exhibitors.index') }}">Exhibitor Access</a><a href="{{ route('admin.exhibitors.directory') }}">Exhibitor Directory</a></div>
+                    </div>
                 @endif
                 @if($canAccess('Attendance Summary') || $canAccess('Attendance Detail'))
                 <div class="admin-nav-group collapsed">
@@ -108,12 +112,11 @@
             @error('inside_count')<div class="admin-dashboard-message error" role="alert">{{ $message }}</div>@enderror
             <section class="admin-live-inside" aria-labelledby="liveInsideTitle">
                 <div class="admin-live-inside-heading"><span>LIVE INSIDE</span><h2 id="liveInsideTitle">Participants currently at the event</h2><p>Profiles are grouped by participant category and reflect the latest gate activity.</p></div>
-                @foreach(['visitor' => 'Visitors', 'exhibitor' => 'Exhibitors', 'staff' => 'Staff'] as $group => $label)
-                    @php($insideStatKey = ['visitor' => 'visitors_inside', 'exhibitor' => 'exhibitors_inside', 'staff' => 'staff_inside'][$group])
-                    <section class="admin-live-category" aria-labelledby="{{ $group }}InsideTitle">
-                        <div class="admin-live-category-heading"><h3 id="{{ $group }}InsideTitle">{{ $label }}</h3><strong data-live-count="{{ $group }}">{{ number_format($stats[$insideStatKey]) }}</strong></div>
+                @foreach($insideCategories as $group)
+                    <section class="admin-live-category" aria-labelledby="{{ $group['key'] }}InsideTitle">
+                        <div class="admin-live-category-heading"><h3 id="{{ $group['key'] }}InsideTitle">{{ $group['label'] }}</h3><strong data-live-category-count="{{ $group['key'] }}">{{ number_format($group['participants']->count()) }}</strong></div>
                         <div class="admin-live-profile-grid">
-                            @forelse($insideParticipants[$group] as $participant)
+                            @forelse($group['participants'] as $participant)
                                 @php($mediaVersion = $participant->updated_at?->format('Uu'))
                                 <figure class="admin-live-profile" title="{{ $participant->full_name ?: 'Unnamed participant' }}">
                                     @if($participant->selfie_path)
@@ -126,7 +129,7 @@
                                     <figcaption>{{ $participant->full_name ?: 'Unnamed participant' }}</figcaption>
                                 </figure>
                             @empty
-                                <div class="admin-live-empty">No {{ strtolower($label) }} are currently inside.</div>
+                                <div class="admin-live-empty">No {{ strtolower($group['label']) }} are currently inside.</div>
                             @endforelse
                         </div>
                     </section>
@@ -199,6 +202,7 @@
                 if (!response.ok) return;
                 const counts = await response.json();
                 document.querySelectorAll('[data-live-count]').forEach(element => element.textContent = Number(counts[element.dataset.liveCount] || 0).toLocaleString());
+                document.querySelectorAll('[data-live-category-count]').forEach(element => element.textContent = Number(counts.categories?.[element.dataset.liveCategoryCount] || 0).toLocaleString());
             } catch (_) {}
         }, 12000);
     </script>

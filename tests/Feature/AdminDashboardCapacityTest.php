@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\EventConfiguration;
 use App\Models\GateLog;
 use App\Models\VerifiedVisitor;
+use App\Models\VisitorCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -109,6 +110,32 @@ class AdminDashboardCapacityTest extends TestCase
             ->get(route('admin.visitors.selfie', $participant))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/jpeg');
+    }
+
+    public function test_dashboard_adds_a_section_for_each_configured_visitor_category(): void
+    {
+        $category = VisitorCategory::create([
+            'name' => 'Sponsors',
+            'code' => 'sponsors',
+            'badge_color' => '#c8e063',
+            'entrance_fee' => 0,
+            'is_active' => true,
+        ]);
+        $participant = $this->visitor('Sponsor Inside');
+        $participant->update(['visitor_category_id' => $category->id, 'category' => 'Sponsors']);
+        GateLog::create([
+            'visitor_id' => $participant->id,
+            'gate' => 'A',
+            'direction' => 'in',
+            'scanned_at' => now(),
+        ]);
+
+        $this->withSession(['admin_authenticated' => true, 'admin_username' => 'dashboard'])
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Sponsors')
+            ->assertSee('Sponsor Inside')
+            ->assertSee('data-live-category-count="category-'.$category->id.'"', false);
     }
 
     private function event(int $capacity): EventConfiguration

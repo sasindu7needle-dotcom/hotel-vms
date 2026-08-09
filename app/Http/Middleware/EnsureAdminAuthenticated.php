@@ -79,6 +79,7 @@ class EnsureAdminAuthenticated
         $routePermissionMap = [
             'admin.dashboard' => 'Dashboard',
             'admin.visitors' => 'Visitors',
+            'admin.exhibitors' => 'Visitors',
             'admin.attendance.entries' => 'Attendance Summary',
             'admin.attendance.summary' => 'Attendance Summary',
             'admin.attendance.detail' => 'Attendance Detail',

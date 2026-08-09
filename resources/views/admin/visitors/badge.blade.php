@@ -282,12 +282,16 @@
         <div class="card-topbar"><span>ENTRANCE ID</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
         <header class="card-event"><span>EVENT NAME</span><h1>{{ $eventName }}</h1></header>
         <div class="card-photo">
-            <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Captured visitor photo of {{ $visitor->full_name }}">
+            @if($visitor->selfie_path)
+                <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Captured visitor photo of {{ $visitor->full_name }}">
+            @else
+                <strong aria-label="No visitor photo">{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</strong>
+            @endif
         </div>
         <div class="card-name">
             <span>VISITOR NAME</span>
             <h2>{{ $visitor->full_name ?: 'Verified Visitor' }}</h2>
-            <div class="card-category">{{ $visitor->category ?: 'Visitor' }}</div>
+            <div class="card-category">{{ $visitor->exhibitorProfile?->name_board ?: $visitor->category ?: 'Visitor' }}</div>
         </div>
         <div class="card-qr">
             <div role="img" aria-label="QR code for visitor ID {{ $qrPayload }}">{!! $qrCode !!}</div>

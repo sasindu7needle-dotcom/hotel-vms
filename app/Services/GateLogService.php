@@ -7,6 +7,7 @@ use App\Models\EventConfiguration;
 use App\Models\GateLog;
 use App\Models\VerifiedVisitor;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class GateLogService
@@ -173,6 +174,8 @@ class GateLogService
         }
 
         if ($direction === 'in') {
+            $this->assertCategoryAccess($visitor);
+
             $configurationQuery = EventConfiguration::query()
                 ->where('singleton_key', EventConfiguration::SINGLETON_KEY);
             if ($lockCapacity) {
@@ -196,6 +199,46 @@ class GateLogService
                     );
                 }
             }
+        }
+    }
+
+    /** Enforce a linked category's active state and configured entry windows. */
+    private function assertCategoryAccess(VerifiedVisitor $visitor): void
+    {
+        $category = $visitor->visitorCategory;
+
+        // Existing records before category linking retain their current access.
+        if (! $category) {
+            return;
+        }
+
+        if (! $category->is_active) {
+            throw new GateScanException('Access denied: this visitor category is inactive.', 'category_inactive', 403);
+        }
+
+        $schedule = $category->access_schedule ?? [];
+        if ($schedule === []) {
+            return;
+        }
+
+        $now = now();
+        $allowed = collect($schedule)->contains(function (array $slot) use ($now): bool {
+            if (blank($slot['date'] ?? null) || blank($slot['from'] ?? null) || blank($slot['to'] ?? null)) {
+                return false;
+            }
+
+            $startsAt = Carbon::parse("{$slot['date']} {$slot['from']}");
+            $endsAt = Carbon::parse("{$slot['date']} {$slot['to']}");
+
+            return $now->betweenIncluded($startsAt, $endsAt);
+        });
+
+        if (! $allowed) {
+            throw new GateScanException(
+                'Access denied: this visitor is outside the category access window.',
+                'outside_category_schedule',
+                403
+            );
         }
     }
 

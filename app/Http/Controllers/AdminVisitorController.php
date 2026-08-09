@@ -184,15 +184,7 @@ class AdminVisitorController extends Controller
 
     public function badge(VerifiedVisitor $visitor)
     {
-        if (blank($visitor->selfie_path)
-            || ! Storage::disk('local')->exists($visitor->selfie_path)) {
-            return redirect()
-                ->route('admin.visitors.index')
-                ->withErrors([
-                    'badge' => 'This card cannot be printed until a visitor photo has been captured.',
-                ]);
-        }
-
+        $visitor->loadMissing('exhibitorProfile');
         $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
         $qrCode = QrCode::format('svg')
             ->size(260)

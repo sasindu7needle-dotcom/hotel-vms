@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VisitorCategory extends Model
 {
@@ -24,4 +25,10 @@ class VisitorCategory extends Model
         'entrance_fee' => 'decimal:2',
         'access_schedule' => 'array',
     ];
+
+    /** People issued a pass under this category. */
+    public function visitors(): HasMany
+    {
+        return $this->hasMany(VerifiedVisitor::class, 'visitor_category_id');
+    }
 }

@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\VisitorCategory;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ManualRegistrationTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_walk_in_registration_is_saved_for_admin_and_receipt_manager(): void
     {
         Storage::fake('local');

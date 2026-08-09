@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VerifiedVisitor extends Model
 {
@@ -23,5 +24,17 @@ class VerifiedVisitor extends Model
     public function gateLogs(): HasMany
     {
         return $this->hasMany(GateLog::class, 'visitor_id');
+    }
+
+    /** The category that controls this visitor's access. */
+    public function visitorCategory(): BelongsTo
+    {
+        return $this->belongsTo(VisitorCategory::class, 'visitor_category_id');
+    }
+
+    /** The exhibitor profile that issued this member's pass, when applicable. */
+    public function exhibitorProfile(): BelongsTo
+    {
+        return $this->belongsTo(ExhibitorProfile::class);
     }
 }

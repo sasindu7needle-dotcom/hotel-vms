@@ -125,6 +125,48 @@
         </form>
     </section>
 
+    @if($selectedCategory)
+        <section class="admin-panel category-members-panel">
+            <div class="configuration-panel-heading">
+                <div>
+                    <span>CATEGORY MEMBERS</span>
+                    <h2>Add {{ $selectedCategory->name }} people</h2>
+                    <p>Each person receives a unique QR pass that can be scanned at the gate.</p>
+                </div>
+                <span class="configuration-active-badge"><i></i> {{ $selectedCategory->visitors->count() }} issued</span>
+            </div>
+
+            <form method="POST" action="{{ route('admin.configurations.categories.members.store', $selectedCategory) }}" class="category-member-form">
+                @csrf
+                <label><span>Full name <b>*</b></span><input name="full_name" value="{{ old('full_name') }}" maxlength="180" required placeholder="e.g. Ayesha Perera"></label>
+                <label><span>Email</span><input type="email" name="email" value="{{ old('email') }}" maxlength="255" placeholder="ayesha@example.com"></label>
+                <label><span>Mobile number</span><input name="mobile_number" value="{{ old('mobile_number') }}" maxlength="20" placeholder="+94771234567"></label>
+                <label><span>Company / organisation</span><input name="company" value="{{ old('company') }}" maxlength="150" placeholder="Organisation name"></label>
+                <label><span>Role / designation</span><input name="occupation" value="{{ old('occupation') }}" maxlength="100" placeholder="e.g. Event staff"></label>
+                <button type="submit" class="btn btn-primary" @disabled(!$selectedCategory->is_active)>Create QR pass</button>
+            </form>
+            @if(!$selectedCategory->is_active)<p class="category-member-note">Activate this category before issuing another QR pass.</p>@endif
+
+            <div class="category-members-table-wrap">
+                <table class="category-members-table">
+                    <thead><tr><th>Person</th><th>Organisation / role</th><th>Pass status</th><th class="category-actions-heading">QR pass</th></tr></thead>
+                    <tbody>
+                        @forelse($selectedCategory->visitors as $member)
+                            <tr>
+                                <td><strong>{{ $member->full_name }}</strong><small>{{ $member->email ?: $member->mobile_number ?: 'No contact supplied' }}</small></td>
+                                <td>{{ $member->company ?: '—' }}<small>{{ $member->occupation ?: '—' }}</small></td>
+                                <td><span class="category-status {{ $member->is_blocked ? 'is-disabled' : 'is-active' }}">{{ $member->is_blocked ? 'Blocked' : 'Active' }}</span></td>
+                                <td><a class="category-qr-link" href="{{ route('admin.visitors.badge', $member) }}" target="_blank" rel="noopener">Open QR pass</a></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="category-members-empty">No people have been added to this category yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
+
     <section class="admin-panel category-directory-panel">
         <div class="configuration-panel-heading">
             <div>
@@ -138,7 +180,7 @@
         @if($categories->isNotEmpty())
             <div class="category-directory-table-wrap">
                 <table class="category-directory-table">
-                    <thead><tr><th>Category</th><th>Entrance Fee</th><th>Access Windows</th><th>Status</th><th class="category-actions-heading">Actions</th></tr></thead>
+                    <thead><tr><th>Category</th><th>Entrance Fee</th><th>Access Windows</th><th>People</th><th>Status</th><th class="category-actions-heading">Actions</th></tr></thead>
                     <tbody>
                         @foreach($categories as $category)
                             <tr>
@@ -150,6 +192,7 @@
                                 </td>
                                 <td>LKR {{ number_format((float) $category->entrance_fee, 2) }}</td>
                                 <td>{{ count($category->access_schedule ?? []) }} {{ count($category->access_schedule ?? []) === 1 ? 'window' : 'windows' }}</td>
+                                <td>{{ $category->visitors_count }} issued</td>
                                 <td><span class="category-status {{ $category->is_active ? 'is-active' : 'is-disabled' }}">{{ $category->is_active ? 'Active' : 'Disabled' }}</span></td>
                                 <td>
                                     <div class="category-row-actions">
@@ -185,6 +228,24 @@
     body.landing-page .category-status-control .category-badge-disabled { color:#64748b; background:#f1f5f9; border-color:#e2e8f0; }
     body.landing-page .category-status-control .category-badge-disabled i { background:#94a3b8; }
     body.landing-page .category-directory-panel { max-width:1080px; margin-top:22px; }
+    body.landing-page .category-members-panel { max-width:1080px; margin-top:22px; }
+    body.landing-page .category-member-form { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; padding:22px 28px; border-top:1px solid #edf0f2; }
+    body.landing-page .category-member-form label { min-width:0; }
+    body.landing-page .category-member-form label span { display:block; margin-bottom:7px; color:#475569; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+    body.landing-page .category-member-form label b { color:#ef4444; }
+    body.landing-page .category-member-form input { width:100%; height:42px; padding:0 12px; color:#172033; background:#fff; border:1px solid #d8e0e7; border-radius:8px; box-sizing:border-box; font:500 12px Inter,sans-serif; outline:none; }
+    body.landing-page .category-member-form button { align-self:end; min-height:42px; }
+    body.landing-page .category-member-form input:focus { border-color:#a8bd38; box-shadow:0 0 0 3px rgba(200,224,99,.23); }
+    body.landing-page .category-member-note { margin:0; padding:0 28px 18px; color:#a16207; font-size:11px; font-weight:700; }
+    body.landing-page .category-members-table-wrap { overflow-x:auto; border-top:1px solid #edf0f2; }
+    body.landing-page .category-members-table { width:100%; min-width:680px; border-collapse:collapse; }
+    body.landing-page .category-members-table th { padding:12px 22px; color:#7b8795; background:#f8faf8; text-align:left; font-size:9px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; }
+    body.landing-page .category-members-table td { padding:13px 22px; color:#4b5b6d; border-top:1px solid #edf0f2; font-size:11px; font-weight:600; vertical-align:middle; }
+    body.landing-page .category-members-table td strong, body.landing-page .category-members-table td small { display:block; }
+    body.landing-page .category-members-table td strong { color:#253043; font-size:12px; }
+    body.landing-page .category-members-table td small { margin-top:3px; color:#7c8997; font-size:10px; }
+    body.landing-page .category-members-empty { padding:28px !important; color:#7c8997 !important; text-align:center; }
+    body.landing-page .category-qr-link { display:inline-flex; min-height:31px; align-items:center; justify-content:center; padding:0 10px; color:#536b00; background:#f2f8db; border:1px solid #dcebad; border-radius:6px; font-size:10px; font-weight:800; text-decoration:none; }
     body.landing-page .category-panel-heading p { margin:5px 0 0; color:#7b8794; font-size:11px; }
     body.landing-page .category-config-form { padding:0; }
     body.landing-page .category-picker-card { padding:22px 28px; background:#fafbf8; border-bottom:1px solid #edf0f2; }
@@ -242,7 +303,7 @@
     body.landing-page .category-form-actions > span, body.landing-page .category-cancel-link { color:#7c8997; font-size:10px; }
     body.landing-page .category-cancel-link { font-weight:700; text-decoration:underline; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-    @media(max-width:700px) { body.landing-page .category-panel-heading, body.landing-page .category-form-actions { display:block; } body.landing-page .category-panel-heading .configuration-active-badge { display:inline-flex; margin-top:14px; } body.landing-page .category-picker-card, body.landing-page .category-fields, body.landing-page .access-time-section { padding-left:18px; padding-right:18px; } body.landing-page .category-picker-form { grid-template-columns:1fr; } body.landing-page .category-picker-form label { grid-row:auto; } body.landing-page .category-fields { grid-template-columns:1fr; gap:16px; } body.landing-page .category-add-button { margin-top:12px; } body.landing-page .category-form-actions .btn { margin-top:15px; } }
+    @media(max-width:700px) { body.landing-page .category-panel-heading, body.landing-page .category-form-actions { display:block; } body.landing-page .category-panel-heading .configuration-active-badge { display:inline-flex; margin-top:14px; } body.landing-page .category-picker-card, body.landing-page .category-fields, body.landing-page .access-time-section, body.landing-page .category-member-form { padding-left:18px; padding-right:18px; } body.landing-page .category-picker-form { grid-template-columns:1fr; } body.landing-page .category-picker-form label { grid-row:auto; } body.landing-page .category-fields, body.landing-page .category-member-form { grid-template-columns:1fr; gap:16px; } body.landing-page .category-add-button { margin-top:12px; } body.landing-page .category-form-actions .btn { margin-top:15px; } }
 </style>
 @endpush
 

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Visitor;
 use App\Models\VerifiedVisitor;
 use App\Models\VisitorCategory;
+use App\Models\ExhibitorProfile;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -31,16 +32,24 @@ class VisitorController extends Controller
     }
 
     /** Display the staff-operated registration form for walk-in visitors. */
-    public function manualCreate()
+    public function manualCreate(Request $request)
     {
         $categories = VisitorCategory::query()->where('is_active', true)->orderBy('name')->get();
+        $exhibitorProfile = $this->exhibitorForManualRegistration($request);
 
-        return view('visitor.manual_registration', compact('categories'));
+        return view('visitor.manual_registration', compact('categories', 'exhibitorProfile'));
     }
 
     /** Store a manually registered visitor in the same directory used by Admin. */
     public function manualStore(Request $request)
     {
+        $exhibitorProfile = $this->exhibitorForManualRegistration($request);
+        if ($exhibitorProfile && ! $exhibitorProfile->hasMemberCapacity()) {
+            return redirect()
+                ->route('exhibitor.dashboard', $exhibitorProfile)
+                ->withErrors(['members' => 'This exhibitor has reached its member limit.']);
+        }
+
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:180'],
             'document_type' => ['required', 'in:nic,driving_license,passport'],
@@ -80,9 +89,11 @@ class VisitorController extends Controller
             'mobile_number' => $this->normaliseSriLankanPhone($validated['mobile_number']),
             'whatsapp_number' => $this->normaliseSriLankanPhone($validated['whatsapp_number'] ?: $validated['mobile_number']),
             'occupation' => $validated['occupation'],
-            'company' => $validated['company'],
-            'category' => $category?->name ?: 'Manual registration',
-            'entrance_fee' => $validated['entrance_fee'],
+            'company' => $exhibitorProfile?->company_name ?: $validated['company'],
+            'category' => $exhibitorProfile ? 'Exhibitor' : ($category?->name ?: 'Manual registration'),
+            'visitor_category_id' => $exhibitorProfile ? null : $category?->id,
+            'exhibitor_profile_id' => $exhibitorProfile?->id,
+            'entrance_fee' => $exhibitorProfile ? 0 : $validated['entrance_fee'],
             'photo_path' => $documentFront['path'],
             'photo_mime' => $documentFront['mime'],
             'back_photo_path' => $documentBack['path'] ?? null,
@@ -104,6 +115,7 @@ class VisitorController extends Controller
             'selfie_path' => $visitor->selfie_path,
             'selfie_mime' => $visitor->selfie_mime,
             'manual_registration' => true,
+            'exhibitor_profile_token' => $exhibitorProfile?->registration_token,
         ]);
 
         return redirect()->route('visitor.thank-you');
@@ -448,6 +460,26 @@ class VisitorController extends Controller
     }
 
     /**
+     * Only an authenticated exhibitor portal can start a member registration.
+     * Ordinary manual registrations deliberately continue to work unchanged.
+     */
+    private function exhibitorForManualRegistration(Request $request): ?ExhibitorProfile
+    {
+        if (! $request->filled('exhibitor')) {
+            return null;
+        }
+
+        $exhibitor = ExhibitorProfile::where('registration_token', $request->input('exhibitor'))->firstOrFail();
+        abort_unless(
+            (int) $request->session()->get('exhibitor_profile_id') === $exhibitor->id
+                && $exhibitor->registered_at,
+            403
+        );
+
+        return $exhibitor;
+    }
+
+    /**
      * Display the visitors list.
      *
      * @return \Illuminate\Contracts\View\View
@@ -534,6 +566,8 @@ class VisitorController extends Controller
             'ocr_provider' => data_get($details, 'ocr_provider'),
             'identity_reviewed_at' => data_get($details, 'identity_reviewed_at', now()),
             'category' => data_get($details, 'category'),
+            'visitor_category_id' => data_get($details, 'visitor_category_id'),
+            'exhibitor_profile_id' => data_get($details, 'exhibitor_profile_id'),
             'entrance_fee' => data_get($details, 'entrance_fee'),
             'registration_status' => 'payment_pending',
             'verified_at' => data_get($details, 'verified_at', now()),

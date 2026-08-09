@@ -15,6 +15,8 @@ use App\Http\Controllers\GateTerminalController;
 use App\Http\Controllers\AdminEventConfigurationController;
 use App\Http\Controllers\AdminVisitorCategoryController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\AdminExhibitorController;
+use App\Http\Controllers\ExhibitorRegistrationController;
 use App\Http\Controllers\SuperAdminAuthController;
 use App\Http\Controllers\SuperAdminDashboardController;
 
@@ -37,6 +39,13 @@ Route::get('/visitor/thank-you', [VisitorController::class, 'thankYou'])->name('
 Route::get('/visitor/list', fn () => redirect()->route('admin.visitors.index'))->name('visitor.list');
 Route::post('/visitor', [VisitorController::class, 'store'])->name('visitor.store');
 Route::delete('/visitor/{visitorId}', [VisitorController::class, 'checkout'])->name('visitor.checkout');
+
+Route::prefix('exhibitor')->name('exhibitor.')->group(function () {
+    Route::get('/register/{exhibitor}', [ExhibitorRegistrationController::class, 'show'])->name('registration.show');
+    Route::post('/register/{exhibitor}/login', [ExhibitorRegistrationController::class, 'authenticate'])->middleware('throttle:5,1')->name('login');
+    Route::post('/register/{exhibitor}', [ExhibitorRegistrationController::class, 'store'])->name('registration.store');
+    Route::get('/register/{exhibitor}/members', [ExhibitorRegistrationController::class, 'dashboard'])->name('dashboard');
+});
 
 Route::post('/api/visitor/verify-vision', [VisitorCheckinController::class, 'verifyVision'])->name('visitor.verify_vision');
 Route::post('/api/visitor/capture-photo', [VisitorCheckinController::class, 'capturePhoto'])->middleware('throttle:10,1')->name('visitor.capture_photo');
@@ -73,6 +82,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/configurations/categories/{category}', [AdminVisitorCategoryController::class, 'update'])->name('configurations.categories.update');
         Route::patch('/configurations/categories/{category}/toggle', [AdminVisitorCategoryController::class, 'toggleActive'])->name('configurations.categories.toggle');
         Route::delete('/configurations/categories/{category}', [AdminVisitorCategoryController::class, 'destroy'])->name('configurations.categories.destroy');
+        Route::post('/configurations/categories/{category}/members', [AdminVisitorCategoryController::class, 'storeMember'])->name('configurations.categories.members.store');
 
         Route::get('/configurations/users', [AdminUserController::class, 'index'])->name('configurations.users.index');
         Route::post('/configurations/users', [AdminUserController::class, 'store'])->name('configurations.users.store');
@@ -80,6 +90,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/configurations/users/{user}/toggle', [AdminUserController::class, 'toggleStatus'])->name('configurations.users.toggle');
         Route::delete('/configurations/users/{user}', [AdminUserController::class, 'destroy'])->name('configurations.users.destroy');
         Route::get('/visitors', [AdminVisitorController::class, 'index'])->name('visitors.index');
+        Route::get('/exhibitors', [AdminExhibitorController::class, 'index'])->name('exhibitors.index');
+        Route::get('/exhibitors/directory', [AdminExhibitorController::class, 'directory'])->name('exhibitors.directory');
+        Route::post('/exhibitors', [AdminExhibitorController::class, 'store'])->name('exhibitors.store');
+        Route::delete('/exhibitors/{exhibitorId}/members/{member}', [AdminExhibitorController::class, 'destroyMember'])->name('exhibitors.members.destroy');
         Route::get('/receipts', [AdminReceiptController::class, 'index'])->name('receipts.index');
         Route::post('/receipts/{visitor}/confirm', [AdminReceiptController::class, 'confirm'])->name('receipts.confirm');
         Route::get('/visitors/{visitor}', fn (VerifiedVisitor $visitor) => redirect()->route('admin.visitors.index'))->name('visitors.show');
