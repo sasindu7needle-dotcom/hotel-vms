@@ -108,6 +108,7 @@ class GateTerminalController extends Controller
             'document_number' => $visitor->document_number ?: 'Not provided',
             'company' => $visitor->company ?: ($visitor->occupation ?: 'Not provided'),
             'reference' => $visitor->verification_id ?: (string) $visitor->id,
+            'event_day' => $visitor->eventRegistrationDay?->event_date?->format('d M Y'),
         ];
     }
 }

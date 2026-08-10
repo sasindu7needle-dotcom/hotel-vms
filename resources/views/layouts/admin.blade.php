@@ -84,6 +84,7 @@
                     <div class="admin-nav-subtabs">
                         @if($canAccess('Event Configurations'))
                             <a href="{{ route('admin.configurations.event.edit') }}" class="@if(request()->routeIs('admin.configurations.event*')) active @endif">Event Configurations</a>
+                            <a href="{{ route('admin.configurations.event.edit') }}#daily-registration-forms">Daily Registration Forms</a>
                         @endif
                         @if($canAccess('Occupancy Limit'))
                             <a href="{{ route('admin.configurations.capacity.edit') }}" class="@if(request()->routeIs('admin.configurations.capacity*')) active @endif">Occupancy Limit</a>

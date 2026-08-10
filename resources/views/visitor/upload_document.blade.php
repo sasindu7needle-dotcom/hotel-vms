@@ -21,6 +21,7 @@
 
             <div class="tagline">Step 2 of 2</div>
             <h1 class="headline">Upload your document<span class="dot">.</span></h1>
+            @include('visitor.partials.selected-registration-day')
             <p class="description upload-doc-intro">
                 Select your document type and upload or capture a clear photo of your identity document.
             </p>

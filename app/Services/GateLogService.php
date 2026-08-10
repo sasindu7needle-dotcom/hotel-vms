@@ -149,6 +149,8 @@ class GateLogService
         bool $lockCapacity = false
     ): void
     {
+        $this->assertEventDayAccess($visitor);
+
         if ($visitor->is_blocked) {
             throw new GateScanException('Access denied — this visitor is blocked.', 'blocked', 403);
         }
@@ -199,6 +201,42 @@ class GateLogService
                     );
                 }
             }
+        }
+    }
+
+    /** Daily visitor passes require payment and are valid only on their configured date. */
+    private function assertEventDayAccess(VerifiedVisitor $visitor): void
+    {
+        $registrationDay = $visitor->eventRegistrationDay;
+
+        // Passes created before daily registration was introduced keep their legacy access.
+        if (! $registrationDay) {
+            return;
+        }
+
+        if ($visitor->payment_status !== 'paid') {
+            throw new GateScanException(
+                'Access denied: payment has not been completed for this event day.',
+                'payment_required',
+                403
+            );
+        }
+
+        $today = today();
+        if ($today->lt($registrationDay->event_date)) {
+            throw new GateScanException(
+                'This QR pass is not valid yet. It can be used on '.$registrationDay->event_date->format('d M Y').'.',
+                'pass_not_yet_valid',
+                403
+            );
+        }
+
+        if ($today->gt($registrationDay->event_date)) {
+            throw new GateScanException(
+                'This QR pass expired after '.$registrationDay->event_date->format('d M Y').'.',
+                'pass_expired',
+                403
+            );
         }
     }
 

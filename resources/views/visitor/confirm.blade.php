@@ -18,6 +18,11 @@
         </div>
 
         <section class="registration-card confirmation-card" aria-labelledby="confirmation-title">
+            @if(data_get($details, 'registration_date'))
+                <div style="margin-bottom:16px;padding:11px 14px;color:#52601f;background:#f3f8de;border:1px solid #dce8aa;border-radius:10px;font-size:11px;font-weight:800">
+                    {{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('l, d F Y') }} · Separate payment
+                </div>
+            @endif
             <div class="registration-heading confirmation-heading">
                 <span class="tagline no-margin">FINAL REVIEW</span>
                 <h1 id="confirmation-title" class="headline">Confirm your details<span class="dot">.</span></h1>

@@ -455,6 +455,7 @@
                         <div><dt>Document</dt><dd>${escapeHtml(visitor.document_type)}</dd></div>
                         <div><dt>ID number</dt><dd>${escapeHtml(visitor.document_number)}</dd></div>
                         <div><dt>Company / Occupation</dt><dd>${escapeHtml(visitor.company)}</dd></div>
+                        ${visitor.event_day ? `<div><dt>Valid event date</dt><dd>${escapeHtml(visitor.event_day)}</dd></div>` : ''}
                         <div><dt>Visitor reference</dt><dd title="${escapeHtml(visitor.reference)}">${escapeHtml(visitor.reference)}</dd></div>
                     </dl>
                 </section>

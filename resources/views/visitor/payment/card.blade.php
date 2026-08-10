@@ -15,6 +15,7 @@
             </div>
             <span class="tagline no-margin">SECURE CARD GATEWAY</span>
             <h1 class="headline">Ready for payment<span class="dot">.</span></h1>
+            @if(data_get($details, 'registration_date'))<p><strong>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}</strong></p>@endif
             <p>You selected {{ $details['payment_method'] === 'amex' ? 'American Express' : 'Visa / Master' }}. Continue through the configured payment provider to complete your entrance-fee payment.</p>
             <div class="payment-amount"><span>Amount due</span><strong>{{ $details['entrance_fee'] !== null ? 'LKR '.number_format((float) $details['entrance_fee'], 2) : 'Not assigned' }}</strong></div>
             <form action="{{ route('visitor.payment.confirm') }}" method="POST">

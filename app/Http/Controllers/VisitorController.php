@@ -7,6 +7,9 @@ use App\Models\Visitor;
 use App\Models\VerifiedVisitor;
 use App\Models\VisitorCategory;
 use App\Models\ExhibitorProfile;
+use App\Models\EventConfiguration;
+use App\Models\EventRegistrationDay;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +29,60 @@ class VisitorController extends Controller
             'didit_verification',
             'visitor_registration',
             'visitor_category',
+            'event_registration_day',
+        ]);
+
+        return Schema::hasTable('event_configurations') && EventConfiguration::query()
+            ->where('singleton_key', EventConfiguration::SINGLETON_KEY)
+            ->where('is_active', true)
+            ->exists()
+            ? redirect()->route('visitor.registration-days')
+            : redirect()->route('visitor.create');
+    }
+
+    /** Display the independently payable registration form for each configured event date. */
+    public function registrationDays()
+    {
+        $eventConfiguration = Schema::hasTable('event_configurations')
+            ? EventConfiguration::query()
+            ->where('singleton_key', EventConfiguration::SINGLETON_KEY)
+            ->where('is_active', true)
+            ->first()
+            : null;
+        $registrationDays = $eventConfiguration
+            ? $eventConfiguration->registrationDays()
+                ->where('is_active', true)
+                ->whereDate('event_date', '>=', today())
+                ->get()
+            : collect();
+
+        return view('visitor.registration_days', compact('eventConfiguration', 'registrationDays'));
+    }
+
+    /** Start a clean, separately paid registration for the selected event day. */
+    public function selectRegistrationDay(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'registration_day_id' => ['required', 'integer', 'exists:event_registration_days,id'],
+        ]);
+        $registrationDay = EventRegistrationDay::with('eventConfiguration')->findOrFail($validated['registration_day_id']);
+
+        if (! $registrationDay->eventConfiguration?->is_active || ! $registrationDay->isOpenForRegistration()) {
+            return back()->withErrors([
+                'registration_day_id' => 'Registration for this event day is no longer available.',
+            ]);
+        }
+
+        $request->session()->forget([
+            'verification',
+            'didit_verification',
+            'visitor_registration',
+        ]);
+        $request->session()->put('event_registration_day', [
+            'id' => $registrationDay->id,
+            'label' => $registrationDay->label,
+            'event_date' => $registrationDay->event_date->format('Y-m-d'),
+            'entrance_fee' => $registrationDay->entrance_fee,
         ]);
 
         return redirect()->route('visitor.create');
@@ -129,6 +186,10 @@ class VisitorController extends Controller
      */
     public function create(Request $request)
     {
+        if ($redirect = $this->registrationDayRedirect($request)) {
+            return $redirect;
+        }
+
         $type = $request->query('type');
         $validTypes = ['nic', 'driving_license', 'passport'];
         if (!in_array($type, $validTypes)) {
@@ -165,6 +226,10 @@ class VisitorController extends Controller
      */
     public function showUploadDocument(Request $request)
     {
+        if ($redirect = $this->registrationDayRedirect($request)) {
+            return $redirect;
+        }
+
         $type = $request->query('type', 'nic');
         $validTypes = ['nic', 'driving_license', 'passport'];
         if (!in_array($type, $validTypes, true)) {
@@ -176,6 +241,10 @@ class VisitorController extends Controller
 
     public function showPhotoCapture(Request $request)
     {
+        if ($redirect = $this->registrationDayRedirect($request)) {
+            return $redirect;
+        }
+
         $verification = $request->session()->get('verification', []);
 
         if (! is_array($verification) || blank(data_get($verification, 'session_id'))) {
@@ -201,8 +270,16 @@ class VisitorController extends Controller
      */
     public function confirm(Request $request)
     {
+        if ($redirect = $this->registrationDayRedirect($request)) {
+            return $redirect;
+        }
+
         $verification = $request->session()->get('verification', $request->session()->get('didit_verification', []));
         $category = $request->session()->get('visitor_category', []);
+        $registrationDaySession = $request->session()->get('event_registration_day', []);
+        $registrationDay = filled(data_get($registrationDaySession, 'id'))
+            ? EventRegistrationDay::find(data_get($registrationDaySession, 'id'))
+            : null;
 
         if (! is_array($verification) || blank(data_get($verification, 'session_id')) || blank(data_get($verification, 'selfie_path'))) {
             return redirect()->route('visitor.create')->withErrors([
@@ -258,8 +335,24 @@ class VisitorController extends Controller
                 ? $validated['mobile_number']
                 : $validated['whatsapp_number'],
             'category' => data_get($category, 'name', 'Not assigned'),
-            'entrance_fee' => data_get($category, 'entrance_fee'),
+            'entrance_fee' => $registrationDay
+                ? $registrationDay->entrance_fee
+                : data_get($category, 'entrance_fee'),
+            'event_registration_day_id' => $registrationDay?->id,
+            'registration_day_label' => $registrationDay?->label,
+            'registration_date' => $registrationDay?->event_date?->format('Y-m-d'),
         ]);
+
+        if (filled(data_get($details, 'event_registration_day_id'))
+            && VerifiedVisitor::query()
+                ->where('event_registration_day_id', data_get($details, 'event_registration_day_id'))
+                ->where('document_number', $details['document_number'])
+                ->where('verification_id', '!=', $details['verification_id'])
+                ->exists()) {
+            return back()->withInput()->withErrors([
+                'registration' => 'This identity document is already registered for the selected event day.',
+            ]);
+        }
 
         $request->session()->put('visitor_registration', $details);
         try {
@@ -440,7 +533,8 @@ class VisitorController extends Controller
             return redirect()->route('visitor.create');
         }
 
-        $eventName = config('vms.event_name');
+        $eventName = $visitor->eventRegistrationDay?->eventConfiguration?->event_name
+            ?: config('vms.event_name');
         $paymentReference = data_get($details, 'payment_reference')
             ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT);
         $qrPayload = (string) ($visitor->verification_id ?: $paymentReference ?: Str::uuid());
@@ -567,6 +661,7 @@ class VisitorController extends Controller
             'identity_reviewed_at' => data_get($details, 'identity_reviewed_at', now()),
             'category' => data_get($details, 'category'),
             'visitor_category_id' => data_get($details, 'visitor_category_id'),
+            'event_registration_day_id' => data_get($details, 'event_registration_day_id'),
             'exhibitor_profile_id' => data_get($details, 'exhibitor_profile_id'),
             'entrance_fee' => data_get($details, 'entrance_fee'),
             'registration_status' => 'payment_pending',
@@ -609,6 +704,41 @@ class VisitorController extends Controller
         return filled(data_get($verification, 'document_number'))
             && filled(data_get($verification, 'full_name'))
             && filled(data_get($verification, 'address'));
+    }
+
+    /** Require a current admin-configured event day when an active event exists. */
+    private function registrationDayRedirect(Request $request): ?RedirectResponse
+    {
+        if (! Schema::hasTable('event_configurations')) {
+            return null;
+        }
+
+        $event = EventConfiguration::query()
+            ->where('singleton_key', EventConfiguration::SINGLETON_KEY)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $event) {
+            return null;
+        }
+
+        $selectedId = data_get($request->session()->get('event_registration_day'), 'id');
+        $day = $selectedId
+            ? EventRegistrationDay::query()
+                ->whereKey($selectedId)
+                ->where('event_configuration_id', $event->id)
+                ->first()
+            : null;
+
+        if ($day && $day->isOpenForRegistration()) {
+            return null;
+        }
+
+        $request->session()->forget('event_registration_day');
+
+        return redirect()->route('visitor.registration-days')->withErrors([
+            'registration_day' => 'Choose an available event day before starting registration.',
+        ]);
     }
 
     private function sameIdentityName(string $left, string $right): bool

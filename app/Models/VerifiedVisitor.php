@@ -32,6 +32,12 @@ class VerifiedVisitor extends Model
         return $this->belongsTo(VisitorCategory::class, 'visitor_category_id');
     }
 
+    /** The single event date for which this paid QR pass is valid. */
+    public function eventRegistrationDay(): BelongsTo
+    {
+        return $this->belongsTo(EventRegistrationDay::class);
+    }
+
     /** The exhibitor profile that issued this member's pass, when applicable. */
     public function exhibitorProfile(): BelongsTo
     {

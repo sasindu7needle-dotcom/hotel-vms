@@ -14,6 +14,7 @@
             <a class="face-back" href="{{ route('visitor.upload_document', ['type' => $type]) }}">← Upload document again</a>
             <div class="tagline">Visitor photo</div>
             <h1 class="headline">Take your photo<span class="dot">.</span></h1>
+            @include('visitor.partials.selected-registration-day')
             <p class="face-intro">Capture a clear photo for your visitor record, then continue to registration.</p>
 
             <div class="face-card">

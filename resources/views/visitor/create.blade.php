@@ -23,6 +23,7 @@
             <div class="registration-heading">
                 <span class="tagline no-margin">VERIFIED IDENTITY</span>
                 <h1 id="registration-title" class="headline">Complete your details<span class="dot">.</span></h1>
+                @include('visitor.partials.selected-registration-day')
             </div>
 
             @error('verification')
