@@ -105,6 +105,7 @@
                 @endif
                 @if($canAccess('Visitors'))
                     <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link active"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg><span>Visitors</span></a>
+                    <a href="{{ route('visitor.manual.create') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path><rect x="3" y="3" width="18" height="18" rx="4"></rect></svg><span>Manual Registration</span></a>
                     <div class="admin-nav-group collapsed">
                         <button type="button" class="admin-nav-group-title" aria-expanded="false"><svg class="admin-nav-group-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"></rect><path d="M3 10h18M8 5V3M16 5V3"></path></svg><span>Exhibitors</span><svg class="admin-nav-arrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"></path></svg></button>
                         <div class="admin-nav-subtabs"><a href="{{ route('admin.exhibitors.index') }}">Exhibitor Access</a><a href="{{ route('admin.exhibitors.directory') }}">Exhibitor Directory</a></div>
@@ -137,6 +138,7 @@
                     </button>
                     <div class="admin-nav-subtabs">
                         @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>@endif
+                        @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}#daily-registration-forms">Daily Registration Forms</a>@endif
                         @if($canAccess('Occupancy Limit'))<a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a>@endif
                         @if($canAccess('Visitor Categories'))<a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>@endif
                         @if($canAccess('Users & Access'))<a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a>@endif
@@ -200,7 +202,7 @@
                                         <div><strong>{{ $visitor->full_name ?: 'Unnamed visitor' }}</strong><small>{{ strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Document')) }} · {{ $visitor->document_number ?: '—' }}</small></div>
                                     </div></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
-                                    <td><strong class="admin-cell-primary">{{ $visitor->category ?: 'Not assigned' }}</strong><small class="admin-cell-secondary">{{ $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : 'No fee' }}</small></td>
+                                    <td><strong class="admin-cell-primary">{{ $visitor->category ?: 'Not assigned' }}</strong><small class="admin-cell-secondary">{{ $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : 'No fee' }}</small>@if($visitor->eventRegistrationDay)<small class="admin-cell-secondary">{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</td>
                                     <td><div class="admin-status-stack"><span class="admin-payment-badge admin-payment-{{ $displayPaymentStatus }}">{{ strtoupper($displayPaymentStatus) }}</span><small class="admin-status-detail">{{ strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: 'Not selected')) }}</small></div></td>
                                     <td><div class="admin-status-stack"><span class="admin-face-badge admin-face-status-{{ $visitor->selfie_path ? 'verified' : 'pending' }}">{{ $visitor->selfie_path ? 'Photo captured' : 'Pending' }}</span><small class="admin-status-detail">{{ $visitor->selfie_path ? 'Stored with visitor record' : 'No visitor photo' }}</small></div></td>
                                     <td>{{ ($visitor->verified_at ?: $visitor->created_at)?->format('M j, Y') }}<small class="admin-cell-secondary">{{ ($visitor->verified_at ?: $visitor->created_at)?->format('g:i A') }}</small></td>
@@ -233,6 +235,7 @@
                                     'Company' => $visitor->company,
                                     'Category' => $visitor->category,
                                     'Entrance Fee' => $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : null,
+                                    'Event Day' => $visitor->eventRegistrationDay ? $visitor->eventRegistrationDay->label.' · '.$visitor->eventRegistrationDay->event_date->format('d M Y') : null,
                                     'Payment Method' => strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: '')),
                                     'Payment Status' => strtoupper(in_array($visitor->payment_status, ['cash_pending', 'card_pending'], true) ? 'pending' : $visitor->payment_status),
                                     'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',

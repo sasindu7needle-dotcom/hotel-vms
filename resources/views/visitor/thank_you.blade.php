@@ -32,6 +32,9 @@
                 <header class="badge-event">
                     <span>EVENT NAME</span>
                     <h2>{{ $eventName }}</h2>
+                    @if(data_get($details, 'registration_date'))
+                        <small>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d M Y') }}</small>
+                    @endif
                 </header>
 
                 <div class="badge-photo">
@@ -59,7 +62,10 @@
             </article>
 
             @if(!data_get($details, 'exhibitor_profile_token'))
-                <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
+            <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
+            @if(data_get($details, 'registration_date'))
+                <p class="printing-instruction" style="margin-top:8px"><strong>This QR is valid only on {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}.</strong></p>
+            @endif
             @endif
             @if(data_get($details, 'exhibitor_profile_token'))
                 <p class="printing-instruction">Your member registration is complete. <strong>Event administration will print the entrance card.</strong></p>

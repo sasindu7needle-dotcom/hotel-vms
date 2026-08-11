@@ -25,7 +25,10 @@ class AdminVisitorController extends Controller
         $latestGateLogIds = GateLog::query()->selectRaw('MAX(id)')->groupBy('visitor_id');
 
         $visitors = VerifiedVisitor::query()
-            ->with(['gateLogs' => fn ($query) => $query->orderBy('scanned_at')->orderBy('id')])
+            ->with([
+                'eventRegistrationDay',
+                'gateLogs' => fn ($query) => $query->orderBy('scanned_at')->orderBy('id'),
+            ])
             ->when(data_get($filters, 'search'), function ($query, $search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('full_name', 'like', "%{$search}%")
@@ -196,7 +199,8 @@ class AdminVisitorController extends Controller
 
         return view('admin.visitors.badge', [
             'visitor' => $visitor,
-            'eventName' => config('vms.event_name'),
+            'eventName' => $visitor->eventRegistrationDay?->eventConfiguration?->event_name
+                ?: config('vms.event_name'),
             'qrPayload' => $qrPayload,
             'qrCode' => $qrCode,
         ]);

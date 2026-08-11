@@ -13,23 +13,29 @@ class AdminReceiptController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:50'],
+            'visitor_id' => ['nullable', 'integer'],
         ]);
 
         $search = trim((string) ($validated['search'] ?? ''));
         $visitor = null;
+        $matches = collect();
 
         if ($search !== '') {
             $normalized = strtoupper(preg_replace('/\s+/', '', $search));
-            $visitor = VerifiedVisitor::query()
+            $matches = VerifiedVisitor::query()
+                ->with('eventRegistrationDay')
                 ->where(function ($query) use ($search, $normalized) {
                     $query->where('document_number', $normalized)
                         ->orWhere('mobile_number', $search);
                 })
                 ->latest()
-                ->first();
+                ->limit(20)
+                ->get();
+            $visitor = $matches->firstWhere('id', (int) ($validated['visitor_id'] ?? 0))
+                ?: $matches->first();
         }
 
-        return view('admin.receipts.index', compact('search', 'visitor'));
+        return view('admin.receipts.index', compact('search', 'visitor', 'matches'));
     }
 
     public function confirm(Request $request, VerifiedVisitor $visitor): RedirectResponse
@@ -48,7 +54,10 @@ class AdminReceiptController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.receipts.index', ['search' => $visitor->document_number ?: $visitor->mobile_number])
+            ->route('admin.receipts.index', [
+                'search' => $visitor->document_number ?: $visitor->mobile_number,
+                'visitor_id' => $visitor->id,
+            ])
             ->with('status', 'Payment confirmed for '.$visitor->full_name.'.');
     }
 }

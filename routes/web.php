@@ -13,6 +13,7 @@ use App\Http\Controllers\AdminVisitorController;
 use App\Http\Controllers\AdminReceiptController;
 use App\Http\Controllers\GateTerminalController;
 use App\Http\Controllers\AdminEventConfigurationController;
+use App\Http\Controllers\AdminEventRegistrationDayController;
 use App\Http\Controllers\AdminVisitorCategoryController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminExhibitorController;
@@ -24,6 +25,8 @@ Route::get('/', function () {
     return view('welcome');
 });
 Route::get('/visitor/new', [VisitorController::class, 'startNew'])->name('visitor.start');
+Route::get('/visitor/registration-days', [VisitorController::class, 'registrationDays'])->name('visitor.registration-days');
+Route::post('/visitor/registration-days/select', [VisitorController::class, 'selectRegistrationDay'])->name('visitor.registration-days.select');
 Route::get('/visitor/manual-registration', [VisitorController::class, 'manualCreate'])->name('visitor.manual.create');
 Route::post('/visitor/manual-registration', [VisitorController::class, 'manualStore'])->name('visitor.manual.store');
 Route::get('/visitor/create', [VisitorController::class, 'create'])->name('visitor.create');
@@ -74,6 +77,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/configurations/event', [AdminEventConfigurationController::class, 'edit'])->name('configurations.event.edit');
         Route::put('/configurations/event', [AdminEventConfigurationController::class, 'update'])->name('configurations.event.update');
         Route::delete('/configurations/event', [AdminEventConfigurationController::class, 'destroy'])->name('configurations.event.destroy');
+        Route::post('/configurations/event/registration-days', [AdminEventRegistrationDayController::class, 'store'])->name('configurations.event.days.store');
+        Route::post('/configurations/event/registration-days/generate', [AdminEventRegistrationDayController::class, 'generate'])->name('configurations.event.days.generate');
+        Route::put('/configurations/event/registration-days/{registrationDay}', [AdminEventRegistrationDayController::class, 'update'])->name('configurations.event.days.update');
+        Route::patch('/configurations/event/registration-days/{registrationDay}/toggle', [AdminEventRegistrationDayController::class, 'toggle'])->name('configurations.event.days.toggle');
+        Route::delete('/configurations/event/registration-days/{registrationDay}', [AdminEventRegistrationDayController::class, 'destroy'])->name('configurations.event.days.destroy');
         Route::get('/configurations/capacity', [AdminCapacityController::class, 'edit'])->name('configurations.capacity.edit');
         Route::put('/configurations/capacity', [AdminCapacityController::class, 'update'])->name('configurations.capacity.update');
 

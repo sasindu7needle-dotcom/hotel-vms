@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Exceptions\GateScanException;
 use App\Models\EventConfiguration;
+use App\Models\EventRegistrationDay;
 use App\Models\GateLog;
 use App\Models\VerifiedVisitor;
 use App\Services\GateLogService;
@@ -121,6 +122,73 @@ class GateLogTest extends TestCase
         }
 
         $this->assertDatabaseCount('gate_logs', 1);
+    }
+
+    public function test_daily_qr_is_valid_only_on_its_paid_event_date(): void
+    {
+        $event = EventConfiguration::create([
+            'singleton_key' => EventConfiguration::SINGLETON_KEY,
+            'event_name' => 'Daily Expo',
+            'event_location' => 'Colombo',
+            'starts_on' => '2026-08-10',
+            'ends_on' => '2026-08-12',
+            'organized_by' => 'Needle',
+            'is_active' => true,
+        ]);
+        $day = EventRegistrationDay::create([
+            'event_configuration_id' => $event->id,
+            'label' => 'Registration for Day 2',
+            'event_date' => '2026-08-11',
+            'entrance_fee' => 1500,
+            'is_active' => true,
+        ]);
+        $visitor = $this->visitor(['event_registration_day_id' => $day->id]);
+
+        Carbon::setTestNow('2026-08-10 10:00:00');
+        try {
+            $this->service->preview($visitor->verification_id, 'in');
+            $this->fail('A daily QR must not work before its event date.');
+        } catch (GateScanException $exception) {
+            $this->assertSame('pass_not_yet_valid', $exception->reason);
+        }
+
+        Carbon::setTestNow('2026-08-11 10:00:00');
+        $this->assertSame($visitor->id, $this->service->preview($visitor->verification_id, 'in')->id);
+
+        Carbon::setTestNow('2026-08-12 00:01:00');
+        try {
+            $this->service->preview($visitor->verification_id, 'in');
+            $this->fail('A daily QR must expire after its event date.');
+        } catch (GateScanException $exception) {
+            $this->assertSame('pass_expired', $exception->reason);
+        }
+    }
+
+    public function test_unpaid_daily_qr_is_rejected(): void
+    {
+        Carbon::setTestNow('2026-08-11 10:00:00');
+        $event = EventConfiguration::create([
+            'singleton_key' => EventConfiguration::SINGLETON_KEY,
+            'event_name' => 'Daily Expo', 'event_location' => 'Colombo',
+            'starts_on' => '2026-08-11', 'ends_on' => '2026-08-11',
+            'organized_by' => 'Needle', 'is_active' => true,
+        ]);
+        $day = EventRegistrationDay::create([
+            'event_configuration_id' => $event->id,
+            'label' => 'Registration for Day 1', 'event_date' => '2026-08-11',
+            'entrance_fee' => 1500, 'is_active' => true,
+        ]);
+        $visitor = $this->visitor([
+            'event_registration_day_id' => $day->id,
+            'payment_status' => 'pending',
+        ]);
+
+        try {
+            $this->service->preview($visitor->verification_id, 'in');
+            $this->fail('An unpaid daily QR must be rejected.');
+        } catch (GateScanException $exception) {
+            $this->assertSame('payment_required', $exception->reason);
+        }
     }
 
     public function test_gate_in_and_out_pages_use_standalone_urls(): void

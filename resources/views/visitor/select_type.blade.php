@@ -41,6 +41,7 @@
         <div class="hero-content">
             <div class="tagline">Check-in Flow</div>
             <h1 class="headline">Verify your identity<span class="dot">.</span></h1>
+            @include('visitor.partials.selected-registration-day')
 
             @error('verification')
                 <div class="alert-verified-badge verification-error-message" role="alert">

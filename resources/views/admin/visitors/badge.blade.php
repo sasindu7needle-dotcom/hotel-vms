@@ -126,6 +126,13 @@
             line-height: 1.12;
             overflow-wrap: anywhere;
         }
+        .card-event small {
+            display: block;
+            margin-top: 1mm;
+            color: var(--muted);
+            font-size: 6pt;
+            font-weight: 800;
+        }
         .card-photo {
             display: flex;
             flex: 0 0 34mm;
@@ -280,7 +287,7 @@
 
     <article class="visitor-card" aria-label="Printable visitor card">
         <div class="card-topbar"><span>ENTRANCE ID</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
-        <header class="card-event"><span>EVENT NAME</span><h1>{{ $eventName }}</h1></header>
+        <header class="card-event"><span>EVENT NAME</span><h1>{{ $eventName }}</h1>@if($visitor->eventRegistrationDay)<small>{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</header>
         <div class="card-photo">
             @if($visitor->selfie_path)
                 <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Captured visitor photo of {{ $visitor->full_name }}">

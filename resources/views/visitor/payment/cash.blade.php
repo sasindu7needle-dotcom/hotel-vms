@@ -20,6 +20,7 @@
             </div>
             <span class="tagline no-margin">CASH SELECTED</span>
             <h1 id="cash-payment-title" class="headline">Pay at the counter<span class="dot">.</span></h1>
+            @if(data_get($details, 'registration_date'))<p><strong>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}</strong></p>@endif
             <p>Your details are confirmed. Please present this screen at the entrance counter and make the cash payment to complete check-in.</p>
             <div class="payment-amount"><span>Cash amount due</span><strong>{{ $details['entrance_fee'] !== null ? 'LKR '.number_format((float) $details['entrance_fee'], 2) : 'Confirm at counter' }}</strong></div>
             <div class="cash-reference"><span>Visitor</span><strong>{{ $details['full_name'] ?: 'Verified visitor' }}</strong></div>

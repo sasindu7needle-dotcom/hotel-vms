@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventConfiguration extends Model
 {
@@ -25,4 +26,9 @@ class EventConfiguration extends Model
         'capacity_limit' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    public function registrationDays(): HasMany
+    {
+        return $this->hasMany(EventRegistrationDay::class)->orderBy('event_date');
+    }
 }
