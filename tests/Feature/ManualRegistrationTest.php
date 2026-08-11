@@ -23,10 +23,19 @@ class ManualRegistrationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->post(route('visitor.manual.store'), [
-            'full_name' => 'Manual Visitor',
+        $verificationId = '11111111-1111-4111-8111-111111111111';
+        $this->withSession(['manual_identity_verification' => [
+            'verification_id' => $verificationId,
             'document_type' => 'nic',
             'document_number' => '199012345678',
+            'photo_path' => 'verified-visitors/'.$verificationId.'-document-front.jpg',
+            'photo_mime' => 'image/jpeg',
+            'back_photo_path' => 'verified-visitors/'.$verificationId.'-document-back.jpg',
+            'back_photo_mime' => 'image/jpeg',
+        ]])->post(route('visitor.manual.store'), [
+            'full_name' => 'Manual Visitor',
+            'document_type' => 'nic',
+            'identity_verification_id' => $verificationId,
             'mobile_number' => '+94771234567',
             'whatsapp_number' => '',
             'address' => '12 Galle Road, Colombo',
@@ -34,8 +43,6 @@ class ManualRegistrationTest extends TestCase
             'company' => 'Example Ltd',
             'category_id' => $category->id,
             'entrance_fee' => '500.00',
-            'document_front' => UploadedFile::fake()->image('nic-front.jpg'),
-            'document_back' => UploadedFile::fake()->image('nic-back.jpg'),
             'face_photo' => UploadedFile::fake()->image('face.jpg'),
         ])->assertRedirect(route('visitor.thank-you'));
 

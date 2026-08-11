@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Services\VisitorMediaService;
+use App\Services\GeminiDocumentService;
 use F9WebLtd\QrCode\Facades\QrCode;
 
 class VisitorController extends Controller
@@ -97,6 +98,87 @@ class VisitorController extends Controller
         return view('visitor.manual_registration', compact('categories', 'exhibitorProfile'));
     }
 
+    /**
+     * Extract and securely retain the identity document used by the manual
+     * registration form. The subsequent form submission uses this server-side
+     * result, never a document number supplied by the browser.
+     */
+    public function manualVerifyIdentity(Request $request, GeminiDocumentService $gemini)
+    {
+        $validated = $request->validate([
+            'document_type' => ['required', 'in:nic,driving_license,passport'],
+            'document_front' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'document_back' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+        ]);
+
+        if ($validated['document_type'] === 'nic' && ! $request->hasFile('document_back')) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Upload both the front and back of the NIC.',
+            ], 422);
+        }
+
+        $front = $request->file('document_front');
+        $back = $validated['document_type'] === 'nic' ? $request->file('document_back') : null;
+
+        try {
+            $identity = $gemini->extract(
+                $front->getRealPath(),
+                $front->getMimeType() ?: 'image/jpeg',
+                $back?->getRealPath(),
+                $back?->getMimeType(),
+                false,
+                $validated['document_type'],
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Manual registration identity extraction failed.', [
+                'document_type' => $validated['document_type'],
+                'exception_class' => $exception::class,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'The identity document could not be read. Upload a clear, glare-free image and try again.',
+            ], 422);
+        }
+
+        $documentNumber = $validated['document_type'] === 'driving_license'
+            ? (string) data_get($identity, 'nic_number', data_get($identity, 'document_number'))
+            : (string) data_get($identity, 'document_number');
+        $documentNumber = $this->normaliseManualDocumentNumber($documentNumber, $validated['document_type']);
+
+        if (! $this->isPlausibleManualDocumentNumber($documentNumber, $validated['document_type'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'A valid identity number could not be read from this document. Upload a clearer image and try again.',
+            ], 422);
+        }
+
+        $verificationId = (string) Str::uuid();
+        $documentFront = $this->storeManualImage($front, $verificationId.'-document-front');
+        $documentBack = $back
+            ? $this->storeManualImage($back, $verificationId.'-document-back')
+            : null;
+
+        $verification = [
+            'verification_id' => $verificationId,
+            'document_type' => $validated['document_type'],
+            'document_number' => $documentNumber,
+            'photo_path' => $documentFront['path'],
+            'photo_mime' => $documentFront['mime'],
+            'back_photo_path' => $documentBack['path'] ?? null,
+            'back_photo_mime' => $documentBack['mime'] ?? null,
+            'verified_at' => now()->toIso8601String(),
+        ];
+        $request->session()->put('manual_identity_verification', $verification);
+
+        return response()->json([
+            'success' => true,
+            'verification_id' => $verificationId,
+            'document_number' => $documentNumber,
+        ]);
+    }
+
     /** Store a manually registered visitor in the same directory used by Admin. */
     public function manualStore(Request $request)
     {
@@ -110,7 +192,7 @@ class VisitorController extends Controller
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:180'],
             'document_type' => ['required', 'in:nic,driving_license,passport'],
-            'document_number' => ['required', 'string', 'max:30'],
+            'identity_verification_id' => ['required', 'uuid'],
             'mobile_number' => ['required', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
             'whatsapp_number' => ['nullable', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
             'address' => ['required', 'string', 'max:500'],
@@ -118,27 +200,28 @@ class VisitorController extends Controller
             'company' => ['required', 'string', 'max:150'],
             'category_id' => ['nullable', 'exists:visitor_categories,id'],
             'entrance_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'],
-            'document_front' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
-            'document_back' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
             'face_photo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
         ]);
 
-        if ($validated['document_type'] === 'nic' && ! $request->hasFile('document_back')) {
-            return back()->withInput()->withErrors(['document_back' => 'Upload the back of the NIC as well.']);
+        $identity = $request->session()->get('manual_identity_verification', []);
+        if (! is_array($identity)
+            || data_get($identity, 'verification_id') !== $validated['identity_verification_id']
+            || data_get($identity, 'document_type') !== $validated['document_type']
+            || blank(data_get($identity, 'document_number'))
+            || blank(data_get($identity, 'photo_path'))) {
+            return back()->withInput()->withErrors([
+                'identity' => 'Verify the selected identity document before registering this visitor.',
+            ]);
         }
 
-        $verificationId = (string) Str::uuid();
-        $documentFront = $this->storeManualImage($request->file('document_front'), $verificationId.'-document-front');
-        $documentBack = $request->hasFile('document_back')
-            ? $this->storeManualImage($request->file('document_back'), $verificationId.'-document-back')
-            : null;
+        $verificationId = data_get($identity, 'verification_id');
         $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
         $category = ! empty($validated['category_id']) ? VisitorCategory::find($validated['category_id']) : null;
 
         $visitor = $this->persistVerifiedVisitor([
             'verification_id' => $verificationId,
             'document_type' => $validated['document_type'],
-            'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
+            'document_number' => data_get($identity, 'document_number'),
             'full_name' => $validated['full_name'],
             'full_name_latin' => $validated['full_name'],
             'address' => $validated['address'],
@@ -151,10 +234,10 @@ class VisitorController extends Controller
             'visitor_category_id' => $exhibitorProfile ? null : $category?->id,
             'exhibitor_profile_id' => $exhibitorProfile?->id,
             'entrance_fee' => $exhibitorProfile ? 0 : $validated['entrance_fee'],
-            'photo_path' => $documentFront['path'],
-            'photo_mime' => $documentFront['mime'],
-            'back_photo_path' => $documentBack['path'] ?? null,
-            'back_photo_mime' => $documentBack['mime'] ?? null,
+            'photo_path' => data_get($identity, 'photo_path'),
+            'photo_mime' => data_get($identity, 'photo_mime'),
+            'back_photo_path' => data_get($identity, 'back_photo_path'),
+            'back_photo_mime' => data_get($identity, 'back_photo_mime'),
             'selfie_path' => $facePhoto['path'],
             'selfie_mime' => $facePhoto['mime'],
             'identity_reviewed_at' => now(),
@@ -174,6 +257,7 @@ class VisitorController extends Controller
             'manual_registration' => true,
             'exhibitor_profile_token' => $exhibitorProfile?->registration_token,
         ]);
+        $request->session()->forget('manual_identity_verification');
 
         return redirect()->route('visitor.thank-you');
     }
@@ -697,6 +781,38 @@ class VisitorController extends Controller
         }
 
         return substr($digits, 2);
+    }
+
+    private function normaliseManualDocumentNumber(string $number, string $documentType): string
+    {
+        $number = strtoupper(trim($number));
+
+        return in_array($documentType, ['nic', 'driving_license'], true)
+            ? (string) preg_replace('/[^0-9VX]/', '', $number)
+            : (string) preg_replace('/[^A-Z0-9]/', '', $number);
+    }
+
+    private function isPlausibleManualDocumentNumber(string $number, string $documentType): bool
+    {
+        if (in_array($documentType, ['nic', 'driving_license'], true)) {
+            if (preg_match('/^\d{9}[VX]$/', $number) === 1) {
+                $day = (int) substr($number, 2, 3);
+
+                return ($day >= 1 && $day <= 366) || ($day >= 501 && $day <= 866);
+            }
+
+            if (preg_match('/^\d{12}$/', $number) !== 1) {
+                return false;
+            }
+
+            $day = (int) substr($number, 4, 3);
+
+            return (int) substr($number, 0, 4) >= 1900
+                && (int) substr($number, 0, 4) <= (int) date('Y')
+                && (($day >= 1 && $day <= 366) || ($day >= 501 && $day <= 866));
+        }
+
+        return preg_match('/^[A-Z0-9]{7,12}$/', $number) === 1;
     }
 
     private function hasCompleteIdentityFields(array $verification): bool

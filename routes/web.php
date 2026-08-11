@@ -28,6 +28,7 @@ Route::get('/visitor/new', [VisitorController::class, 'startNew'])->name('visito
 Route::get('/visitor/registration-days', [VisitorController::class, 'registrationDays'])->name('visitor.registration-days');
 Route::post('/visitor/registration-days/select', [VisitorController::class, 'selectRegistrationDay'])->name('visitor.registration-days.select');
 Route::get('/visitor/manual-registration', [VisitorController::class, 'manualCreate'])->name('visitor.manual.create');
+Route::post('/visitor/manual-registration/verify-identity', [VisitorController::class, 'manualVerifyIdentity'])->middleware('throttle:5,1')->name('visitor.manual.verify-identity');
 Route::post('/visitor/manual-registration', [VisitorController::class, 'manualStore'])->name('visitor.manual.store');
 Route::get('/visitor/create', [VisitorController::class, 'create'])->name('visitor.create');
 Route::get('/visitor/upload-document', [VisitorController::class, 'showUploadDocument'])->name('visitor.upload_document');

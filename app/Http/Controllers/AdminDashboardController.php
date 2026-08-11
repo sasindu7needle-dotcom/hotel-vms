@@ -16,10 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
-    public function index()
+    public function index(GateLogService $gateLogService)
     {
         $liveCounts = $this->liveCounts();
-        $insideCategories = $this->insideCategories();
+        $insideCategories = $this->insideCategories($gateLogService);
         $stats = [
             'total' => VerifiedVisitor::count(),
             'today' => VerifiedVisitor::whereDate('verified_at', today())->count(),
@@ -167,7 +167,7 @@ class AdminDashboardController extends Controller
      * Group people whose latest gate activity is an entry. The photo roster
      * and the existing live counters therefore always use the same source.
      */
-    private function insideCategories(): array
+    private function insideCategories(GateLogService $gateLogService): array
     {
         $configuredCategories = VisitorCategory::query()->orderBy('name')->get();
         $groups = [
@@ -196,11 +196,20 @@ class AdminDashboardController extends Controller
         }
 
         $this->insideVisitorQuery()
-            ->with('visitorCategory')
+            ->with([
+                'visitorCategory',
+                'gateLogs' => fn ($query) => $query->orderBy('scanned_at')->orderBy('id'),
+            ])
             ->latest('checked_in_at')
             ->latest('id')
             ->get()
-            ->each(function (VerifiedVisitor $participant) use (&$groups, $categoryGroupKeys) {
+            ->each(function (VerifiedVisitor $participant) use (&$groups, $categoryGroupKeys, $gateLogService) {
+                // Keep the paired arrival/departure history beside each live profile
+                // so the dashboard can show it immediately without another request.
+                $participant->setAttribute(
+                    'activity_rows',
+                    $gateLogService->activityRows($participant->gateLogs)
+                );
                 $linkedGroup = $participant->visitor_category_id
                     ? ($categoryGroupKeys[$participant->visitor_category_id] ?? null)
                     : null;

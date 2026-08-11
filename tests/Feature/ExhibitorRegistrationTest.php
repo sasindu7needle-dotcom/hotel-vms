@@ -168,19 +168,26 @@ class ExhibitorRegistrationTest extends TestCase
             ->assertSee('Add exhibitor member')
             ->assertSee('value="Exhibitor"', false);
 
-        $this->post(route('visitor.manual.store'), [
+        $verificationId = '22222222-2222-4222-8222-222222222222';
+        $this->withSession(['manual_identity_verification' => [
+            'verification_id' => $verificationId,
+            'document_type' => 'nic',
+            'document_number' => '199012345678',
+            'photo_path' => 'verified-visitors/'.$verificationId.'-document-front.jpg',
+            'photo_mime' => 'image/jpeg',
+            'back_photo_path' => 'verified-visitors/'.$verificationId.'-document-back.jpg',
+            'back_photo_mime' => 'image/jpeg',
+        ]])->post(route('visitor.manual.store'), [
             'exhibitor' => $exhibitor->registration_token,
             'full_name' => 'Member One',
             'document_type' => 'nic',
-            'document_number' => '199012345678',
+            'identity_verification_id' => $verificationId,
             'mobile_number' => '+94771234567',
             'whatsapp_number' => '',
             'address' => '12 Galle Road, Colombo',
             'occupation' => 'Designer',
             'company' => 'Gem House',
             'entrance_fee' => '0.00',
-            'document_front' => UploadedFile::fake()->image('nic-front.jpg'),
-            'document_back' => UploadedFile::fake()->image('nic-back.jpg'),
             'face_photo' => UploadedFile::fake()->image('face.jpg'),
         ])->assertRedirect(route('visitor.thank-you'));
 

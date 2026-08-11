@@ -112,6 +112,44 @@ class AdminDashboardCapacityTest extends TestCase
             ->assertHeader('Content-Type', 'image/jpeg');
     }
 
+    public function test_live_profile_includes_person_details_and_gate_activity_for_the_modal(): void
+    {
+        $participant = $this->visitor('Modal Participant');
+        $participant->update([
+            'category' => 'Staff',
+            'document_number' => '901234567V',
+            'mobile_number' => '0771234567',
+            'company' => 'Needle Events',
+            'occupation' => 'Coordinator',
+        ]);
+        GateLog::create([
+            'visitor_id' => $participant->id,
+            'gate' => 'A',
+            'direction' => 'in',
+            'scanned_at' => now()->subHours(3),
+        ]);
+        GateLog::create([
+            'visitor_id' => $participant->id,
+            'gate' => 'B',
+            'direction' => 'out',
+            'scanned_at' => now()->subHours(2),
+        ]);
+        GateLog::create([
+            'visitor_id' => $participant->id,
+            'gate' => 'C',
+            'direction' => 'in',
+            'scanned_at' => now()->subMinutes(30),
+        ]);
+
+        $this->withSession(['admin_authenticated' => true, 'admin_username' => 'dashboard'])
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('data-live-profile=', false)
+            ->assertSee('Modal Participant')
+            ->assertSee('901234567V')
+            ->assertSee('Check-in and check-out history');
+    }
+
     public function test_dashboard_adds_a_section_for_each_configured_visitor_category(): void
     {
         $category = VisitorCategory::create([
