@@ -1,0 +1,7 @@
+# hPanel deploys this repository into public_html. Route every request through
+# Laravel's actual web root so application files outside public/ remain private.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^$ public/ [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
