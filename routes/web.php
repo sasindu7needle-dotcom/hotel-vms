@@ -17,6 +17,7 @@ use App\Http\Controllers\AdminEventRegistrationDayController;
 use App\Http\Controllers\AdminVisitorCategoryController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminExhibitorController;
+use App\Http\Controllers\AdminDailyReportScheduleController;
 use App\Http\Controllers\ExhibitorRegistrationController;
 use App\Http\Controllers\SuperAdminAuthController;
 use App\Http\Controllers\SuperAdminDashboardController;
@@ -85,6 +86,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/configurations/event/registration-days/{registrationDay}', [AdminEventRegistrationDayController::class, 'destroy'])->name('configurations.event.days.destroy');
         Route::get('/configurations/capacity', [AdminCapacityController::class, 'edit'])->name('configurations.capacity.edit');
         Route::put('/configurations/capacity', [AdminCapacityController::class, 'update'])->name('configurations.capacity.update');
+        Route::get('/configurations/schedules', [AdminDailyReportScheduleController::class, 'index'])->name('configurations.schedules.index');
+        Route::post('/configurations/schedules', [AdminDailyReportScheduleController::class, 'store'])->name('configurations.schedules.store');
+        Route::put('/configurations/schedules/{schedule}', [AdminDailyReportScheduleController::class, 'update'])->name('configurations.schedules.update');
+        Route::patch('/configurations/schedules/{schedule}/toggle', [AdminDailyReportScheduleController::class, 'toggle'])->name('configurations.schedules.toggle');
+        Route::delete('/configurations/schedules/{schedule}', [AdminDailyReportScheduleController::class, 'destroy'])->name('configurations.schedules.destroy');
 
         Route::get('/configurations/categories', [AdminVisitorCategoryController::class, 'index'])->name('configurations.categories.index');
         Route::post('/configurations/categories', [AdminVisitorCategoryController::class, 'store'])->name('configurations.categories.store');

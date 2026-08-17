@@ -24,6 +24,9 @@
             // Revenue reports are a read-only extension of the existing receipt
             // workflow, so older cashier accounts continue to see them.
             $canAccessRevenue = $canAccess('Revenue Summary') || $canAccess('Revenue Detail') || $canAccessReceipts;
+            // Existing account managers receive new configuration tools
+            // without requiring their historic permission list to be edited.
+            $canAccessScheduleManager = $canAccess('Schedule Manager') || $canAccess('Users & Access');
         @endphp
         <nav aria-label="Admin navigation">
             @if($canAccess('Dashboard'))
@@ -74,7 +77,7 @@
                 <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link @if(request()->routeIs('admin.receipts*')) active @endif"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>
             @endif
 
-            @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
+            @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccessScheduleManager || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
                 <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
                     <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
                         <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63h.01A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9v.01A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
@@ -88,6 +91,9 @@
                         @endif
                         @if($canAccess('Occupancy Limit'))
                             <a href="{{ route('admin.configurations.capacity.edit') }}" class="@if(request()->routeIs('admin.configurations.capacity*')) active @endif">Occupancy Limit</a>
+                        @endif
+                        @if($canAccessScheduleManager)
+                            <a href="{{ route('admin.configurations.schedules.index') }}" class="@if(request()->routeIs('admin.configurations.schedules*')) active @endif">Schedule Manager</a>
                         @endif
                         @if($canAccess('Visitor Categories'))
                             <a href="{{ route('admin.configurations.categories.index') }}" class="@if(request()->routeIs('admin.configurations.categories*')) active @endif">Visitor Categories</a>

@@ -51,4 +51,15 @@ return [
         'nic_name_review' => env('GEMINI_NIC_NAME_REVIEW', false),
     ],
 
+    // Generic JSON SMS gateway. Point this at the provider endpoint and use
+    // the field-name options when its API does not use to/message/from.
+    'sms' => [
+        'url' => env('SMS_API_URL'),
+        'token' => env('SMS_API_TOKEN'),
+        'sender' => env('SMS_SENDER_ID'),
+        'recipient_field' => env('SMS_RECIPIENT_FIELD', 'to'),
+        'message_field' => env('SMS_MESSAGE_FIELD', 'message'),
+        'sender_field' => env('SMS_SENDER_FIELD', 'from'),
+    ],
+
 ];

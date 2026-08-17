@@ -23,6 +23,7 @@ class AdminUserController extends Controller
             'Revenue Detail' => 'Revenue - Detail',
             'Event Configurations' => 'Event Configurations',
             'Occupancy Limit' => 'Occupancy Limit',
+            'Schedule Manager' => 'Schedule Manager',
             'Visitor Categories' => 'Visitor Categories',
             'Receipt Manager' => 'Receipt Manager',
             'Users & Access' => 'Users & Access',

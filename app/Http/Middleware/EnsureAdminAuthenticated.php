@@ -88,6 +88,7 @@ class EnsureAdminAuthenticated
             'admin.receipts' => 'Receipt Manager',
             'admin.configurations.event' => 'Event Configurations',
             'admin.configurations.capacity' => 'Occupancy Limit',
+            'admin.configurations.schedules' => 'Schedule Manager',
             'admin.configurations.categories' => 'Visitor Categories',
             'admin.configurations.users' => 'Users & Access',
         ];
@@ -99,7 +100,12 @@ class EnsureAdminAuthenticated
                 $receiptAccess = $requiredPerm === 'Receipt Manager' && in_array('Visitors', $perms);
                 $revenueAccess = str_starts_with($requiredPerm, 'Revenue')
                     && (in_array('Receipt Manager', $perms) || in_array('Visitors', $perms));
-                if (! in_array($requiredPerm, $perms) && ! $receiptAccess && ! $revenueAccess) {
+                // User & Access administrators need to manage new system
+                // capabilities even when their account predates a newly
+                // introduced page permission, such as Schedule Manager.
+                $scheduleManagerAccess = $requiredPerm === 'Schedule Manager'
+                    && in_array('Users & Access', $perms, true);
+                if (! in_array($requiredPerm, $perms) && ! $receiptAccess && ! $revenueAccess && ! $scheduleManagerAccess) {
                     return $this->redirectToFirstAllowedRoute($perms);
                 }
             }
@@ -120,6 +126,7 @@ class EnsureAdminAuthenticated
             'Receipt Manager' => 'admin.receipts.index',
             'Event Configurations' => 'admin.configurations.event.edit',
             'Occupancy Limit' => 'admin.configurations.capacity.edit',
+            'Schedule Manager' => 'admin.configurations.schedules.index',
             'Visitor Categories' => 'admin.configurations.categories.index',
             'Users & Access' => 'admin.configurations.users.index',
         ];
