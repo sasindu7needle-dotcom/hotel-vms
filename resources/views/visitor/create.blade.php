@@ -13,7 +13,7 @@
         <div class="registration-background" aria-hidden="true">
             <div class="registration-background-glow"></div>
             <div class="registration-background-art">
-                @include('visitor.partials.checkin-illustration')
+                <img src="{{ asset('img/hero.png') }}" alt="" class="hero-image">
             </div>
             <span class="registration-accent registration-accent-lime"></span>
             <span class="registration-accent registration-accent-coral"></span>
@@ -40,6 +40,16 @@
                         <input id="full_name" name="full_name" class="form-control-premium @error('full_name') is-invalid @enderror" value="{{ old('full_name', data_get($verification, 'full_name')) }}" required>
                         @error('full_name')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
+
+                    @if($type === 'nic')
+                        <div class="form-group form-group-wide">
+                            <label class="form-label-premium" for="name_confirmation">
+                                <input id="name_confirmation" name="name_confirmation" type="checkbox" value="1" @checked(old('name_confirmation')) required>
+                                I confirm that the English spelling of my name is correct.
+                            </label>
+                            @error('name_confirmation')<span class="form-error-msg">{{ $message }}</span>@enderror
+                        </div>
+                    @endif
 
                     <div class="form-group">
                         <label for="document_number" class="form-label-premium">

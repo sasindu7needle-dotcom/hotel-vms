@@ -22,7 +22,7 @@
         </div>
 
         <div class="hero-visual" aria-hidden="true">
-            @include('visitor.partials.checkin-illustration')
+            <img src="{{ asset('img/hero.png') }}" alt="" class="hero-image">
         </div>
     </main>
 </body>

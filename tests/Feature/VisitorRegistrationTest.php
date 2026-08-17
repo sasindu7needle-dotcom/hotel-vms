@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\VerifiedVisitor;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class VisitorRegistrationTest extends TestCase
 {
+    use RefreshDatabase;
+
     private array $verification = [
         'session_id' => '11111111-2222-4333-8444-555555555555',
         'full_name' => 'Nimal Perera',

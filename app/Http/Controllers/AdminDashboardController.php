@@ -47,10 +47,10 @@ class AdminDashboardController extends Controller
         ));
     }
 
-    public function counts(): JsonResponse
+    public function counts(GateLogService $gateLogService): JsonResponse
     {
         $counts = $this->liveCounts();
-        $counts['categories'] = collect($this->insideCategories())
+        $counts['categories'] = collect($this->insideCategories($gateLogService))
             ->mapWithKeys(fn (array $group) => [$group['key'] => $group['participants']->count()]);
 
         return response()->json($counts);
@@ -171,7 +171,7 @@ class AdminDashboardController extends Controller
     {
         $configuredCategories = VisitorCategory::query()->orderBy('name')->get();
         $groups = [
-            'visitor' => ['key' => 'visitor', 'label' => 'Visitors', 'participants' => collect()],
+            'visitor' => ['key' => 'visitor', 'label' => 'General attendees', 'participants' => collect()],
             'exhibitor' => ['key' => 'exhibitor', 'label' => 'Exhibitors', 'participants' => collect()],
             'staff' => ['key' => 'staff', 'label' => 'Staff', 'participants' => collect()],
         ];

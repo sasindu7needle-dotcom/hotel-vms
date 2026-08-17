@@ -131,7 +131,7 @@
 
         <!-- Animated SVG graphic on the right — same partial as homepage -->
         <div class="hero-visual" aria-hidden="true">
-            @include('visitor.partials.checkin-illustration')
+            <img src="{{ asset('img/hero.png') }}" alt="" class="hero-image">
         </div>
     </section>
 

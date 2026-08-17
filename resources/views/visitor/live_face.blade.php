@@ -36,7 +36,7 @@
                 <p class="face-disclaimer">This photo is stored with your visitor record. No biometric analysis is performed.</p>
             </div>
         </div>
-        <div class="hero-visual" aria-hidden="true">@include('visitor.partials.checkin-illustration')</div>
+        <div class="hero-visual" aria-hidden="true"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div>
     </section>
 
     <style>

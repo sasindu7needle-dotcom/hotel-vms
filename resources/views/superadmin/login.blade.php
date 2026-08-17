@@ -8,7 +8,7 @@
 </head>
 <body class="landing-page admin-login-page">
     <main class="admin-login-shell">
-        <div class="admin-login-art" aria-hidden="true">@include('visitor.partials.checkin-illustration')</div>
+        <div class="admin-login-art" aria-hidden="true"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div>
         <section class="admin-login-card" aria-labelledby="superadmin-login-title">
             <a href="{{ url('/') }}" class="admin-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
             <div class="admin-login-heading">

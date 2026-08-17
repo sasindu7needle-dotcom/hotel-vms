@@ -8,7 +8,7 @@
 </head>
 <body class="landing-page visitor-registration-page manual-registration-flow">
 <main class="registration-shell">
-    <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art">@include('visitor.partials.checkin-illustration')</div><span class="registration-accent registration-accent-lime"></span><span class="registration-accent registration-accent-coral"></span></div>
+    <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div><span class="registration-accent registration-accent-lime"></span><span class="registration-accent registration-accent-coral"></span></div>
     <section class="registration-card" aria-labelledby="manual-registration-title">
         <div class="registration-heading">
             <span class="tagline no-margin">{{ $exhibitorProfile ? 'EXHIBITOR MEMBERS' : 'FRONT DESK' }}</span>

@@ -8,7 +8,7 @@
 </head>
 <body class="landing-page visitor-registration-page">
     <main class="registration-shell payment-status-shell">
-        <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art">@include('visitor.partials.checkin-illustration')</div></div>
+        <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div></div>
         <section class="registration-card payment-status-card">
             <div class="payment-status-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20M6 15h4"></path></svg>

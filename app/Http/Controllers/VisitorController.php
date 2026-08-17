@@ -386,6 +386,12 @@ class VisitorController extends Controller
             'whatsapp_number.regex' => 'Enter a 9-digit number after +94.',
         ]);
 
+        if ($validated['document_type'] === 'nic' && ! $request->boolean('name_confirmation')) {
+            return back()->withInput()->withErrors([
+                'name_confirmation' => 'Confirm that the English spelling of your name is correct.',
+            ]);
+        }
+
         $details = array_merge($validated, [
             'verification_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
             'didit_session_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),

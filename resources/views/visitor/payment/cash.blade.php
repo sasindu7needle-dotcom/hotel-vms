@@ -13,7 +13,7 @@
 </head>
 <body class="landing-page visitor-registration-page cash-payment-page">
     <main class="registration-shell payment-status-shell cash-payment-shell">
-        <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art">@include('visitor.partials.checkin-illustration')</div></div>
+        <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div></div>
         <section class="registration-card payment-status-card cash-payment-card" aria-labelledby="cash-payment-title">
             <div class="payment-status-icon payment-status-icon-cash">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9H5v1M18 15h1v-1"></path></svg>

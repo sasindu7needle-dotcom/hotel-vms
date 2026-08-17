@@ -77,6 +77,7 @@ class DailyVisitorRegistrationTest extends TestCase
             $this->withSession(['verification' => $verification, 'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99]])
                 ->post(route('visitor.confirm'), [
                     'document_type' => 'nic',
+                    'name_confirmation' => '1',
                     'full_name' => 'Repeat Visitor',
                     'document_number' => '199012345678',
                     'address' => '12 Galle Road, Colombo',

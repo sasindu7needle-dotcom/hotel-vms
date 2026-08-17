@@ -13,7 +13,7 @@
     <div class="registration-background" aria-hidden="true">
         <div class="registration-background-glow"></div>
         <div class="registration-background-art">
-            @include('visitor.partials.checkin-illustration')
+            <img src="{{ asset('img/hero.png') }}" alt="" class="hero-image">
         </div>
         <span class="registration-accent registration-accent-lime"></span>
         <span class="registration-accent registration-accent-coral"></span>
