@@ -572,6 +572,51 @@ class VisitorController extends Controller
         return view('visitor.payment.cash', compact('details'));
     }
 
+    /** Download the active registration's entrance card without exposing another visitor's record. */
+    public function downloadCard(Request $request)
+    {
+        $details = $request->session()->get('visitor_registration');
+        if (! is_array($details) || blank(data_get($details, 'record_id'))) {
+            return redirect()->route('visitor.create');
+        }
+
+        $visitor = VerifiedVisitor::with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile'])
+            ->find(data_get($details, 'record_id'));
+        if (! $visitor) {
+            return redirect()->route('visitor.create');
+        }
+
+        $eventName = $visitor->eventRegistrationDay?->eventConfiguration?->event_name
+            ?: config('vms.event_name');
+        $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
+        $qrCode = preg_replace('/<\?xml[^>]*\?>/i', '', (string) QrCode::format('svg')
+            ->size(250)
+            ->margin(1)
+            ->errorCorrection('H')
+            ->generate($qrPayload));
+        $photoDataUri = filled($visitor->selfie_path)
+            ? app(VisitorMediaService::class)->dataUri($visitor->selfie_path, $visitor->selfie_mime)
+            : null;
+        $cardStatus = $visitor->payment_status === 'paid' ? 'VERIFIED' : 'PAYMENT PENDING';
+
+        $svg = view('visitor.card_download', compact(
+            'visitor',
+            'eventName',
+            'qrPayload',
+            'qrCode',
+            'photoDataUri',
+            'cardStatus'
+        ))->render();
+        $safeName = Str::slug($visitor->full_name ?: 'visitor') ?: 'visitor';
+
+        return response($svg, 200, [
+            'Content-Type' => 'image/svg+xml; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$safeName.'-entrance-card.svg"',
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     /**
      * Record a successful payment hand-off and continue to the printable badge.
      */

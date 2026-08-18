@@ -36,6 +36,21 @@ class VisitorMediaService
         ]) + $headers);
     }
 
+    /** Return a private visitor image in a portable form for generated cards. */
+    public function dataUri(string $path, ?string $mime = null): ?string
+    {
+        $disk = $this->diskContaining($path);
+        if (! $disk) {
+            return null;
+        }
+
+        $mime = in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)
+            ? $mime
+            : 'image/jpeg';
+
+        return 'data:'.$mime.';base64,'.base64_encode($disk->get($path));
+    }
+
     /** @return string[] */
     public function diskNames(): array
     {

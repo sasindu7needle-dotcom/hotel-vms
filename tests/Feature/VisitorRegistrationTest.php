@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\VerifiedVisitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class VisitorRegistrationTest extends TestCase
@@ -195,5 +196,51 @@ class VisitorRegistrationTest extends TestCase
         } finally {
             $visitor->delete();
         }
+    }
+
+    public function test_cash_payment_screen_offers_a_session_scoped_card_download(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('verified-visitors/cash-visitor.jpg', 'visitor-photo');
+        $visitor = VerifiedVisitor::create([
+            'verification_id' => 'cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa',
+            'full_name' => 'Cash Visitor',
+            'category' => 'Adult',
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'registration_status' => 'payment_pending',
+            'selfie_path' => 'verified-visitors/cash-visitor.jpg',
+            'selfie_mime' => 'image/jpeg',
+        ]);
+        $registration = [
+            'record_id' => $visitor->id,
+            'full_name' => $visitor->full_name,
+            'payment_method' => 'cash',
+        ];
+
+        $this->withSession(['visitor_registration' => $registration])
+            ->get(route('visitor.payment.cash'))
+            ->assertOk()
+            ->assertSee('Download Entrance Card')
+            ->assertSee(route('visitor.card.download'));
+
+        $download = $this->get(route('visitor.card.download'));
+        $download
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/svg+xml; charset=UTF-8')
+            ->assertDownload('cash-visitor-entrance-card.svg')
+            ->assertSee('PAYMENT PENDING')
+            ->assertSee('Cash Visitor')
+            ->assertSee($visitor->verification_id)
+            ->assertSee('data:image/jpeg;base64,', false);
+
+        $svg = new \DOMDocument();
+        $this->assertTrue($svg->loadXML($download->getContent()), 'The downloaded card must be valid SVG/XML.');
+    }
+
+    public function test_card_download_requires_the_active_registration_session(): void
+    {
+        $this->get(route('visitor.card.download'))
+            ->assertRedirect(route('visitor.create'));
     }
 }
