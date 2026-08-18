@@ -15414,6 +15414,7 @@ body.landing-page .configuration-actions .btn {
         width: 100%;
     }
 }
+
 /* Final registration badge */
 body.thank-you-page {
     min-height: 100vh;
@@ -17304,6 +17305,18 @@ body.landing-page .hero-visual .hero-image {
     transform: translateY(-50%);
 }
 
+body.welcome-page .hero-visual {
+    -webkit-mask-image:
+        linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+        linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%);
+    -webkit-mask-composite: source-in, xor;
+            mask-composite: intersect;
+}
+
 body.landing-page .registration-background-art .hero-image,
 body.landing-page .admin-login-art .hero-image {
     display: block;
@@ -17319,6 +17332,110 @@ body.landing-page.verification-consent-page .hero-visual .hero-image {
     width: min(900px, 62vw);
     max-width: none;
     transform: translate(-50%, -50%);
+}
+
+/* Conference theme icons shown immediately after the home-page hero. */
+body.welcome-page .hero {
+    min-height: auto;
+}
+
+body.welcome-page .conference-icons {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 clamp(36px, 7vw, 112px) clamp(44px, 6vw, 80px);
+}
+
+body.welcome-page .conference-icon-viewport {
+    --conference-visible-slots: 7;
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 4%,
+        #000 96%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 4%,
+        #000 96%,
+        transparent 100%
+    );
+}
+
+body.welcome-page .conference-icon-grid {
+    --conference-icon-gap: clamp(14px, 2.2vw, 34px);
+    display: flex;
+    align-items: center;
+    gap: var(--conference-icon-gap);
+    width: -moz-max-content;
+    width: max-content;
+}
+
+body.welcome-page .conference-icon-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 var(--conference-icon-slot);
+    width: var(--conference-icon-slot);
+    min-width: 0;
+    will-change: transform, opacity;
+}
+
+body.welcome-page .conference-icon-orbit {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 122px;
+    aspect-ratio: 1;
+    padding: 5px;
+    border-radius: 50%;
+    filter: drop-shadow(0 10px 16px rgba(20, 33, 61, .14));
+    transition: transform .25s ease, filter .25s ease;
+}
+
+body.welcome-page .conference-icon-orbit::before {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--theme-accent, #d4a017);
+    border-radius: inherit;
+    content: '';
+    animation: conference-icon-spin 9s linear infinite;
+    animation-delay: calc(var(--icon-index) * -.55s);
+}
+
+body.welcome-page .conference-icon-orbit::after {
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(244, 213, 141, .7);
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+}
+
+body.welcome-page .conference-icon-orbit img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    -o-object-fit: cover;
+       object-fit: cover;
+}
+
+body.welcome-page .conference-icon-item:hover .conference-icon-orbit {
+    filter: drop-shadow(0 13px 20px rgba(20, 33, 61, .22));
+    transform: translateY(-4px);
+}
+
+@keyframes conference-icon-spin {
+    to { transform: rotate(1turn); }
 }
 
 @media (max-width: 1200px) {
@@ -17338,6 +17455,59 @@ body.landing-page.verification-consent-page .hero-visual .hero-image {
 @media (max-width: 600px) {
     body.landing-page .hero-visual .hero-image { width: min(700px, 115vw); }
     body.landing-page.verification-consent-page .hero-visual .hero-image { width: 132vw; }
+
+    body.welcome-page .cta-buttons {
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    body.welcome-page .cta-buttons .btn {
+        width: auto;
+        min-width: 150px;
+        padding-inline: 28px;
+    }
+
+    body.welcome-page .conference-icons {
+        padding: 12px 12px 38px;
+    }
+
+    body.welcome-page .conference-icon-viewport {
+        --conference-visible-slots: 5;
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 6%,
+            #000 94%,
+            transparent 100%
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent 0,
+            #000 6%,
+            #000 94%,
+            transparent 100%
+        );
+    }
+
+    body.welcome-page .conference-icon-grid {
+        --conference-icon-gap: clamp(5px, 1.8vw, 9px);
+    }
+
+    body.welcome-page .conference-icon-orbit {
+        max-width: 72px;
+        padding: 3px;
+        filter: drop-shadow(0 7px 12px rgba(20, 33, 61, .16));
+    }
+
+    body.welcome-page .conference-icon-orbit::before {
+        border-width: 1px;
+    }
+
+    body.welcome-page .conference-icon-orbit::after {
+        inset: 1px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -17348,4 +17518,5 @@ body.landing-page.verification-consent-page .hero-visual .hero-image {
         animation-iteration-count: 1 !important;
     }
 }
+
 
