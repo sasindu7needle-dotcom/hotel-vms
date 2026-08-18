@@ -7,7 +7,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
-    <meta http-equiv="refresh" content="{{ data_get($details, 'exhibitor_profile_token') ? '30;url='.route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) : '5;url='.url('/') }}">
+    <style>
+        body.thank-you-page .thank-you-download { display:inline-flex; align-items:center; justify-content:center; gap:9px; width:min(100%,350px); min-height:50px; margin-top:22px; padding:12px 20px; color:#fff; background:#17233f; border:1px solid #17233f; border-radius:10px; font-size:13px; font-weight:800; letter-spacing:.025em; text-decoration:none; transition:transform .18s ease, box-shadow .18s ease, background .18s ease; }
+        body.thank-you-page .thank-you-download:hover { background:#223253; box-shadow:0 10px 24px rgba(23,35,63,.18); transform:translateY(-1px); }
+        body.thank-you-page .thank-you-download:focus-visible { outline:3px solid rgba(200,224,99,.65); outline-offset:3px; }
+        body.thank-you-page .thank-you-download svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; }
+    </style>
 </head>
 <body class="landing-page visitor-registration-page thank-you-page">
     @include('layouts.site-header')
@@ -62,6 +67,11 @@
                 </div>
             </article>
 
+            <a class="thank-you-download" href="{{ route('visitor.card.download') }}" download>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+                <span>Download Entrance Card</span>
+            </a>
+
             @if(!data_get($details, 'exhibitor_profile_token'))
             <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
             @if(data_get($details, 'registration_date'))
@@ -71,26 +81,8 @@
             @if(data_get($details, 'exhibitor_profile_token'))
                 <p class="printing-instruction">Your member registration is complete. <strong>Event administration will print the entrance card.</strong></p>
                 <div style="display:flex;justify-content:center;margin-top:18px;"><a class="btn" style="background:#fff;border:1px solid #d8e0e7;color:#172033" href="{{ route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) }}">Back to members</a></div>
-                <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Returning to your member list in <span id="redirectCountdown">30</span> seconds...</p>
-            @else
-                <p class="redirect-notice" style="margin-top: 14px; font-size: 11px; color: #64748b; font-weight: 600;">Redirecting to home page in <span id="redirectCountdown">5</span> seconds...</p>
             @endif
         </section>
     </main>
-
-    <script>
-        (function() {
-            let secondsLeft = {{ data_get($details, 'exhibitor_profile_token') ? 30 : 5 }};
-            const countdownEl = document.getElementById('redirectCountdown');
-            const timer = setInterval(() => {
-                secondsLeft--;
-                if (countdownEl) countdownEl.textContent = secondsLeft;
-                if (secondsLeft <= 0) {
-                    clearInterval(timer);
-                    window.location.href = "{{ data_get($details, 'exhibitor_profile_token') ? route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) : url('/') }}";
-                }
-            }, 1000);
-        })();
-    </script>
 </body>
 </html>

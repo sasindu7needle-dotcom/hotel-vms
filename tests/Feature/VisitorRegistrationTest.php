@@ -185,6 +185,11 @@ class VisitorRegistrationTest extends TestCase
                 ->assertSee('Nimal Perera')
                 ->assertSee('Adult')
                 ->assertSee('Printing Booth')
+                ->assertSee('Download Entrance Card')
+                ->assertSee(route('visitor.card.download'))
+                ->assertDontSee('http-equiv="refresh"', false)
+                ->assertDontSee('redirectCountdown')
+                ->assertDontSee('Redirecting to home page')
                 ->assertSee('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
                 ->assertSee('<svg', false);
 
