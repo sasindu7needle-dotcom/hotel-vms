@@ -9,12 +9,13 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page welcome-page">
+    @include('layouts.site-header')
     <main class="hero">
         <div class="hero-content">
-            <div class="tagline">Secure. Manage. Govern.</div>
-            <h1 class="headline">Full cycle Visitor Management<span class="dot">.</span></h1>
+            <div class="tagline">VISION 2030</div>
+            <h1 class="headline">INTERNATIONAL HOSPITALITY LEADERS' CONFERENCE<span class="dot">.</span></h1>
             <p class="description">
-                Traction Guest provides organizations with a single place to secure, manage and govern an entire cycle of visitor operations.
+                Shaping the Future Performance of the Hospitality Industry.
             </p>
             <div class="cta-buttons">
                 <a href="{{ route('visitor.start') }}" class="btn btn-primary btn-large">Register</a>

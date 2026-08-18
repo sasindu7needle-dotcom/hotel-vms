@@ -10,6 +10,7 @@
     <meta http-equiv="refresh" content="{{ data_get($details, 'exhibitor_profile_token') ? '30;url='.route('exhibitor.dashboard', data_get($details, 'exhibitor_profile_token')) : '5;url='.url('/') }}">
 </head>
 <body class="landing-page visitor-registration-page thank-you-page">
+    @include('layouts.site-header')
     <main class="registration-shell thank-you-shell">
         <div class="registration-background" aria-hidden="true">
             <div class="registration-background-glow"></div>

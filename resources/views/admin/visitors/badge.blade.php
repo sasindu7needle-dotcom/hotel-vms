@@ -280,6 +280,7 @@
     </style>
 </head>
 <body>
+    @include('layouts.site-header')
     <nav class="print-toolbar" aria-label="Print controls">
         <a href="{{ route('admin.visitors.index') }}">Back to Visitors</a>
         <button type="button" onclick="printCard()">Print Card</button>

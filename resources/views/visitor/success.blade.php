@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page">
+    @include('layouts.site-header')
 
     <section class="hero">
         <div class="hero-content hero-content-center">

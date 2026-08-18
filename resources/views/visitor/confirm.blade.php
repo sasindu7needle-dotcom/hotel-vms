@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page visitor-registration-page visitor-confirmation-page">
+    @include('layouts.site-header')
     <main class="registration-shell confirmation-shell">
         <div class="registration-background" aria-hidden="true">
             <div class="registration-background-glow"></div>

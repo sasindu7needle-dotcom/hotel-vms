@@ -11,6 +11,7 @@
     @stack('styles')
 </head>
 <body class="landing-page admin-dashboard-page">
+@include('layouts.site-header')
 <div class="admin-dashboard-shell">
     <aside id="adminSidebar" class="admin-sidebar">
         <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>

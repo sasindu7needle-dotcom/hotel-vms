@@ -36,6 +36,7 @@
     </style>
 </head>
 <body class="landing-page verification-consent-page">
+    @include('layouts.site-header')
 
     <section class="hero">
         <div class="hero-content">
@@ -53,7 +54,7 @@
             <div class="verification-consent-card">
                 <div class="verification-consent-heading">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
-                    <div><h2>Secure document verification</h2><p>Powered by Google Gemini document understanding.</p></div>
+                    <div><h2>Secure document verification</h2></div>
                 </div>
                 
                 <div class="privacy-summary">
@@ -63,20 +64,8 @@
                         <li>Extracted text details (Full Name, Document Number, and Address).</li>
                         <li>Encrypted session signals and check-in verification result.</li>
                     </ul>
-                    
-                    <div class="privacy-governance-box">
-                        <h4>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#688009" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                            Gemini document-processing notice
-                        </h4>
-                        <p>
-                            Your document images are sent securely to Google Gemini to extract the document number, full name, and address and convert Sinhala or Tamil details to English for the registration form.
-                        </p>
-                    </div>
 
-                    <p class="privacy-links">
-                        Read the <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Gemini API terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google privacy policy</a>.
-                    </p>
+
                 </div>
 
                 <label class="consent-checkbox-row" for="privacyConsent" style="margin-top: 18px;">
@@ -92,7 +81,7 @@
             
             <div class="verification-assurance">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                <span>Gemini multimodal document extraction</span>
+                <span>secure multimodal document extraction</span>
             </div>
         </div>
         

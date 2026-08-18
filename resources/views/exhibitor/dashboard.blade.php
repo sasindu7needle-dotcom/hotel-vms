@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page exhibitor-dashboard-page">
+@include('layouts.site-header')
 <main class="exhibitor-dashboard-shell">
     <header class="exhibitor-dashboard-heading">
         <span class="tagline no-margin">EXHIBITOR REGISTRATION</span>

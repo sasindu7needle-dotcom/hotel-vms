@@ -392,6 +392,7 @@
     </style>
 </head>
 <body>
+@include('layouts.site-header')
 <main class="terminal-shell">
     <header class="terminal-header">
         <div class="terminal-brand"><i></i><span>TRACTION GUEST</span></div>

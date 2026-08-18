@@ -16991,6 +16991,18 @@ body.landing-page.verification-consent-page .hero-visual .hero-image {
     body.landing-page.verification-consent-page .hero-visual .hero-image { width: 132vw; }
 }
 
+.site-header + .admin-dashboard-shell .admin-sidebar {
+    height: calc(100vh - 78px);
+    height: calc(100dvh - 78px);
+}
+
+@media (max-width: 600px) {
+    .site-header + .admin-dashboard-shell .admin-sidebar {
+        height: calc(100vh - 66px);
+        height: calc(100dvh - 66px);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     body.landing-page *, body.landing-page *::before, body.landing-page *::after {
         scroll-behavior: auto !important;
@@ -16999,5 +17011,4 @@ body.landing-page.verification-consent-page .hero-visual .hero-image {
         animation-iteration-count: 1 !important;
     }
 }
-
 

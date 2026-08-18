@@ -17,6 +17,7 @@
     </style>
 </head>
 <body class="landing-page visitor-registration-page cash-payment-page">
+    @include('layouts.site-header')
     <main class="registration-shell payment-status-shell cash-payment-shell">
         <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div></div>
         <section class="registration-card payment-status-card cash-payment-card" aria-labelledby="cash-payment-title">

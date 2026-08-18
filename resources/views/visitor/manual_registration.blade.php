@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page visitor-registration-page manual-registration-flow">
+    @include('layouts.site-header')
 <main class="registration-shell">
     <div class="registration-background" aria-hidden="true"><div class="registration-background-glow"></div><div class="registration-background-art"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div><span class="registration-accent registration-accent-lime"></span><span class="registration-accent registration-accent-coral"></span></div>
     <section class="registration-card" aria-labelledby="manual-registration-title">

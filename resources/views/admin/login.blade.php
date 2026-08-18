@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page admin-login-page">
+    @include('layouts.site-header')
     <main class="admin-login-shell">
         <div class="admin-login-art" aria-hidden="true"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div>
         <section class="admin-login-card" aria-labelledby="admin-login-title">
