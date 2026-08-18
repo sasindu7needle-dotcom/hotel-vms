@@ -4,17 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Admin') — Traction Guest</title>
+    <title>@yield('title', 'Admin') — Institute of Hospitality</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     @stack('styles')
 </head>
 <body class="landing-page admin-dashboard-page">
-@include('layouts.site-header')
 <div class="admin-dashboard-shell">
     <aside id="adminSidebar" class="admin-sidebar">
-        <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+        <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand" aria-label="Institute of Hospitality admin dashboard"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality" class="admin-brand-logo"></a>
         @php
             $perms = session('admin_permissions');
             $isSuperadmin = session('superadmin_authenticated', false);
@@ -87,8 +86,8 @@
                     </button>
                     <div class="admin-nav-subtabs">
                         @if($canAccess('Event Configurations'))
-                            <a href="{{ route('admin.configurations.event.edit') }}" class="@if(request()->routeIs('admin.configurations.event*')) active @endif">Event Configurations</a>
-                            <a href="{{ route('admin.configurations.event.edit') }}#daily-registration-forms">Daily Registration Forms</a>
+                            <a href="{{ route('admin.configurations.event.edit') }}" data-event-nav="configuration" class="@if(request()->routeIs('admin.configurations.event*')) active @endif">Event Configurations</a>
+                            <a href="{{ route('admin.configurations.event.edit') }}#daily-registration-forms" data-event-nav="daily-forms">Daily Registration Forms</a>
                         @endif
                         @if($canAccess('Occupancy Limit'))
                             <a href="{{ route('admin.configurations.capacity.edit') }}" class="@if(request()->routeIs('admin.configurations.capacity*')) active @endif">Occupancy Limit</a>
@@ -136,6 +135,24 @@
             }
         });
     });
+
+    const configurationLink = document.querySelector('[data-event-nav="configuration"]');
+    const dailyFormsLink = document.querySelector('[data-event-nav="daily-forms"]');
+    const isEventConfigurationPage = configurationLink?.classList.contains('active') ?? false;
+
+    const syncEventConfigurationNav = () => {
+        if (!configurationLink || !dailyFormsLink || !isEventConfigurationPage) return;
+
+        const dailyFormsSelected = window.location.hash === '#daily-registration-forms';
+        configurationLink.classList.toggle('active', !dailyFormsSelected);
+        dailyFormsLink.classList.toggle('active', dailyFormsSelected);
+        configurationLink.removeAttribute('aria-current');
+        dailyFormsLink.removeAttribute('aria-current');
+        (dailyFormsSelected ? dailyFormsLink : configurationLink).setAttribute('aria-current', 'page');
+    };
+
+    syncEventConfigurationNav();
+    window.addEventListener('hashchange', syncEventConfigurationNav);
 </script>
 @stack('scripts')
 </body>

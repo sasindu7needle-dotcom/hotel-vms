@@ -16,10 +16,9 @@
     </style>
 </head>
 <body class="landing-page admin-dashboard-page">
-@include('layouts.site-header')
 <div class="admin-dashboard-shell">
     <aside id="adminSidebar" class="admin-sidebar">
-        <a href="{{ route('superadmin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark" style="background:#dc2626;"></span><span>TRACTION <strong>GUEST</strong></span></a>
+        <a href="{{ route('superadmin.dashboard') }}" class="admin-brand admin-sidebar-brand" aria-label="Institute of Hospitality superadmin dashboard"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality" class="admin-brand-logo"></a>
         <nav aria-label="Superadmin navigation">
             <a href="{{ route('superadmin.dashboard') }}" class="admin-nav-link active">
                 <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>

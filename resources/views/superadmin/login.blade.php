@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Superadmin Login — Traction Guest</title>
+    <title>Superadmin Login — Institute of Hospitality</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 </head>
 <body class="landing-page admin-login-page">
-    @include('layouts.site-header')
     <main class="admin-login-shell">
         <div class="admin-login-art" aria-hidden="true"><img src="{{ asset('img/hero.png') }}" alt="" class="hero-image"></div>
         <section class="admin-login-card" aria-labelledby="superadmin-login-title">
-            <a href="{{ url('/') }}" class="admin-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+            <a href="{{ url('/') }}" class="admin-brand admin-login-brand" aria-label="Institute of Hospitality home"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality" class="admin-brand-logo"></a>
             <div class="admin-login-heading">
                 <span class="tagline no-margin" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5;">SUPERADMIN PORTAL</span>
                 <h1 id="superadmin-login-title" class="headline">Superadmin Access<span class="dot">.</span></h1>

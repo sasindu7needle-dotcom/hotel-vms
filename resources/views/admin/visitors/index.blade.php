@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verified Visitors — Traction Guest</title>
+    <title>Verified Visitors — Institute of Hospitality</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
 <style>
@@ -89,10 +89,9 @@
 </style>
 </head>
 <body class="landing-page admin-dashboard-page">
-@include('layouts.site-header')
     <div class="admin-dashboard-shell">
         <aside id="adminSidebar" class="admin-sidebar">
-            <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand"><span class="admin-brand-mark"></span><span>TRACTION <strong>GUEST</strong></span></a>
+            <a href="{{ route('admin.dashboard') }}" class="admin-brand admin-sidebar-brand" aria-label="Institute of Hospitality admin dashboard"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality" class="admin-brand-logo"></a>
             @php
                 $permissions = session('admin_permissions', []);
                 $isSuperadmin = session('superadmin_authenticated', false);
