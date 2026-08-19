@@ -98,6 +98,7 @@
                 $canAccess = fn ($permission) => $isSuperadmin || empty($permissions) || in_array($permission, (array) $permissions);
                 $canAccessReceipts = $canAccess('Receipt Manager') || $canAccess('Visitors');
                 $canAccessRevenue = $canAccess('Revenue Summary') || $canAccess('Revenue Detail') || $canAccessReceipts;
+                $canAccessScheduleManager = $canAccess('Schedule Manager') || $canAccess('Users & Access');
             @endphp
             <nav aria-label="Admin navigation">
                 @if($canAccess('Dashboard'))
@@ -129,7 +130,7 @@
                 @if($canAccessReceipts)
                     <a href="{{ route('admin.receipts.index') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-3-6 3V3Z"></path><path d="M9 8h6M9 12h5"></path></svg><span>Receipt Manager</span></a>
                 @endif
-                @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
+                @if($canAccess('Event Configurations') || $canAccess('Occupancy Limit') || $canAccessScheduleManager || $canAccess('Visitor Categories') || $canAccess('Users & Access'))
                 <div class="admin-nav-group @if(request()->routeIs('admin.configurations*')) active @else collapsed @endif">
                     <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.configurations*') ? 'true' : 'false' }}">
                         <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34A1.7 1.7 0 0 0 14 20.92V21h-4v-.08A1.7 1.7 0 0 0 9 19.37l-1.94.4-2.83-2.83.4-1.94A1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.63 9l-.4-1.94 2.83-2.83L9 4.63A1.7 1.7 0 0 0 10 3.08V3h4v.08A1.7 1.7 0 0 0 15 4.63l1.94-.4 2.83 2.83-.4 1.94A1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path></svg>
@@ -140,6 +141,7 @@
                         @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}">Event Configurations</a>@endif
                         @if($canAccess('Event Configurations'))<a href="{{ route('admin.configurations.event.edit') }}#daily-registration-forms">Daily Registration Forms</a>@endif
                         @if($canAccess('Occupancy Limit'))<a href="{{ route('admin.configurations.capacity.edit') }}">Occupancy Limit</a>@endif
+                        @if($canAccessScheduleManager)<a href="{{ route('admin.configurations.schedules.index') }}">Schedule Manager</a>@endif
                         @if($canAccess('Visitor Categories'))<a href="{{ route('admin.configurations.categories.index') }}">Visitor Categories</a>@endif
                         @if($canAccess('Users & Access'))<a href="{{ route('admin.configurations.users.index') }}">Users &amp; Access</a>@endif
                     </div>

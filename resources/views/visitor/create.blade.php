@@ -27,9 +27,11 @@
                 @include('visitor.partials.selected-registration-day')
             </div>
 
-            @error('verification')
-                <div class="form-error-msg" role="alert" style="margin: 0 0 18px; text-align: center;">{{ $message }}</div>
-            @enderror
+            @if($errors->has('verification') || $errors->has('registration'))
+                <div class="form-error-msg" role="alert" style="margin: 0 0 18px; text-align: center;">{{ $errors->first('verification') ?: $errors->first('registration') }}</div>
+            @endif
+
+            @php($entranceFee = data_get(session('event_registration_day', []), 'entrance_fee', data_get($category, 'entrance_fee')))
 
             <form method="POST" action="{{ route('visitor.confirm') }}" class="registration-form">
                 @csrf
@@ -65,7 +67,7 @@
 
                     <div class="form-group">
                         <label for="entrance_fee" class="form-label-premium">Entrance Fee</label>
-                        <input id="entrance_fee" class="form-control-premium form-control-readonly" value="{{ data_get($category, 'entrance_fee') !== null ? 'LKR '.number_format((float) data_get($category, 'entrance_fee'), 2) : 'Not assigned' }}" readonly>
+                        <input id="entrance_fee" class="form-control-premium form-control-readonly" value="{{ $entranceFee !== null ? 'LKR '.number_format((float) $entranceFee, 2) : 'Not assigned' }}" readonly>
                         @if(data_get($category, 'name'))<span class="field-microcopy">{{ data_get($category, 'name') }} category</span>@endif
                     </div>
 

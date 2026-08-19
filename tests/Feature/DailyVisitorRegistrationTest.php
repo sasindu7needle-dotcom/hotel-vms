@@ -108,6 +108,73 @@ class DailyVisitorRegistrationTest extends TestCase
         ]);
     }
 
+    public function test_reverified_visitor_resumes_the_existing_day_registration_instead_of_returning_to_the_form(): void
+    {
+        Carbon::setTestNow('2026-08-09 10:00:00');
+        $event = $this->event();
+        $day = $event->registrationDays()->create([
+            'label' => 'Registration for Day 1',
+            'event_date' => '2026-08-10',
+            'entrance_fee' => 1500,
+            'is_active' => true,
+        ]);
+        $existing = VerifiedVisitor::create([
+            'verification_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            'document_type' => 'driving_license',
+            'document_number' => '993100900V',
+            'full_name' => 'Existing Visitor',
+            'event_registration_day_id' => $day->id,
+            'entrance_fee' => 1500,
+            'payment_method' => 'cash',
+            'payment_status' => 'pending',
+            'registration_status' => 'payment_pending',
+        ]);
+        $verification = [
+            'session_id' => '11111111-2222-4333-8444-555555555555',
+            'verification_id' => '11111111-2222-4333-8444-555555555555',
+            'document_type' => 'driving_license',
+            'full_name' => 'Existing Visitor',
+            'document_number' => '993100900V',
+            'address' => '07 Main Road, Puttalam',
+            'selfie_path' => 'verified-visitors/reverified-photo.jpg',
+        ];
+        $session = [
+            'verification' => $verification,
+            'event_registration_day' => [
+                'id' => $day->id,
+                'label' => $day->label,
+                'event_date' => $day->event_date->format('Y-m-d'),
+                'entrance_fee' => $day->entrance_fee,
+            ],
+        ];
+
+        $this->withSession($session)
+            ->get(route('visitor.create', ['type' => 'driving_license']))
+            ->assertOk()
+            ->assertSee('LKR 1,500.00')
+            ->assertDontSee('Not assigned');
+
+        $this->withSession($session)
+            ->from(route('visitor.create', ['type' => 'driving_license']))
+            ->post(route('visitor.confirm'), [
+                'document_type' => 'driving_license',
+                'full_name' => 'Existing Visitor',
+                'document_number' => '993100900V',
+                'address' => '07 Main Road, Puttalam',
+                'mobile_number' => '716175003',
+                'same_as_mobile' => '1',
+                'occupation' => 'Coordinator',
+                'company' => 'Example Ltd',
+            ])
+            ->assertRedirect(route('visitor.payment.cash'))
+            ->assertSessionHas('visitor_registration.record_id', $existing->id);
+
+        $this->assertDatabaseCount('verified_visitors', 1);
+        $this->get(route('visitor.payment.cash'))
+            ->assertOk()
+            ->assertSee('Download Entrance Card');
+    }
+
     private function event(): EventConfiguration
     {
         return EventConfiguration::create([

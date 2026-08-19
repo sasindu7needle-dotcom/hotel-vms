@@ -30,6 +30,7 @@ class AdminDashboardCapacityTest extends TestCase
             ->assertOk()
             ->assertSee('EVENT OCCUPANCY CONTROL')
             ->assertSee('Receipt Manager')
+            ->assertSee('Schedule Manager')
             ->assertSee('Update Count');
 
         $this->withSession($session)

@@ -25,6 +25,18 @@ class AdminVisitorTest extends TestCase
             ->assertSee('Receipt Manager');
     }
 
+    public function test_schedule_manager_navigation_is_visible_to_account_managers_on_the_visitor_page(): void
+    {
+        $this->withSession([
+            'admin_authenticated' => true,
+            'admin_username' => 'admin',
+            'admin_permissions' => ['Visitors', 'Users & Access'],
+        ])
+            ->get(route('admin.visitors.index'))
+            ->assertOk()
+            ->assertSee('Schedule Manager');
+    }
+
     public function test_admin_can_update_visitor_payment_status_and_details(): void
     {
         $visitor = VerifiedVisitor::create([

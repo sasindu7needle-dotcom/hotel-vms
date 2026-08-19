@@ -433,15 +433,40 @@ class VisitorController extends Controller
             'registration_date' => $registrationDay?->event_date?->format('Y-m-d'),
         ]);
 
-        if (filled(data_get($details, 'event_registration_day_id'))
-            && VerifiedVisitor::query()
+        $existingRegistration = filled(data_get($details, 'event_registration_day_id'))
+            ? VerifiedVisitor::query()
                 ->where('event_registration_day_id', data_get($details, 'event_registration_day_id'))
                 ->where('document_number', $details['document_number'])
                 ->where('verification_id', '!=', $details['verification_id'])
-                ->exists()) {
-            return back()->withInput()->withErrors([
-                'registration' => 'This identity document is already registered for the selected event day.',
+                ->first()
+            : null;
+
+        $resumeRoute = null;
+        if ($existingRegistration) {
+            // The visitor has just completed identity and photo verification again,
+            // so resume their existing day-specific registration instead of sending
+            // them back to this form with an invisible duplicate-record error.
+            $details = array_merge($details, [
+                'verification_id' => $existingRegistration->verification_id,
+                'didit_session_id' => $existingRegistration->verification_id,
+                'record_id' => $existingRegistration->id,
+                'category' => $existingRegistration->category ?: $details['category'],
+                'entrance_fee' => $existingRegistration->entrance_fee ?? $details['entrance_fee'],
+                'payment_method' => $existingRegistration->payment_method,
+                'payment_status' => $existingRegistration->payment_status,
             ]);
+
+            $request->session()->put('visitor_registration', $details);
+
+            if ($existingRegistration->payment_status === 'paid') {
+                return redirect()->route('visitor.thank-you');
+            }
+
+            $resumeRoute = match ($existingRegistration->payment_method) {
+                'cash' => 'visitor.payment.cash',
+                'visa_master', 'amex' => 'visitor.payment.card',
+                default => null,
+            };
         }
 
         $request->session()->put('visitor_registration', $details);
@@ -461,7 +486,9 @@ class VisitorController extends Controller
         }
         $request->session()->put('visitor_registration.record_id', $visitor->id);
 
-        return view('visitor.confirm', compact('details'));
+        return $resumeRoute
+            ? redirect()->route($resumeRoute)
+            : view('visitor.confirm', compact('details'));
     }
 
     /**
