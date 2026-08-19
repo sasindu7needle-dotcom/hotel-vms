@@ -1,70 +1,49 @@
 <style>
-    .site-header.site-header {
-        position: relative;
+    .site-page-logo {
+        position: absolute;
+        top: clamp(16px, 2.5vw, 28px);
+        left: 50%;
         z-index: 1000;
-        display: flex;
-        align-items: center;
-        width: 100%;
-        min-height: 78px;
-        padding: 10px clamp(18px, 4vw, 56px);
-        background: #ffffff;
-        border-bottom: 1px solid #e5e7eb;
-        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
-    }
-
-    .site-header-logo {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
+        width: min(260px, 62vw);
         line-height: 0;
+        transform: translateX(-50%);
     }
 
-    .site-header-logo img {
+    .site-page-logo img {
         display: block;
-        width: auto;
-        height: 56px;
-        max-width: min(72vw, 330px);
+        width: 100%;
+        height: auto;
+        max-height: 58px;
         object-fit: contain;
     }
 
-    .site-header + .hero,
-    .site-header + .registration-shell,
-    .site-header + .admin-login-shell,
-    .site-header + .admin-dashboard-shell,
-    .site-header + .exhibitor-dashboard-shell,
-    .site-header + .terminal-shell {
-        min-height: calc(100vh - 78px);
-        min-height: calc(100dvh - 78px);
-    }
-
     @media (max-width: 600px) {
-        .site-header.site-header {
-            min-height: 66px;
-            padding: 8px 16px;
+        .site-page-logo {
+            top: 14px;
+            width: min(220px, 66vw);
         }
 
-        .site-header-logo img {
-            height: 46px;
-            max-width: 78vw;
+        .site-page-logo img {
+            max-height: 48px;
         }
 
-        .site-header + .hero,
-        .site-header + .registration-shell,
-        .site-header + .admin-login-shell,
-        .site-header + .admin-dashboard-shell,
-        .site-header + .exhibitor-dashboard-shell,
-        .site-header + .terminal-shell {
-            min-height: calc(100vh - 66px);
-            min-height: calc(100dvh - 66px);
+        body.landing-page .site-page-logo + .hero,
+        body.landing-page .site-page-logo + .registration-shell {
+            padding-top: 88px;
         }
 
+        body.landing-page .site-page-logo + .registration-shell {
+            justify-content: flex-start;
+        }
     }
 
     @media print {
-        .site-header { display: none !important; }
+        .site-page-logo { display: none !important; }
     }
 </style>
-<header class="site-header">
-    <a href="{{ url('/') }}" class="site-header-logo" aria-label="Institute of Hospitality home">
-        <img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">
-    </a>
-</header>
+<a href="{{ url('/') }}" class="site-page-logo" aria-label="Institute of Hospitality home">
+    <img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">
+</a>
