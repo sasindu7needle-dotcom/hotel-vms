@@ -50,7 +50,8 @@ class ManualRegistrationTest extends TestCase
             ->assertOk()
             ->assertSee('Thank you for registering')
             ->assertSee('Manual Visitor')
-            ->assertSee('Staff')
+            ->assertSee('Engineer')
+            ->assertSee('Example Ltd')
             ->assertSee('<svg', false);
 
         $this->assertDatabaseHas('verified_visitors', [

@@ -106,11 +106,11 @@
             align-items: center;
             justify-content: center;
             width: 100%;
-            padding: 2.5mm 5mm 1.5mm;
+            padding: 1.5mm 5mm 1mm;
             text-align: center;
         }
-        .card-event span,
         .card-name > span,
+        .card-visitor-details span,
         .card-qr > span {
             display: block;
             color: var(--muted);
@@ -118,13 +118,12 @@
             font-weight: 800;
             letter-spacing: .12em;
         }
-        .card-event h1 {
-            max-width: 76mm;
-            margin: 1.3mm 0 0;
-            overflow: hidden;
-            font-size: 12pt;
-            line-height: 1.12;
-            overflow-wrap: anywhere;
+        .card-event img {
+            display: block;
+            width: 62mm;
+            max-width: 100%;
+            max-height: 11mm;
+            object-fit: contain;
         }
         .card-event small {
             display: block;
@@ -164,18 +163,18 @@
         }
         .card-name {
             display: flex;
-            flex: 0 0 28mm;
+            flex: 0 0 31mm;
             flex-direction: column;
             align-items: center;
             width: 100%;
-            padding: 3mm 5mm 2mm;
+            padding: 2.5mm 5mm 1.5mm;
             text-align: center;
         }
         .card-name h2 {
             display: -webkit-box;
             max-width: 78mm;
             max-height: 13.5mm;
-            margin: 1.2mm 0 2mm;
+            margin: 1.2mm 0 1.8mm;
             overflow: hidden;
             font-size: 12pt;
             line-height: 1.12;
@@ -183,16 +182,30 @@
             -webkit-box-orient: vertical;
             -webkit-line-clamp: 3;
         }
-        .card-category {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 6mm;
-            padding: 1.3mm 3mm;
+        .card-visitor-details {
+            display: grid;
+            width: 100%;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .3mm;
+            overflow: hidden;
             background: #f1f6da;
-            border-radius: 20mm;
-            font-size: 7pt;
-            font-weight: 800;
+            border-radius: 2.5mm;
+        }
+        .card-visitor-details div {
+            min-width: 0;
+            padding: 1.4mm 1.8mm;
+            background: rgba(255,255,255,.28);
+        }
+        .card-visitor-details span {
+            font-size: 5pt;
+        }
+        .card-visitor-details strong {
+            display: block;
+            margin-top: .7mm;
+            overflow: hidden;
+            font-size: 6.5pt;
+            line-height: 1.15;
+            overflow-wrap: anywhere;
         }
         .card-qr {
             position: relative;
@@ -287,7 +300,7 @@
 
     <article class="visitor-card" aria-label="Printable visitor card">
         <div class="card-topbar"><span>ENTRANCE ID</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
-        <header class="card-event"><span>EVENT NAME</span><h1>{{ $eventName }}</h1>@if($visitor->eventRegistrationDay)<small>{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</header>
+        <header class="card-event"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">@if($visitor->eventRegistrationDay)<small>{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</header>
         <div class="card-photo">
             @if($visitor->selfie_path)
                 <img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Captured visitor photo of {{ $visitor->full_name }}">
@@ -298,7 +311,10 @@
         <div class="card-name">
             <span>VISITOR NAME</span>
             <h2>{{ $visitor->full_name ?: 'Verified Visitor' }}</h2>
-            <div class="card-category">{{ $visitor->exhibitorProfile?->name_board ?: $visitor->category ?: 'Visitor' }}</div>
+            <div class="card-visitor-details">
+                <div><span>OCCUPATION</span><strong>{{ $visitor->occupation ?: 'Not provided' }}</strong></div>
+                <div><span>COMPANY</span><strong>{{ $visitor->company ?: $visitor->exhibitorProfile?->company_name ?: $visitor->exhibitorProfile?->name_board ?: 'Not provided' }}</strong></div>
+            </div>
         </div>
         <div class="card-qr">
             <div role="img" aria-label="QR code for visitor ID {{ $qrPayload }}">{!! $qrCode !!}</div>

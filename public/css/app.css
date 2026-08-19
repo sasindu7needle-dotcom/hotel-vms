@@ -15517,13 +15517,17 @@ body.thank-you-page .badge-status {
 }
 
 body.thank-you-page .badge-event {
-    padding: 20px 22px 14px;
+    display: flex;
+    min-height: 82px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 22px 10px;
     text-align: center;
 }
 
-body.thank-you-page .badge-event span,
 body.thank-you-page .badge-identity > span,
-body.thank-you-page .badge-category span,
+body.thank-you-page .badge-visitor-details span,
 body.thank-you-page .badge-qr span {
     display: block;
     color: #829049;
@@ -15532,10 +15536,19 @@ body.thank-you-page .badge-qr span {
     letter-spacing: 1.15px;
 }
 
-body.thank-you-page .badge-event h2 {
-    margin: 6px 0 0;
-    font-size: 18px;
-    line-height: 1.25;
+body.thank-you-page .badge-logo {
+    display: block;
+    width: min(100%, 238px);
+    max-height: 54px;
+    -o-object-fit: contain;
+       object-fit: contain;
+}
+
+body.thank-you-page .badge-event small {
+    margin-top: 7px;
+    color: #718064;
+    font-size: 8px;
+    font-weight: 800;
 }
 
 body.thank-you-page .badge-photo {
@@ -15577,28 +15590,38 @@ body.thank-you-page .badge-identity {
 }
 
 body.thank-you-page .badge-identity h3 {
-    margin: 5px 0 13px;
+    margin: 5px 0 14px;
     font-size: 22px;
     line-height: 1.2;
     overflow-wrap: anywhere;
 }
 
-body.thank-you-page .badge-category {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
+body.thank-you-page .badge-visitor-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
     background: #f1f6da;
-    border-radius: 999px;
+    border-radius: 12px;
 }
 
-body.thank-you-page .badge-category span {
+body.thank-you-page .badge-visitor-details div {
+    min-width: 0;
+    padding: 9px 10px;
+    background: rgba(255, 255, 255, .28);
+}
+
+body.thank-you-page .badge-visitor-details span {
     color: #829049;
     font-size: 7px;
 }
 
-body.thank-you-page .badge-category strong {
+body.thank-you-page .badge-visitor-details strong {
+    display: block;
+    margin-top: 4px;
     font-size: 11px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
 }
 
 body.thank-you-page .badge-qr {

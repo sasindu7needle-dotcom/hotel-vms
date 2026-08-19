@@ -625,6 +625,7 @@ class VisitorController extends Controller
             ? app(VisitorMediaService::class)->dataUri($visitor->selfie_path, $visitor->selfie_mime)
             : null;
         $cardStatus = $visitor->payment_status === 'paid' ? 'VERIFIED' : 'PAYMENT PENDING';
+        $logoDataUri = 'data:image/png;base64,'.base64_encode((string) file_get_contents(public_path('img/logo.png')));
 
         $svg = view('visitor.card_download', compact(
             'visitor',
@@ -632,7 +633,8 @@ class VisitorController extends Controller
             'qrPayload',
             'qrCode',
             'photoDataUri',
-            'cardStatus'
+            'cardStatus',
+            'logoDataUri'
         ))->render();
         $safeName = Str::slug($visitor->full_name ?: 'visitor') ?: 'visitor';
 
@@ -708,6 +710,7 @@ class VisitorController extends Controller
 
         return view('visitor.thank_you', compact(
             'details',
+            'visitor',
             'eventName',
             'paymentReference',
             'qrCode',

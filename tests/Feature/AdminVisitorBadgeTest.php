@@ -23,6 +23,8 @@ class AdminVisitorBadgeTest extends TestCase
             'verification_id' => (string) Str::uuid(),
             'full_name' => 'Printed Visitor',
             'category' => 'Visitor',
+            'occupation' => 'Event Coordinator',
+            'company' => 'Hospitality Events Ltd',
             'registration_status' => 'registered',
             'payment_status' => 'paid',
             'face_verification_status' => 'verified',
@@ -36,6 +38,10 @@ class AdminVisitorBadgeTest extends TestCase
             ->assertOk()
             ->assertSee('Print Card')
             ->assertSee('Printed Visitor')
+            ->assertSee('Institute of Hospitality')
+            ->assertSee('Event Coordinator')
+            ->assertSee('Hospitality Events Ltd')
+            ->assertDontSee('EVENT NAME')
             ->assertSee($visitor->verification_id)
             ->assertSee('@media screen and (max-width: 480px)', false)
             ->assertSee('print-color-adjust: exact', false)

@@ -159,6 +159,8 @@ class VisitorRegistrationTest extends TestCase
             array_merge([
                 'full_name' => 'Nimal Perera',
                 'category' => 'Adult',
+                'occupation' => 'Hotel Manager',
+                'company' => 'Harbour Hotels',
                 'payment_method' => 'visa_master',
                  'payment_status' => 'pending',
                 'registration_status' => 'payment_pending',
@@ -172,6 +174,8 @@ class VisitorRegistrationTest extends TestCase
                 'record_id' => $visitor->id,
                 'full_name' => 'Nimal Perera',
                 'category' => 'Adult',
+                'occupation' => 'Hotel Manager',
+                'company' => 'Harbour Hotels',
                 'payment_method' => 'visa_master',
             ];
 
@@ -183,7 +187,10 @@ class VisitorRegistrationTest extends TestCase
                 ->assertOk()
                 ->assertSee('Thank you for registering')
                 ->assertSee('Nimal Perera')
-                ->assertSee('Adult')
+                ->assertSee('Institute of Hospitality')
+                ->assertSee('Hotel Manager')
+                ->assertSee('Harbour Hotels')
+                ->assertDontSee('EVENT NAME')
                 ->assertSee('Printing Booth')
                 ->assertSee('Download Entrance Card')
                 ->assertSee(route('visitor.card.download'))
@@ -211,6 +218,8 @@ class VisitorRegistrationTest extends TestCase
             'verification_id' => 'cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa',
             'full_name' => 'Cash Visitor',
             'category' => 'Adult',
+            'occupation' => 'Concierge',
+            'company' => 'City Hotel',
             'payment_method' => 'cash',
             'payment_status' => 'pending',
             'registration_status' => 'payment_pending',
@@ -236,6 +245,12 @@ class VisitorRegistrationTest extends TestCase
             ->assertDownload('cash-visitor-entrance-card.svg')
             ->assertSee('PAYMENT PENDING')
             ->assertSee('Cash Visitor')
+            ->assertSee('OCCUPATION')
+            ->assertSee('Concierge')
+            ->assertSee('COMPANY')
+            ->assertSee('City Hotel')
+            ->assertDontSee('EVENT NAME')
+            ->assertSee('data:image/png;base64,', false)
             ->assertSee($visitor->verification_id)
             ->assertSee('data:image/jpeg;base64,', false);
 

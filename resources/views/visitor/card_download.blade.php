@@ -14,10 +14,7 @@
         <rect x="{{ $cardStatus === 'VERIFIED' ? 261 : 222 }}" y="12" width="{{ $cardStatus === 'VERIFIED' ? 59 : 98 }}" height="22" rx="11" fill="#c8e063"/>
         <text x="{{ $cardStatus === 'VERIFIED' ? 290.5 : 271 }}" y="27" fill="#182000" text-anchor="middle" font-family="Arial, sans-serif" font-size="{{ $cardStatus === 'VERIFIED' ? 8 : 7 }}" font-weight="700">{{ $cardStatus }}</text>
 
-        <text x="170" y="70" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1.2">EVENT NAME</text>
-        <foreignObject x="20" y="76" width="300" height="43">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:flex-start;justify-content:center;width:300px;height:43px;overflow:hidden;color:#18202b;font:700 17px/1.16 Arial,sans-serif;text-align:center;overflow-wrap:anywhere;">{{ $eventName }}</div>
-        </foreignObject>
+        <image href="{{ $logoDataUri }}" x="52" y="57" width="236" height="58" preserveAspectRatio="xMidYMid meet"/>
         @if($visitor->eventRegistrationDay)
             <text x="170" y="132" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="700">{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</text>
         @endif
@@ -34,11 +31,17 @@
         </g>
 
         <text x="170" y="303" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="700" letter-spacing="1.2">VISITOR NAME</text>
-        <foreignObject x="24" y="310" width="292" height="57">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:flex-start;justify-content:center;width:292px;height:57px;overflow:hidden;color:#18202b;font:700 18px/1.15 Arial,sans-serif;text-align:center;overflow-wrap:anywhere;">{{ $visitor->full_name ?: 'Verified Visitor' }}</div>
+        <foreignObject x="24" y="310" width="292" height="40">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:flex-start;justify-content:center;width:292px;height:40px;overflow:hidden;color:#18202b;font:700 18px/1.12 Arial,sans-serif;text-align:center;overflow-wrap:anywhere;">{{ $visitor->full_name ?: 'Verified Visitor' }}</div>
         </foreignObject>
-        <rect x="105" y="368" width="130" height="27" rx="13.5" fill="#f1f6da"/>
-        <text x="170" y="386" fill="#18202b" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="700">{{ $visitor->exhibitorProfile?->name_board ?: $visitor->category ?: 'Visitor' }}</text>
+        <text x="85" y="360" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.5" font-weight="700" letter-spacing=".8">OCCUPATION</text>
+        <text x="255" y="360" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.5" font-weight="700" letter-spacing=".8">COMPANY</text>
+        <foreignObject x="10" y="365" width="150" height="32">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:150px;height:32px;overflow:hidden;color:#18202b;font:700 9px/1.2 Arial,sans-serif;text-align:center;overflow-wrap:anywhere;">{{ $visitor->occupation ?: 'Not provided' }}</div>
+        </foreignObject>
+        <foreignObject x="180" y="365" width="150" height="32">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width:150px;height:32px;overflow:hidden;color:#18202b;font:700 9px/1.2 Arial,sans-serif;text-align:center;overflow-wrap:anywhere;">{{ $visitor->company ?: $visitor->exhibitorProfile?->company_name ?: $visitor->exhibitorProfile?->name_board ?: 'Not provided' }}</div>
+        </foreignObject>
 
         <path d="M0 411H340" stroke="#d8ded0" stroke-dasharray="4 4"/>
         <svg x="126" y="417" width="88" height="88" viewBox="0 0 250 250" aria-label="QR code">{!! $qrCode !!}</svg>

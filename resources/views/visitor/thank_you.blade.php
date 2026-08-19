@@ -36,8 +36,7 @@
             <article class="entrance-badge" aria-label="Visitor entrance badge">
                 <div class="badge-topbar"><span>ENTRANCE ID</span><span class="badge-status">VERIFIED</span></div>
                 <header class="badge-event">
-                    <span>EVENT NAME</span>
-                    <h2>{{ $eventName }}</h2>
+                    <img class="badge-logo" src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">
                     @if(data_get($details, 'registration_date'))
                         <small>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d M Y') }}</small>
                     @endif
@@ -58,7 +57,10 @@
                 <div class="badge-identity">
                     <span>VISITOR NAME</span>
                     <h3>{{ data_get($details, 'full_name', 'Verified Visitor') }}</h3>
-                    <div class="badge-category"><span>CATEGORY</span><strong>{{ data_get($details, 'category', 'Visitor') }}</strong></div>
+                    <div class="badge-visitor-details">
+                        <div><span>OCCUPATION</span><strong>{{ data_get($details, 'occupation') ?: $visitor->occupation ?: 'Not provided' }}</strong></div>
+                        <div><span>COMPANY</span><strong>{{ data_get($details, 'company') ?: $visitor->company ?: $visitor->exhibitorProfile?->company_name ?: $visitor->exhibitorProfile?->name_board ?: 'Not provided' }}</strong></div>
+                    </div>
                 </div>
 
                 <div class="badge-qr">
