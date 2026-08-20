@@ -289,7 +289,7 @@ class VisitorController extends Controller
 
         if (! $this->hasCompleteIdentityFields($verification)) {
             return redirect()->route('visitor.upload_document', ['type' => data_get($verification, 'document_type', $type)])
-                ->withErrors(['verification' => 'OCR did not read the full name and address. Please upload clearer document photos and verify again.']);
+                ->withErrors(['verification' => 'OCR did not read all required identity fields. Please upload clearer document photos and verify again.']);
         }
 
         if (blank(data_get($verification, 'selfie_path'))) {
@@ -339,7 +339,7 @@ class VisitorController extends Controller
 
         if (! $this->hasCompleteIdentityFields($verification)) {
             return redirect()->route('visitor.upload_document', ['type' => data_get($verification, 'document_type', 'nic')])
-                ->withErrors(['verification' => 'OCR did not read the full name and address. Please upload clearer document photos and verify again.']);
+                ->withErrors(['verification' => 'OCR did not read all required identity fields. Please upload clearer document photos and verify again.']);
         }
 
         if (filled(data_get($verification, 'selfie_path'))) {
@@ -898,9 +898,13 @@ class VisitorController extends Controller
 
     private function hasCompleteIdentityFields(array $verification): bool
     {
-        return filled(data_get($verification, 'document_number'))
-            && filled(data_get($verification, 'full_name'))
-            && filled(data_get($verification, 'address'));
+        if (blank(data_get($verification, 'document_number'))
+            || blank(data_get($verification, 'full_name'))) {
+            return false;
+        }
+
+        return data_get($verification, 'document_type') === 'passport'
+            || filled(data_get($verification, 'address'));
     }
 
     /** Require a current admin-configured event day when an active event exists. */

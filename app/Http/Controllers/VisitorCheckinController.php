@@ -147,11 +147,27 @@ class VisitorCheckinController extends Controller
             ]);
         }
 
-        $missingFields = collect([
+        $requiredIdentityFields = [
             'document number' => $this->isPlausibleDocumentNumber((string) data_get($parsed, 'document_number'), $docType),
             'full name' => $this->isPlausibleIdentityField((string) data_get($parsed, 'full_name'), 'name'),
-            'address' => $this->isPlausibleIdentityField((string) data_get($parsed, 'address'), 'address'),
-        ])->filter(fn ($isValid) => ! $isValid)->keys()->values()->all();
+        ];
+
+        // A passport identity page does not normally print a residential
+        // address. Requiring Gemini to return one either rejects a genuine
+        // passport or encourages an unsupported value to be inferred. The
+        // visitor supplies the address on the registration form instead.
+        if ($docType !== 'passport') {
+            $requiredIdentityFields['address'] = $this->isPlausibleIdentityField(
+                (string) data_get($parsed, 'address'),
+                'address'
+            );
+        }
+
+        $missingFields = collect($requiredIdentityFields)
+            ->filter(fn ($isValid) => ! $isValid)
+            ->keys()
+            ->values()
+            ->all();
 
         if ($missingFields !== []) {
             $documentNumber = (string) data_get($parsed, 'document_number');

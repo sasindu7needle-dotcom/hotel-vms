@@ -55,6 +55,23 @@ class VisitorRegistrationTest extends TestCase
             ->assertSessionHasErrors('verification');
     }
 
+    public function test_passport_registration_accepts_an_empty_extracted_address_for_manual_entry(): void
+    {
+        $passportVerification = array_merge($this->verification, [
+            'document_type' => 'passport',
+            'document_number' => 'N1234567',
+            'address' => '',
+        ]);
+
+        $this->withSession([
+            'verification' => $passportVerification,
+            'visitor_category' => $this->category,
+        ])->get(route('visitor.create', ['type' => 'passport']))
+            ->assertOk()
+            ->assertSee('N1234567')
+            ->assertSee('Your passport does not show a residential address. Please enter your current address.');
+    }
+
     public function test_confirmation_uses_reviewed_identity_and_server_controlled_fee(): void
     {
         $this->withSession([

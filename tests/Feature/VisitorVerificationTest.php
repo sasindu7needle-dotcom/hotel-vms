@@ -702,7 +702,7 @@ class VisitorVerificationTest extends TestCase
         $this->mockGemini([
             'document_number' => 'N1234567',
             'full_name' => 'Nimal Perera',
-            'address' => '45 Galle Road, Colombo',
+            'address' => '',
         ]);
 
         $response = $this->postJson(route('visitor.verify_vision'), [
@@ -715,8 +715,11 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('data.document_type', 'passport')
             ->assertJsonPath('data.document_number', 'N1234567')
             ->assertJsonPath('data.full_name', 'Nimal Perera')
+            ->assertJsonPath('data.address', '')
             ->assertJsonPath('data.back_photo_path', null);
 
+        $this->get(route('visitor.photo_capture'))
+            ->assertOk();
     }
 
     public function test_only_nic_requires_a_back_image(): void

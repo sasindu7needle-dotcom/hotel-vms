@@ -74,6 +74,9 @@
                     <div class="form-group form-group-wide">
                         <label for="address" class="form-label-premium">Address</label>
                         <textarea id="address" name="address" class="form-control-premium registration-address @error('address') is-invalid @enderror" required>{{ old('address', data_get($verification, 'address')) }}</textarea>
+                        @if($type === 'passport' && blank(data_get($verification, 'address')))
+                            <span class="field-microcopy">Your passport does not show a residential address. Please enter your current address.</span>
+                        @endif
                         @error('address')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
 

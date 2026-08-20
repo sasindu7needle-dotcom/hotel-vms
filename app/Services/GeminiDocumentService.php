@@ -342,6 +342,11 @@ Sri Lankan driving-licence guidance:
 - Build full_name from all printed holder-name fields (other/given names followed by surname), retaining every wrapped line exactly once.
 - Read the complete permanent residential address, including every wrapped line, house number, road, town, and postal code.
 GUIDANCE,
+            'passport' => <<<'GUIDANCE'
+Passport guidance:
+- Read the passport number and the complete holder name from the identity page, using the printed fields and machine-readable zone to cross-check them.
+- Passport identity pages normally do not contain a residential address. Leave address, address_lines, and address_original empty unless an address is actually printed; never infer an address from place of birth, issuing authority, nationality, or other fields.
+GUIDANCE,
             default => '',
         };
 

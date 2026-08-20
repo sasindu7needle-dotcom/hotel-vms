@@ -76,7 +76,7 @@ Follow these steps to set up and run the project on your local machine:
 The document-verification endpoint sends the uploaded document side(s) to Gemini and requests schema-validated registration details.
 
 - Set `GEMINI_API_KEY` in `.env`. `GEMINI_MODEL` defaults to `gemini-2.5-flash` and can be changed without editing application code.
-- Gemini reads the front and back together, cross-checks repeated English, Sinhala, and Tamil text, and returns the document number, complete English name, and complete English address as structured JSON.
+- Gemini reads the supplied identity page(s), cross-checks repeated English, Sinhala, and Tamil text, and returns the document number, complete English name, and the address when the document type prints one. Passport visitors enter their address during registration because it is not normally printed on the identity page.
 - Document images are sent to Google Gemini for processing. Ensure this is covered by your privacy notice and data-handling policy.
 - Point the web server document root at `public`, make `storage` and `bootstrap/cache` writable, and run `php artisan storage:link`.
 - After changing production `.env` values, run `php artisan config:clear` followed by `php artisan config:cache`.
@@ -101,4 +101,4 @@ php artisan visitor-media:migrate
 
 The application can still read old files from the previous local/public locations during this transition. Files that were already deleted by an earlier redeploy can only be restored from a backup.
 
-Registration remains locked unless Gemini returns a plausible document number, full name, and address. Empty or malformed AI output is rejected instead of being copied into the registration form.
+Registration remains locked unless Gemini returns a plausible document number and full name, plus an address for document types that print one. Empty or malformed AI output is rejected instead of being copied into the registration form.
