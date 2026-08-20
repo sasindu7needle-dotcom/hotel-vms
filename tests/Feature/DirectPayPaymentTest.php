@@ -53,6 +53,7 @@ class DirectPayPaymentTest extends TestCase
             ->assertSee('ONE_TIME_PAYMENT')
             ->assertSee('5000.00')
             ->assertSee($payment->reference)
+            ->assertSee('logo.png')
             ->assertDontSee('sandbox-private-key-placeholder');
     }
 

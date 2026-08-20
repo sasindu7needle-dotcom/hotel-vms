@@ -57,6 +57,9 @@ class DirectPayService
             'customerMobile' => (string) $payment->visitor->mobile_number,
             'description' => 'Visitor entrance fee '.$payment->reference,
             'debug' => config('services.directpay.environment') === 'sandbox',
+            // The sandbox v1 bundle currently requires the logo property to
+            // exist even though the public parameter table marks it optional.
+            'logo' => secure_asset('img/logo.png'),
             'apiKey' => $this->apiKey(),
         ];
     }

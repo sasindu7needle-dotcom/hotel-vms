@@ -79,7 +79,11 @@
                     config.responseCallback = awaitingVerification;
                     config.errorCallback = paymentError;
                     window.DirectPayCardPayment.init(config);
-                    message.textContent = 'Enter your card details in the secure DirectPay form.';
+                    if (document.getElementById('dpMainContainer')) {
+                        message.textContent = 'Enter your card details in the secure DirectPay form.';
+                    } else {
+                        message.textContent = 'DirectPay could not initialize the card form. Verify the sandbox merchant settings and try again.';
+                    }
                 } catch (error) {
                     paymentError();
                 }
