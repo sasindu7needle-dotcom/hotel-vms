@@ -81,19 +81,19 @@
 
                     <div class="payment-option-grid">
                         <label class="payment-option">
-                            <input type="radio" name="payment_method" value="visa_master" @checked(old('payment_method') === 'visa_master') required>
+                            <input type="radio" name="payment_method" value="visa_master" @checked(old('payment_method', data_get($details, 'payment_method')) === 'visa_master') required>
                             <span class="payment-option-indicator"></span>
                             <span class="payment-option-copy"><strong>Visa / Master</strong><small>Credit or debit card</small></span>
                             <span class="card-marks"><b>VISA</b><b>MC</b></span>
                         </label>
                         <label class="payment-option">
-                            <input type="radio" name="payment_method" value="amex" @checked(old('payment_method') === 'amex') required>
+                            <input type="radio" name="payment_method" value="amex" @checked(old('payment_method', data_get($details, 'payment_method')) === 'amex') required>
                             <span class="payment-option-indicator"></span>
                             <span class="payment-option-copy"><strong>American Express</strong><small>Pay securely by Amex</small></span>
                             <span class="amex-mark">AMEX</span>
                         </label>
                         <label class="payment-option">
-                            <input type="radio" name="payment_method" value="cash" @checked(old('payment_method') === 'cash') required>
+                            <input type="radio" name="payment_method" value="cash" @checked(old('payment_method', data_get($details, 'payment_method')) === 'cash') required>
                             <span class="payment-option-indicator"></span>
                             <span class="payment-option-copy"><strong>Cash</strong><small>Pay at the entrance counter</small></span>
                             <span class="cash-mark">LKR</span>

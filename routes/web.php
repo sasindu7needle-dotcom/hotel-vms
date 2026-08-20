@@ -36,6 +36,7 @@ Route::get('/visitor/create', [VisitorController::class, 'create'])->name('visit
 Route::get('/visitor/upload-document', [VisitorController::class, 'showUploadDocument'])->name('visitor.upload_document');
 Route::get('/visitor/photo-capture', [VisitorController::class, 'showPhotoCapture'])->name('visitor.photo_capture');
 Route::get('/visitor/session-photo/{type?}', [VisitorController::class, 'sessionPhoto'])->name('visitor.session_photo');
+Route::get('/visitor/confirm', [VisitorController::class, 'showConfirmation'])->name('visitor.confirm.show');
 Route::post('/visitor/confirm', [VisitorController::class, 'confirm'])->name('visitor.confirm');
 Route::post('/visitor/payment-method', [VisitorController::class, 'selectPaymentMethod'])->name('visitor.payment-method');
 Route::get('/visitor/payment/card', [DirectPayPaymentController::class, 'showStart'])->name('visitor.payment.card');

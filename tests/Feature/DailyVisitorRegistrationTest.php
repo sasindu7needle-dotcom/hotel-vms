@@ -85,7 +85,11 @@ class DailyVisitorRegistrationTest extends TestCase
                     'same_as_mobile' => '1',
                     'occupation' => 'Engineer',
                     'company' => 'Example Ltd',
-                ])->assertOk();
+                ])->assertRedirect(route('visitor.confirm.show'));
+
+            $this->get(route('visitor.confirm.show'))
+                ->assertOk()
+                ->assertSee('Choose a payment method');
 
             $this->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
                 ->assertRedirect(route('visitor.payment.card'));

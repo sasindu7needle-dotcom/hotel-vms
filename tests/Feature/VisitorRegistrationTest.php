@@ -88,7 +88,10 @@ class VisitorRegistrationTest extends TestCase
             'document_number' => '199012345678',
             'address' => '12 Galle Road, Colombo',
             'entrance_fee' => '0',
-        ])->assertOk()
+        ])->assertRedirect(route('visitor.confirm.show'));
+
+        $this->get(route('visitor.confirm.show'))
+            ->assertOk()
             ->assertSee('Tampered Name')
             ->assertSee('LKR 1,500.00')
             ->assertSee('+94 771234567')
@@ -102,6 +105,13 @@ class VisitorRegistrationTest extends TestCase
             'full_name' => 'Tampered Name',
             'address' => '12 Galle Road, Colombo',
         ]);
+    }
+
+    public function test_confirmation_get_requires_an_active_registration_session(): void
+    {
+        $this->get(route('visitor.confirm.show'))
+            ->assertRedirect(route('visitor.create'))
+            ->assertSessionHasErrors('registration');
     }
 
     public function test_card_and_cash_methods_route_to_the_correct_next_step(): void

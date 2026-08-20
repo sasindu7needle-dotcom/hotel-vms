@@ -488,7 +488,26 @@ class VisitorController extends Controller
 
         return $resumeRoute
             ? redirect()->route($resumeRoute)
-            : view('visitor.confirm', compact('details'));
+            : redirect()->route('visitor.confirm.show');
+    }
+
+    /**
+     * Display the review and payment-method step from persisted session data.
+     *
+     * Keeping this page on a GET route makes it safe for mobile browsers to
+     * restore or refresh after the registration form's POST request.
+     */
+    public function showConfirmation(Request $request)
+    {
+        $details = $request->session()->get('visitor_registration');
+
+        if (! is_array($details) || blank(data_get($details, 'record_id'))) {
+            return redirect()->route('visitor.create')->withErrors([
+                'registration' => 'Your registration session has expired. Please register again.',
+            ]);
+        }
+
+        return view('visitor.confirm', compact('details'));
     }
 
     /**
