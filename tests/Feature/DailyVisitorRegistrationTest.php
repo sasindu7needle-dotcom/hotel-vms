@@ -89,8 +89,17 @@ class DailyVisitorRegistrationTest extends TestCase
 
             $this->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
                 ->assertRedirect(route('visitor.payment.card'));
-            $this->post(route('visitor.payment.confirm'))
-                ->assertRedirect(route('visitor.thank-you'));
+
+            // Gateway confirmation is covered by DirectPayPaymentTest. This
+            // scenario only verifies that each event day keeps an independent
+            // payable visitor record.
+            VerifiedVisitor::where('event_registration_day_id', $day->id)
+                ->where('document_number', '199012345678')
+                ->update([
+                    'payment_status' => 'paid',
+                    'registration_status' => 'registered',
+                    'paid_at' => now(),
+                ]);
         }
 
         $this->assertSame(2, VerifiedVisitor::where('document_number', '199012345678')->count());

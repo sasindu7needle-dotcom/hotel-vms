@@ -43,4 +43,9 @@ class VerifiedVisitor extends Model
     {
         return $this->belongsTo(ExhibitorProfile::class);
     }
+
+    public function directPayPayments(): HasMany
+    {
+        return $this->hasMany(DirectPayPayment::class);
+    }
 }

@@ -152,7 +152,7 @@ class VisitorRegistrationTest extends TestCase
             ->assertSessionHasErrors('name_confirmation');
     }
 
-    public function test_payment_confirmation_displays_the_server_generated_visitor_badge(): void
+    public function test_browser_payment_confirmation_cannot_mark_a_visitor_paid(): void
     {
         $visitor = VerifiedVisitor::updateOrCreate(
             ['verification_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'],
@@ -181,29 +181,12 @@ class VisitorRegistrationTest extends TestCase
 
             $this->withSession(['visitor_registration' => $registration])
                 ->post(route('visitor.payment.confirm'))
-                ->assertRedirect(route('visitor.thank-you'));
-
-            $this->get(route('visitor.thank-you'))
-                ->assertOk()
-                ->assertSee('Thank you for registering')
-                ->assertSee('Nimal Perera')
-                ->assertSee('Institute of Hospitality')
-                ->assertSee('Hotel Manager')
-                ->assertSee('Harbour Hotels')
-                ->assertDontSee('EVENT NAME')
-                ->assertSee('Printing Booth')
-                ->assertSee('Download Entrance Card')
-                ->assertSee(route('visitor.card.download'))
-                ->assertDontSee('http-equiv="refresh"', false)
-                ->assertDontSee('redirectCountdown')
-                ->assertDontSee('Redirecting to home page')
-                ->assertSee('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
-                ->assertSee('<svg', false);
+                ->assertRedirect(route('visitor.payment.card'));
 
             $this->assertDatabaseHas('verified_visitors', [
                 'id' => $visitor->id,
-                'payment_status' => 'paid',
-                'registration_status' => 'registered',
+                'payment_status' => 'pending',
+                'registration_status' => 'payment_pending',
             ]);
         } finally {
             $visitor->delete();

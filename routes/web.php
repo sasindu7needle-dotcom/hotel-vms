@@ -21,6 +21,7 @@ use App\Http\Controllers\AdminDailyReportScheduleController;
 use App\Http\Controllers\ExhibitorRegistrationController;
 use App\Http\Controllers\SuperAdminAuthController;
 use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\DirectPayPaymentController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -37,10 +38,13 @@ Route::get('/visitor/photo-capture', [VisitorController::class, 'showPhotoCaptur
 Route::get('/visitor/session-photo/{type?}', [VisitorController::class, 'sessionPhoto'])->name('visitor.session_photo');
 Route::post('/visitor/confirm', [VisitorController::class, 'confirm'])->name('visitor.confirm');
 Route::post('/visitor/payment-method', [VisitorController::class, 'selectPaymentMethod'])->name('visitor.payment-method');
-Route::get('/visitor/payment/card', [VisitorController::class, 'cardGateway'])->name('visitor.payment.card');
+Route::get('/visitor/payment/card', [DirectPayPaymentController::class, 'showStart'])->name('visitor.payment.card');
 Route::get('/visitor/payment/cash', [VisitorController::class, 'cashConfirmation'])->name('visitor.payment.cash');
 Route::get('/visitor/card/download', [VisitorController::class, 'downloadCard'])->name('visitor.card.download');
-Route::post('/visitor/payment/confirm', [VisitorController::class, 'confirmPayment'])->name('visitor.payment.confirm');
+Route::post('/visitor/payment/confirm', [DirectPayPaymentController::class, 'legacyConfirmation'])->name('visitor.payment.confirm');
+Route::post('/visitor/payment/directpay/{visitor}', [DirectPayPaymentController::class, 'start'])->name('visitor.payment.directpay.start');
+Route::get('/visitor/payment/directpay/{reference}', [DirectPayPaymentController::class, 'checkout'])->name('visitor.payment.directpay.checkout');
+Route::get('/visitor/payment/directpay/{reference}/status', [DirectPayPaymentController::class, 'status'])->name('visitor.payment.directpay.status');
 Route::get('/visitor/thank-you', [VisitorController::class, 'thankYou'])->name('visitor.thank-you');
 Route::get('/visitor/list', fn () => redirect()->route('admin.visitors.index'))->name('visitor.list');
 Route::post('/visitor', [VisitorController::class, 'store'])->name('visitor.store');

@@ -61,4 +61,15 @@ return [
         'sender_field' => env('SMS_SENDER_FIELD', 'from'),
     ],
 
+    'directpay' => [
+        'environment' => env('DIRECTPAY_ENV', 'sandbox'),
+        'merchant_id' => env('DIRECTPAY_MERCHANT_ID'),
+        'api_key' => env('DIRECTPAY_API_KEY'),
+        'merchant_secret' => env('DIRECTPAY_MERCHANT_SECRET'),
+        'private_key_path' => env('DIRECTPAY_PRIVATE_KEY_PATH'),
+        'currency' => env('DIRECTPAY_CURRENCY', 'LKR'),
+        'status_url' => 'https://dev.directpay.lk/v1/mpg/api/external/transaction/paymentStatus',
+        'timeout' => 15,
+    ],
+
 ];
