@@ -6,12 +6,14 @@ use App\Models\DirectPayPayment;
 use App\Models\VerifiedVisitor;
 use App\Services\DirectPayService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use RuntimeException;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 class DirectPayPaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const SECRET = 'sandbox-hmac-secret';
 
     protected function setUp(): void
     {
@@ -21,48 +23,55 @@ class DirectPayPaymentTest extends TestCase
             'environment' => 'sandbox',
             'merchant_id' => 'TEST01',
             'api_key' => 'sandbox-api-key',
-            'merchant_secret' => 'sandbox-private-key-placeholder',
-            'private_key_path' => null,
+            'merchant_secret' => self::SECRET,
             'currency' => 'LKR',
-            'status_url' => 'https://dev.directpay.lk/v1/mpg/api/external/transaction/paymentStatus',
-            'timeout' => 15,
         ]);
     }
 
-    public function test_payment_start_uses_database_amount_and_ignores_browser_amount(): void
+    public function test_payment_start_uses_database_amount_and_v3_signed_payload(): void
     {
         $visitor = $this->visitor(['entrance_fee' => 5000]);
 
         $this->withSession(['visitor_registration' => $this->registration($visitor)])
             ->post(route('visitor.payment.directpay.start', $visitor), [
                 'email' => 'visitor@example.test',
+                'mobile' => '+94771234567',
                 'amount' => '1.00',
             ])
             ->assertRedirect();
 
-        $payment = DirectPayPayment::firstOrFail();
+        $payment = DirectPayPayment::with('visitor')->firstOrFail();
         $this->assertSame('5000.00', $payment->expected_amount);
         $this->assertSame('LKR', $payment->currency);
         $this->assertSame('pending', $payment->status);
         $this->assertMatchesRegularExpression('/^DP-V\d+-[A-Z0-9]+$/', $payment->reference);
         $this->assertLessThanOrEqual(20, strlen($payment->reference));
 
-        $this->get(route('visitor.payment.directpay.checkout', $payment->reference))
+        $configuration = app(DirectPayService::class)->checkoutConfiguration($payment);
+        $payload = json_decode(base64_decode($configuration['dataString'], true), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('5000.00', $payload['amount']);
+        $this->assertSame('ONE_TIME', $payload['type']);
+        $this->assertSame($payment->reference, $payload['order_id']);
+        $this->assertSame('LKR', $payload['currency']);
+        $this->assertSame('0771234567', $payload['phone']);
+        $this->assertSame(route('directpay.confirmation'), $payload['response_url']);
+        $this->assertSame(hash_hmac('sha256', $configuration['dataString'], self::SECRET), $configuration['signature']);
+
+        $this->withSession(['visitor_registration' => $this->registration($visitor)])
+            ->get(route('visitor.payment.directpay.checkout', $payment->reference))
             ->assertOk()
-            ->assertSee('https://cdn.directpay.lk/dev/v1/directpayCardPayment.js?v=1', false)
-            ->assertSee('ONE_TIME_PAYMENT')
-            ->assertSee('5000.00')
-            ->assertSee($payment->reference)
-            ->assertSee('logo.png')
-            ->assertDontSee('sandbox-private-key-placeholder');
+            ->assertSee('https://cdn.directpay.lk/v3/directpayipg.min.js', false)
+            ->assertSee('DirectPayIpg.Init', false)
+            ->assertSee('doInContainerCheckout', false)
+            ->assertDontSee(self::SECRET);
     }
 
-    public function test_verified_success_callback_marks_payment_and_visitor_paid(): void
+    public function test_authenticated_success_callback_marks_payment_and_visitor_paid(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
-        $this->mockVerification('SUCCESS', '5000.00');
 
-        $this->postJson(route('directpay.confirmation'), $this->callbackPayload($payment, 'SUCCESS', '5000.00'))
+        $this->sendCallback($this->callbackPayload($payment, 'SUCCESS', '5000.00'))
             ->assertOk()
             ->assertJson(['received' => true, 'status' => 'paid']);
 
@@ -79,12 +88,11 @@ class DirectPayPaymentTest extends TestCase
         $this->assertNotNull($visitor->fresh()->paid_at);
     }
 
-    public function test_verified_failed_callback_does_not_mark_visitor_paid(): void
+    public function test_authenticated_failed_callback_does_not_mark_visitor_paid(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
-        $this->mockVerification('FAILED', '5000.00');
 
-        $this->postJson(route('directpay.confirmation'), $this->callbackPayload($payment, 'FAILED', '5000.00'))
+        $this->sendCallback($this->callbackPayload($payment, 'FAILURE', '5000.00'))
             ->assertOk()
             ->assertJson(['status' => 'failed']);
 
@@ -92,27 +100,23 @@ class DirectPayPaymentTest extends TestCase
         $this->assertNull($visitor->fresh()->paid_at);
     }
 
-    public function test_unverified_fake_callback_cannot_mark_visitor_paid(): void
+    public function test_fake_callback_with_invalid_hmac_cannot_mark_visitor_paid(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
-        $this->partialMock(DirectPayService::class, function ($mock) {
-            $mock->shouldReceive('verifyTransaction')->once()->andThrow(new RuntimeException('Not verified.'));
-        });
 
-        $this->postJson(route('directpay.confirmation'), $this->callbackPayload($payment, 'SUCCESS', '5000.00'))
-            ->assertStatus(503);
+        $this->sendCallback($this->callbackPayload($payment, 'SUCCESS', '5000.00'), 'invalid-signature')
+            ->assertUnauthorized();
 
         $this->assertSame('pending', $visitor->fresh()->payment_status);
         $this->assertSame('pending', $payment->fresh()->status);
     }
 
-    public function test_amount_mismatch_is_rejected(): void
+    public function test_authenticated_amount_mismatch_is_rejected(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
-        $this->mockVerification('SUCCESS', '100.00');
 
-        $this->postJson(route('directpay.confirmation'), $this->callbackPayload($payment, 'SUCCESS', '5000.00'))
-            ->assertStatus(422);
+        $this->sendCallback($this->callbackPayload($payment, 'SUCCESS', '100.00'))
+            ->assertUnprocessable();
 
         $this->assertSame('pending', $visitor->fresh()->payment_status);
     }
@@ -120,12 +124,11 @@ class DirectPayPaymentTest extends TestCase
     public function test_duplicate_success_callbacks_are_idempotent(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
-        $this->mockVerification('SUCCESS', '5000.00', 2);
         $callback = $this->callbackPayload($payment, 'SUCCESS', '5000.00');
 
-        $this->postJson(route('directpay.confirmation'), $callback)->assertOk();
+        $this->sendCallback($callback)->assertOk();
         $paidAt = $visitor->fresh()->paid_at?->format('Y-m-d H:i:s.u');
-        $this->postJson(route('directpay.confirmation'), $callback)->assertOk();
+        $this->sendCallback($callback)->assertOk();
 
         $this->assertDatabaseCount('directpay_payments', 1);
         $this->assertSame('paid', $visitor->fresh()->payment_status);
@@ -137,18 +140,21 @@ class DirectPayPaymentTest extends TestCase
         $visitor = $this->visitor(['payment_status' => 'paid', 'paid_at' => now()]);
 
         $this->withSession(['visitor_registration' => $this->registration($visitor)])
-            ->post(route('visitor.payment.directpay.start', $visitor), ['email' => 'visitor@example.test'])
+            ->post(route('visitor.payment.directpay.start', $visitor), [
+                'email' => 'visitor@example.test',
+                'mobile' => '+94771234567',
+            ])
             ->assertRedirect(route('visitor.thank-you'));
 
         $this->assertDatabaseCount('directpay_payments', 0);
     }
 
-    public function test_unknown_reference_is_rejected_without_modifying_visitors(): void
+    public function test_authenticated_unknown_reference_is_rejected_without_modifying_visitors(): void
     {
         $visitor = $this->visitor();
         $payload = $this->callbackPayload((object) ['reference' => 'DP-UNKNOWN'], 'SUCCESS', '5000.00');
 
-        $this->postJson(route('directpay.confirmation'), $payload)->assertNotFound();
+        $this->sendCallback($payload)->assertNotFound();
 
         $this->assertSame('pending', $visitor->fresh()->payment_status);
     }
@@ -191,35 +197,32 @@ class DirectPayPaymentTest extends TestCase
         ];
     }
 
+    /** @return array<string, mixed> */
     private function callbackPayload(object $payment, string $status, string $amount): array
     {
         return [
-            'status' => 200,
-            'type' => 'INIT_TRN',
-            'paymentCategory' => 'ONE_TIME',
-            'data' => [
-                'transactionId' => 880,
+            'type' => 'ONE_TIME',
+            'order_id' => $payment->reference,
+            'transaction_id' => '880',
+            'transaction' => [
                 'status' => $status,
                 'description' => $status === 'SUCCESS' ? 'Approved' : 'Do not honour',
                 'dateTime' => '2026-08-21 10:00:00',
-                'reference' => $payment->reference,
                 'amount' => $amount,
                 'currency' => 'LKR',
             ],
         ];
     }
 
-    private function mockVerification(string $status, string $amount, int $times = 1): void
+    /** @param array<string, mixed> $payload */
+    private function sendCallback(array $payload, ?string $signature = null): TestResponse
     {
-        $this->partialMock(DirectPayService::class, function ($mock) use ($status, $amount, $times) {
-            $mock->shouldReceive('verifyTransaction')->times($times)->andReturn([
-                'transactionId' => 880,
-                'status' => $status,
-                'bankerResponseDesc' => $status === 'SUCCESS' ? null : 'Do not honour',
-                'amount' => $amount,
-                'currency' => 'LKR',
-                'dateTime' => '2026-08-21 10:00:00',
-            ]);
-        });
+        $body = base64_encode(json_encode($payload, JSON_THROW_ON_ERROR));
+        $signature ??= hash_hmac('sha256', $body, self::SECRET);
+
+        return $this->call('POST', route('directpay.confirmation'), [], [], [], [
+            'CONTENT_TYPE' => 'text/plain',
+            'HTTP_AUTHORIZATION' => 'HMAC '.$signature,
+        ], $body);
     }
 }

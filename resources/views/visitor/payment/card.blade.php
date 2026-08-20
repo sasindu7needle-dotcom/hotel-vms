@@ -42,6 +42,10 @@
                         <span class="form-label-premium">Email address</span>
                         <input id="payment-email" name="email" type="email" maxlength="100" value="{{ old('email', $visitor->email) }}" autocomplete="email" required>
                     </label>
+                    <label class="directpay-email" for="payment-mobile">
+                        <span class="form-label-premium">Mobile number</span>
+                        <input id="payment-mobile" name="mobile" type="tel" maxlength="12" value="{{ old('mobile', $visitor->mobile_number) }}" placeholder="+94771234567" autocomplete="tel" required>
+                    </label>
                     <button type="submit" class="btn btn-primary btn-large registration-next" id="directpay-start-button" @disabled(! $directPayConfigured)>Pay securely</button>
                 </form>
                 @unless($directPayConfigured)
@@ -54,38 +58,53 @@
     </main>
 
     @if($payment)
-        <script src="https://cdn.directpay.lk/dev/v1/directpayCardPayment.js?v=1"></script>
+        <script src="https://cdn.directpay.lk/v3/directpayipg.min.js"></script>
         <script>
             (() => {
                 const message = document.getElementById('directpay-message');
                 const statusUrl = @json(route('visitor.payment.directpay.status', $payment->reference));
                 const config = @json($directPayConfig);
 
+                function configurationProblems() {
+                    const problems = [];
+                    if (!config.signature) problems.push('payment signature is missing');
+                    if (!config.dataString) problems.push('payment data is missing');
+                    if (config.stage !== 'DEV') problems.push('sandbox stage is invalid');
+                    if (config.container !== 'card_container') problems.push('card container is invalid');
+                    return problems;
+                }
+
                 function awaitingVerification() {
                     message.textContent = 'Payment submitted. Waiting for secure server verification…';
                     window.setTimeout(() => window.location.assign(statusUrl), 1200);
                 }
 
-                function paymentError() {
-                    message.textContent = 'The payment was not completed. You may retry safely.';
+                function paymentError(error) {
+                    const detail = error?.data?.message || error?.message;
+                    message.textContent = detail
+                        ? 'DirectPay could not continue: ' + detail
+                        : 'The payment was not completed. You may retry safely.';
                 }
 
-                if (typeof window.DirectPayCardPayment === 'undefined') {
+                if (typeof window.DirectPayIpg?.Init !== 'function') {
                     message.textContent = 'The DirectPay payment form could not load. Check your connection and retry.';
                     return;
                 }
 
+                const problems = configurationProblems();
+                if (problems.length) {
+                    message.textContent = 'DirectPay configuration issue: ' + problems.join(', ') + '.';
+                    return;
+                }
+
                 try {
-                    config.responseCallback = awaitingVerification;
-                    config.errorCallback = paymentError;
-                    window.DirectPayCardPayment.init(config);
-                    if (document.getElementById('dpMainContainer')) {
-                        message.textContent = 'Enter your card details in the secure DirectPay form.';
-                    } else {
-                        message.textContent = 'DirectPay could not initialize the card form. Verify the sandbox merchant settings and try again.';
-                    }
+                    const checkout = new window.DirectPayIpg.Init(config);
+                    message.textContent = 'Enter your card details in the secure DirectPay form.';
+                    checkout.doInContainerCheckout()
+                        .then(awaitingVerification)
+                        .catch(paymentError);
                 } catch (error) {
-                    paymentError();
+                    paymentError(error);
                 }
             })();
         </script>

@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\DirectPayPayment;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use RuntimeException;
+use InvalidArgumentException;
+use JsonException;
 
 class DirectPayService
 {
@@ -13,20 +13,13 @@ class DirectPayService
     {
         return config('services.directpay.environment') === 'sandbox'
             && filled($this->merchantId())
-            && filled($this->apiKey())
-            && $this->currency() === 'LKR'
-            && (filled(config('services.directpay.merchant_secret'))
-                || filled(config('services.directpay.private_key_path')));
+            && filled($this->merchantSecret())
+            && $this->currency() === 'LKR';
     }
 
     public function merchantId(): string
     {
-        return (string) config('services.directpay.merchant_id', '');
-    }
-
-    public function apiKey(): string
-    {
-        return (string) config('services.directpay.api_key', '');
+        return trim((string) config('services.directpay.merchant_id', ''));
     }
 
     public function currency(): string
@@ -37,7 +30,6 @@ class DirectPayService
     public function generateReference(int $visitorId): string
     {
         do {
-            // DirectPay documents a maximum refCode length of 20 characters.
             $reference = sprintf('DP-V%d-%s', $visitorId, strtoupper(Str::random(8)));
             $reference = substr($reference, 0, 20);
         } while (DirectPayPayment::where('reference', $reference)->exists());
@@ -45,87 +37,78 @@ class DirectPayService
         return $reference;
     }
 
+    /** @return array{signature: string, dataString: string, stage: string, container: string} */
     public function checkoutConfiguration(DirectPayPayment $payment): array
     {
-        return [
-            'merchantId' => $this->merchantId(),
+        [$firstName, $lastName] = $this->splitName((string) $payment->visitor->full_name);
+
+        $payload = [
+            'merchant_id' => $this->merchantId(),
             'amount' => number_format((float) $payment->expected_amount, 2, '.', ''),
-            'refCode' => $payment->reference,
+            'type' => 'ONE_TIME',
+            'order_id' => $payment->reference,
             'currency' => $payment->currency,
-            'type' => 'ONE_TIME_PAYMENT',
-            'customerEmail' => (string) $payment->visitor->email,
-            'customerMobile' => (string) $payment->visitor->mobile_number,
-            'description' => 'Visitor entrance fee '.$payment->reference,
-            'debug' => config('services.directpay.environment') === 'sandbox',
-            // The sandbox v1 bundle currently requires the logo property to
-            // exist even though the public parameter table marks it optional.
+            'return_url' => route('visitor.payment.directpay.status', $payment->reference),
+            'response_url' => route('directpay.confirmation'),
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'email' => (string) $payment->visitor->email,
+            'phone' => $this->localPhone((string) $payment->visitor->mobile_number),
             'logo' => secure_asset('img/logo.png'),
-            'apiKey' => $this->apiKey(),
+        ];
+
+        try {
+            $dataString = base64_encode(json_encode($payload, JSON_THROW_ON_ERROR));
+        } catch (JsonException $exception) {
+            throw new InvalidArgumentException('The DirectPay payment payload could not be encoded.', previous: $exception);
+        }
+
+        return [
+            'signature' => hash_hmac('sha256', $dataString, $this->merchantSecret()),
+            'dataString' => $dataString,
+            'stage' => 'DEV',
+            'container' => 'card_container',
         ];
     }
 
-    /**
-     * Verify a callback against DirectPay's signed server-side status endpoint.
-     *
-     * @return array<string, mixed>
-     */
-    public function verifyTransaction(string $transactionId, string $reference): array
+    public function verifyCallbackSignature(string $requestBody, ?string $authorization): bool
     {
-        if (! $this->isConfigured()) {
-            throw new RuntimeException('DirectPay credentials are not configured.');
+        $parts = preg_split('/\s+/', trim((string) $authorization));
+        if (! is_array($parts) || count($parts) !== 2 || $parts[1] === '') {
+            return false;
         }
 
-        $body = [
-            'merchantId' => $this->merchantId(),
-            'type' => 'TRANSACTION_STATUS',
-            'transactionId' => $transactionId,
-            'merchantReference' => $reference,
-        ];
+        $expected = hash_hmac('sha256', $requestBody, $this->merchantSecret());
 
-        // DirectPay requires field values to be concatenated in request-body order.
-        $signature = $this->sign(implode('', array_values($body)));
-        $response = Http::acceptJson()
-            ->asJson()
-            ->timeout((int) config('services.directpay.timeout', 15))
-            ->withHeaders([
-                'Signature' => $signature,
-                'x-api-key' => $this->apiKey(),
-            ])
-            ->post((string) config('services.directpay.status_url'), $body);
+        return hash_equals($expected, strtolower($parts[1]));
+    }
 
-        if (! $response->successful()) {
-            throw new RuntimeException('DirectPay status verification was unavailable.');
+    /** @return array<string, mixed> */
+    public function decodeCallback(string $requestBody): array
+    {
+        $decoded = base64_decode(trim($requestBody), true);
+        if ($decoded === false) {
+            throw new InvalidArgumentException('The DirectPay callback is not valid base64.');
         }
 
-        $payload = $response->json();
-        if (! is_array($payload) || (int) data_get($payload, 'status') !== 200) {
-            throw new RuntimeException('DirectPay rejected the status verification request.');
+        try {
+            $payload = json_decode($decoded, true, flags: JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new InvalidArgumentException('The DirectPay callback does not contain valid JSON.', previous: $exception);
         }
 
-        $transactions = data_get($payload, 'data');
-        if (! is_array($transactions)) {
-            throw new RuntimeException('DirectPay returned an invalid status response.');
+        if (! is_array($payload) || array_is_list($payload)) {
+            throw new InvalidArgumentException('The DirectPay callback payload is invalid.');
         }
 
-        if (! array_is_list($transactions)) {
-            $transactions = [$transactions];
-        }
-
-        foreach ($transactions as $transaction) {
-            if (is_array($transaction)
-                && hash_equals((string) data_get($transaction, 'transactionId'), $transactionId)) {
-                return $transaction;
-            }
-        }
-
-        throw new RuntimeException('DirectPay did not confirm the requested transaction.');
+        return $payload;
     }
 
     public function normalizeStatus(?string $status): string
     {
         return match (strtoupper(trim((string) $status))) {
             'SUCCESS' => 'paid',
-            'FAILED', 'DECLINED' => 'failed',
+            'FAILED', 'FAILURE', 'DECLINED', 'ERROR' => 'failed',
             'CANCELLED', 'CANCELED' => 'cancelled',
             default => 'pending',
         };
@@ -140,43 +123,26 @@ class DirectPayService
         return (int) round((float) $expected * 100) === (int) round((float) $actual * 100);
     }
 
-    private function sign(string $data): string
+    private function merchantSecret(): string
     {
-        $key = $this->privateKey();
-        $privateKey = @openssl_pkey_get_private($key);
-        if ($privateKey === false) {
-            throw new RuntimeException('The DirectPay merchant secret is not a valid RSA private key.');
-        }
-
-        $signed = openssl_sign($data, $signature, $privateKey, OPENSSL_ALGO_SHA256);
-        if (! $signed) {
-            throw new RuntimeException('The DirectPay verification request could not be signed.');
-        }
-
-        return base64_encode($signature);
+        return trim((string) config('services.directpay.merchant_secret', ''));
     }
 
-    private function privateKey(): string
+    /** @return array{string, string} */
+    private function splitName(string $fullName): array
     {
-        $path = (string) config('services.directpay.private_key_path', '');
-        if ($path !== '') {
-            if (! is_file($path) || ! is_readable($path)) {
-                throw new RuntimeException('The DirectPay private key file is not readable.');
-            }
+        $parts = preg_split('/\s+/', trim($fullName), 2);
 
-            return (string) file_get_contents($path);
+        return [$parts[0] ?? '', $parts[1] ?? ''];
+    }
+
+    private function localPhone(string $phone): string
+    {
+        $digits = (string) preg_replace('/\D+/', '', $phone);
+        if (str_starts_with($digits, '94')) {
+            return '0'.substr($digits, 2);
         }
 
-        $secret = str_replace('\\n', "\n", trim((string) config('services.directpay.merchant_secret', '')));
-        if (str_contains($secret, 'BEGIN') && str_contains($secret, 'PRIVATE KEY')) {
-            return $secret;
-        }
-
-        $decoded = base64_decode($secret, true);
-        if ($decoded !== false && str_contains($decoded, 'PRIVATE KEY')) {
-            return $decoded;
-        }
-
-        return $secret;
+        return str_starts_with($digits, '0') ? $digits : '0'.$digits;
     }
 }

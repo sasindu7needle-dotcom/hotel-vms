@@ -8,6 +8,7 @@ use App\Services\DirectPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 
 class DirectPayPaymentController extends Controller
@@ -53,6 +54,9 @@ class DirectPayPaymentController extends Controller
 
         $validated = $request->validate([
             'email' => ['required', 'email:rfc', 'max:100'],
+            'mobile' => ['required', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
+        ], [
+            'mobile.regex' => 'Enter a DirectPay-supported Sri Lankan mobile number, for example +94771234567.',
         ]);
 
         if (! $this->directPay->isConfigured()) {
@@ -78,6 +82,7 @@ class DirectPayPaymentController extends Controller
 
             $lockedVisitor->update([
                 'email' => $validated['email'],
+                'mobile_number' => $this->normalizeMobile($validated['mobile']),
                 'payment_status' => 'pending',
                 'registration_status' => 'payment_pending',
             ]);
@@ -123,6 +128,12 @@ class DirectPayPaymentController extends Controller
             return redirect()->route('visitor.payment.directpay.status', $payment->reference);
         }
 
+        if (! $this->hasValidDirectPayMobile($payment->visitor->mobile_number)) {
+            return redirect()->route('visitor.payment.card')->withErrors([
+                'mobile' => 'DirectPay rejected the saved mobile number. Enter a supported number and try again.',
+            ]);
+        }
+
         if (! $this->directPay->isConfigured()) {
             return redirect()->route('visitor.payment.card')->withErrors([
                 'payment' => 'Card payments are temporarily unavailable. Please contact reception.',
@@ -166,16 +177,35 @@ class DirectPayPaymentController extends Controller
 
     public function confirmation(Request $request)
     {
-        $payload = $request->json()->all();
-        if (! is_array($payload)) {
-            return response()->json(['message' => 'Invalid JSON payload.'], 400);
+        $requestBody = $request->getContent();
+
+        if (! $this->directPay->isConfigured()) {
+            Log::error('DirectPay confirmation cannot be verified because the gateway is not configured.');
+
+            return response()->json(['message' => 'Payment verification unavailable.'], 503);
         }
 
-        $reference = trim((string) data_get($payload, 'data.reference', ''));
-        $transactionId = trim((string) data_get($payload, 'data.transactionId', ''));
-        $callbackStatus = strtoupper(trim((string) data_get($payload, 'data.status', '')));
-        $callbackCurrency = strtoupper(trim((string) data_get($payload, 'data.currency', '')));
-        $callbackAmount = data_get($payload, 'data.amount');
+        if (! $this->directPay->verifyCallbackSignature($requestBody, $request->header('Authorization'))) {
+            Log::warning('DirectPay confirmation signature verification failed.');
+
+            return response()->json(['message' => 'Invalid callback signature.'], 401);
+        }
+
+        try {
+            $payload = $this->directPay->decodeCallback($requestBody);
+        } catch (InvalidArgumentException $exception) {
+            Log::warning('DirectPay confirmation payload could not be decoded.', [
+                'reason' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['message' => 'Invalid callback payload.'], 400);
+        }
+
+        $reference = trim((string) data_get($payload, 'order_id', ''));
+        $transactionId = trim((string) data_get($payload, 'transaction_id', ''));
+        $callbackStatus = strtoupper(trim((string) data_get($payload, 'transaction.status', '')));
+        $callbackCurrency = strtoupper(trim((string) data_get($payload, 'transaction.currency', '')));
+        $callbackAmount = data_get($payload, 'transaction.amount');
 
         Log::info('DirectPay confirmation received.', [
             'reference' => $reference,
@@ -194,13 +224,6 @@ class DirectPayPaymentController extends Controller
             return response()->json(['message' => 'Unknown payment reference.'], 404);
         }
 
-        if ((string) data_get($payload, 'type') !== 'INIT_TRN'
-            || (string) data_get($payload, 'paymentCategory') !== 'ONE_TIME') {
-            Log::warning('DirectPay confirmation had an unexpected payment type.', ['reference' => $reference]);
-
-            return response()->json(['message' => 'Unexpected payment type.'], 422);
-        }
-
         if (! hash_equals($payment->currency, $callbackCurrency)
             || ! $this->directPay->amountsMatch($payment->expected_amount, $callbackAmount)) {
             Log::warning('DirectPay callback amount or currency mismatch.', ['reference' => $reference]);
@@ -208,51 +231,9 @@ class DirectPayPaymentController extends Controller
             return response()->json(['message' => 'Callback payment details mismatch.'], 422);
         }
 
+        $status = $this->directPay->normalizeStatus($callbackStatus);
         try {
-            $verified = $this->directPay->verifyTransaction($transactionId, $reference);
-        } catch (RuntimeException $exception) {
-            Log::error('DirectPay server verification failed.', [
-                'reference' => $reference,
-                'transaction_id' => $transactionId,
-                'reason' => $exception->getMessage(),
-            ]);
-
-            return response()->json(['message' => 'Payment verification unavailable.'], 503);
-        }
-
-        $verifiedStatus = strtoupper(trim((string) data_get($verified, 'status', '')));
-        $verifiedCurrency = strtoupper(trim((string) data_get($verified, 'currency', '')));
-        $verifiedAmount = data_get($verified, 'amount');
-
-        if (! hash_equals($callbackStatus, $verifiedStatus)) {
-            Log::warning('DirectPay callback status did not match server verification.', ['reference' => $reference]);
-
-            return response()->json(['message' => 'Payment status mismatch.'], 422);
-        }
-
-        if (! hash_equals($payment->currency, $verifiedCurrency)) {
-            Log::warning('DirectPay currency mismatch.', [
-                'reference' => $reference,
-                'expected_currency' => $payment->currency,
-                'received_currency' => $verifiedCurrency,
-            ]);
-
-            return response()->json(['message' => 'Payment currency mismatch.'], 422);
-        }
-
-        if (! $this->directPay->amountsMatch($payment->expected_amount, $verifiedAmount)) {
-            Log::warning('DirectPay amount mismatch.', [
-                'reference' => $reference,
-                'expected_amount' => (string) $payment->expected_amount,
-                'received_amount' => is_scalar($verifiedAmount) ? (string) $verifiedAmount : null,
-            ]);
-
-            return response()->json(['message' => 'Payment amount mismatch.'], 422);
-        }
-
-        $status = $this->directPay->normalizeStatus($verifiedStatus);
-        try {
-            DB::transaction(function () use ($payment, $transactionId, $status, $verified) {
+            DB::transaction(function () use ($payment, $transactionId, $status, $payload, $callbackStatus, $callbackAmount, $callbackCurrency) {
                 $lockedPayment = DirectPayPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
                 $visitor = VerifiedVisitor::whereKey($lockedPayment->verified_visitor_id)->lockForUpdate()->firstOrFail();
 
@@ -267,15 +248,16 @@ class DirectPayPaymentController extends Controller
                 if ($lockedPayment->status !== 'paid') {
                     $lockedPayment->update([
                         'gateway_transaction_id' => $transactionId,
-                        'gateway_status' => strtoupper((string) data_get($verified, 'status')),
+                        'gateway_status' => $callbackStatus,
                         'status' => $status,
                         'safe_gateway_response' => [
                             'transaction_id' => $transactionId,
-                            'status' => strtoupper((string) data_get($verified, 'status')),
-                            'description' => (string) data_get($verified, 'bankerResponseDesc', data_get($verified, 'description', '')),
-                            'date_time' => data_get($verified, 'dateTime'),
-                            'amount' => (string) data_get($verified, 'amount'),
-                            'currency' => strtoupper((string) data_get($verified, 'currency')),
+                            'status' => $callbackStatus,
+                            'description' => (string) data_get($payload, 'transaction.description', ''),
+                            'date_time' => data_get($payload, 'transaction.date_time', data_get($payload, 'transaction.dateTime')),
+                            'amount' => (string) $callbackAmount,
+                            'currency' => $callbackCurrency,
+                            'type' => (string) data_get($payload, 'type', ''),
                         ],
                         'verified_at' => now(),
                     ]);
@@ -329,5 +311,22 @@ class DirectPayPaymentController extends Controller
             $reference ?: data_get($request->session()->get('visitor_registration'), 'payment_reference')
                 ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT)
         );
+    }
+
+    private function normalizeMobile(string $mobile): string
+    {
+        $digits = (string) preg_replace('/\D+/', '', $mobile);
+        if (str_starts_with($digits, '94')) {
+            $digits = substr($digits, 2);
+        } elseif (str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+
+        return '+94'.$digits;
+    }
+
+    private function hasValidDirectPayMobile(?string $mobile): bool
+    {
+        return preg_match('/^\+947\d{8}$/', (string) $mobile) === 1;
     }
 }
