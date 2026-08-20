@@ -441,7 +441,7 @@ class VisitorController extends Controller
                 ->first()
             : null;
 
-        $resumeRoute = null;
+        $paymentOverrides = [];
         if ($existingRegistration) {
             // The visitor has just completed identity and photo verification again,
             // so resume their existing day-specific registration instead of sending
@@ -456,22 +456,25 @@ class VisitorController extends Controller
                 'payment_status' => $existingRegistration->payment_status,
             ]);
 
-            $request->session()->put('visitor_registration', $details);
-
             if ($existingRegistration->payment_status === 'paid') {
+                $request->session()->put('visitor_registration', $details);
+
                 return redirect()->route('visitor.thank-you');
             }
 
-            $resumeRoute = match ($existingRegistration->payment_method) {
-                'cash' => 'visitor.payment.cash',
-                'visa_master', 'amex' => 'visitor.payment.card',
-                default => null,
-            };
+            // A new verification starts a new payment choice. Do not silently
+            // reuse a stale Cash or card selection from an abandoned attempt.
+            $details['payment_method'] = null;
+            $details['payment_status'] = 'pending';
+            $paymentOverrides = [
+                'payment_method' => null,
+                'payment_status' => 'pending',
+            ];
         }
 
         $request->session()->put('visitor_registration', $details);
         try {
-            $visitor = $this->persistVerifiedVisitor($details);
+            $visitor = $this->persistVerifiedVisitor($details, $paymentOverrides);
         } catch (\Throwable $exception) {
             Log::error('Verified visitor could not be saved.', [
                 'verification_id' => data_get($details, 'verification_id'),
@@ -486,9 +489,7 @@ class VisitorController extends Controller
         }
         $request->session()->put('visitor_registration.record_id', $visitor->id);
 
-        return $resumeRoute
-            ? redirect()->route($resumeRoute)
-            : redirect()->route('visitor.confirm.show');
+        return redirect()->route('visitor.confirm.show');
     }
 
     /**
