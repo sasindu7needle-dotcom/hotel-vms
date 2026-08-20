@@ -195,7 +195,7 @@ class DailyVisitorRegistrationTest extends TestCase
             ->assertOk()
             ->assertSee('Choose a payment method')
             ->assertSee('Visa / Master')
-            ->assertSee('American Express')
+            ->assertDontSee('American Express')
             ->assertSee('Cash');
     }
 

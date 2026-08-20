@@ -16199,7 +16199,7 @@ body.visitor-confirmation-page .payment-help {
 
 body.visitor-confirmation-page .payment-option-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -17772,5 +17772,4 @@ body.landing-page.visitor-registration-page .btn-select-day .arrow-icon {
         padding: 0 14px 14px;
     }
 }
-
 

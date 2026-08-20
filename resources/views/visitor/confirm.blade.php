@@ -87,12 +87,6 @@
                             <span class="card-marks"><b>VISA</b><b>MC</b></span>
                         </label>
                         <label class="payment-option">
-                            <input type="radio" name="payment_method" value="amex" @checked(old('payment_method', data_get($details, 'payment_method')) === 'amex') required>
-                            <span class="payment-option-indicator"></span>
-                            <span class="payment-option-copy"><strong>American Express</strong><small>Pay securely by Amex</small></span>
-                            <span class="amex-mark">AMEX</span>
-                        </label>
-                        <label class="payment-option">
                             <input type="radio" name="payment_method" value="cash" @checked(old('payment_method', data_get($details, 'payment_method')) === 'cash') required>
                             <span class="payment-option-indicator"></span>
                             <span class="payment-option-copy"><strong>Cash</strong><small>Pay at the entrance counter</small></span>

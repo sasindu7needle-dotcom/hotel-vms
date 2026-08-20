@@ -128,8 +128,10 @@ class VisitorRegistrationTest extends TestCase
                 ->assertRedirect(route('visitor.payment.card'));
 
             $this->withSession(['visitor_registration' => $registration])
+                ->from(route('visitor.confirm.show'))
                 ->post(route('visitor.payment-method'), ['payment_method' => 'amex'])
-                ->assertRedirect(route('visitor.payment.card'));
+                ->assertRedirect(route('visitor.confirm.show'))
+                ->assertSessionHasErrors('payment_method');
 
             $this->withSession(['visitor_registration' => $registration])
                 ->post(route('visitor.payment-method'), ['payment_method' => 'cash'])

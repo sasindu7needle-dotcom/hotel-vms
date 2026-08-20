@@ -551,7 +551,7 @@ class VisitorController extends Controller
         }
 
         $validated = $request->validate([
-            'payment_method' => 'required|in:visa_master,amex,cash',
+            'payment_method' => 'required|in:visa_master,cash',
         ]);
 
         $request->session()->put('visitor_registration.payment_method', $validated['payment_method']);
