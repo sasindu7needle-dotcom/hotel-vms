@@ -331,12 +331,14 @@
 
         body.landing-page.upload-document-page .doc-dropzone__input {
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: 0;
             width: 100%;
             height: 100%;
             opacity: 0;
             cursor: pointer;
+            /* Keep the file input above the preview so an uploaded image can
+               still be tapped to open the camera/file picker and replaced. */
+            z-index: 3;
         }
 
         body.landing-page.upload-document-page .doc-dropzone__placeholder {

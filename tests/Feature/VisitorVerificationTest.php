@@ -302,6 +302,220 @@ class VisitorVerificationTest extends TestCase
             ->assertJsonPath('data.address', '07, Prasewas Mawatha, Puttalam');
     }
 
+    public function test_old_nic_uses_two_native_reads_then_a_separate_transliteration(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        $nativeName = 'කසුන් මධුශංක පෙරේරා';
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'name_native' => $nativeName,
+                    'uncertain_segments' => [],
+                    'needs_review' => false,
+                    'printed_english_name' => '',
+                    'confidence' => 94,
+                ]))
+                ->push($this->geminiApiResponse([
+                    'name_native' => "  කසුන්\nමධුශංක   පෙරේරා  ",
+                    'uncertain_segments' => [],
+                    'needs_review' => false,
+                    'printed_english_name' => '',
+                    'confidence' => 96,
+                ]))
+                ->push($this->geminiApiResponse([
+                    'english_name_candidate' => 'Kasun Madhushanka Perera',
+                    'alternative_spellings' => ['Kasun Madushanka Perera'],
+                    'ambiguous' => true,
+                    'ambiguity_reason' => 'More than one conventional Roman spelling is possible.',
+                ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('old-nic-front.jpg', 800, 500);
+        $back = UploadedFile::fake()->image('old-nic-back.jpg', 800, 500);
+        $review = app(GeminiDocumentService::class)->extractNicNameReview(
+            $front->getRealPath(),
+            'image/jpeg',
+            $back->getRealPath(),
+            'image/jpeg',
+        );
+
+        $this->assertSame($nativeName, $review['name_native']);
+        $this->assertSame('Kasun Madhushanka Perera', $review['suggested_english_name']);
+        $this->assertSame(['Kasun Madushanka Perera'], $review['name_alternatives']);
+        $this->assertTrue($review['native_reads_agree']);
+        $this->assertTrue($review['name_needs_confirmation']);
+        Http::assertSentCount(3);
+    }
+
+    public function test_old_nic_verification_read_failure_still_returns_the_first_read(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        $nativeName = 'කසුන් පෙරේරා';
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'name_native' => $nativeName,
+                    'uncertain_segments' => [],
+                    'needs_review' => false,
+                    'printed_english_name' => '',
+                    'confidence' => 90,
+                ]))
+                ->push(['error' => ['message' => 'Temporary failure']], 503)
+                ->push($this->geminiApiResponse([
+                    'english_name_candidate' => 'Kasun Perera',
+                    'alternative_spellings' => [],
+                    'ambiguous' => false,
+                    'ambiguity_reason' => '',
+                ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('old-nic-front.jpg', 800, 500);
+        $review = app(GeminiDocumentService::class)->extractNicNameReview(
+            $front->getRealPath(),
+            'image/jpeg',
+        );
+
+        $this->assertSame($nativeName, $review['name_native']);
+        $this->assertSame('Kasun Perera', $review['suggested_english_name']);
+        $this->assertTrue($review['name_needs_confirmation']);
+        Http::assertSentCount(3);
+    }
+
+    public function test_difficult_old_nic_selects_the_stronger_read_and_requires_confirmation(): void
+    {
+        config()->set('services.gemini.api_key', 'test-key');
+        $strongerName = 'කසුන් මධුශංක පෙරේරා';
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiApiResponse([
+                    'name_native' => 'කසුන් මදුශංක පෙරේරා',
+                    'uncertain_segments' => ['මදුශංක'],
+                    'needs_review' => true,
+                    'printed_english_name' => '',
+                    'confidence' => 58,
+                ]))
+                ->push($this->geminiApiResponse([
+                    'name_native' => $strongerName,
+                    'uncertain_segments' => [],
+                    'needs_review' => false,
+                    'printed_english_name' => '',
+                    'confidence' => 91,
+                ]))
+                ->push($this->geminiApiResponse([
+                    'english_name_candidate' => 'Kasun Madhushanka Perera',
+                    'alternative_spellings' => ['Kasun Madushanka Perera'],
+                    'ambiguous' => true,
+                    'ambiguity_reason' => 'The middle name permits multiple Roman spellings.',
+                ])),
+        ]);
+
+        $front = UploadedFile::fake()->image('faded-old-nic-front.jpg', 800, 500);
+        $review = app(GeminiDocumentService::class)->extractNicNameReview(
+            $front->getRealPath(),
+            'image/jpeg',
+        );
+
+        $this->assertSame($strongerName, $review['name_native']);
+        $this->assertFalse($review['native_reads_agree']);
+        $this->assertTrue($review['name_needs_confirmation']);
+        $this->assertSame('needs_attention', $review['review_status']);
+        Http::assertSentCount(3);
+    }
+
+    public function test_old_nic_review_updates_compatible_response_and_session_fields(): void
+    {
+        $nativeName = 'කසුන් මධුශංක පෙරේරා';
+        $this->mock(GeminiDocumentService::class, function ($mock) use ($nativeName) {
+            $mock->shouldReceive('extract')->once()->andReturn([
+                'document_number' => '993100900V',
+                'nic_number' => '993100900V',
+                'driving_license_number' => '',
+                'full_name' => 'Existing Fallback Name',
+                'address' => '07, Main Road, Puttalam',
+                'full_name_original' => $nativeName,
+                'address_original' => '',
+            ]);
+            $mock->shouldReceive('extractNicNameReview')->once()->andReturn([
+                'sinhala_name' => $nativeName,
+                'tamil_name' => '',
+                'printed_english_name' => '',
+                'suggested_english_name' => 'Kasun Madhushanka Perera',
+                'sinhala_transliteration' => 'Kasun Madhushanka Perera',
+                'tamil_transliteration' => '',
+                'english_name_alternatives' => ['Kasun Madushanka Perera'],
+                'scripts_agree' => true,
+                'review_status' => 'needs_attention',
+                'name_native' => $nativeName,
+                'name_alternatives' => ['Kasun Madushanka Perera'],
+                'name_needs_confirmation' => true,
+                'uncertain_segments' => [],
+                'native_reads_agree' => true,
+            ]);
+        });
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('old-nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('old-nic-back.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'Kasun Madhushanka Perera')
+            ->assertJsonPath('data.name_native', $nativeName)
+            ->assertJsonPath('data.name_needs_confirmation', true)
+            ->assertJsonPath('data.name_alternatives.0', 'Kasun Madushanka Perera');
+
+        $this->assertSame('Kasun Madhushanka Perera', session('verification.full_name'));
+        $this->assertSame($nativeName, session('verification.full_name_native'));
+        $this->assertTrue(session('verification.full_name_needs_confirmation'));
+    }
+
+    public function test_new_nic_does_not_run_the_old_nic_name_review(): void
+    {
+        $this->mock(GeminiDocumentService::class, function ($mock) {
+            $mock->shouldReceive('extract')->once()->andReturn([
+                'document_number' => '200124103810',
+                'nic_number' => '200124103810',
+                'driving_license_number' => '',
+                'full_name' => 'Nimal Perera',
+                'address' => '12 Galle Road, Colombo',
+                'full_name_original' => '',
+                'address_original' => '',
+            ]);
+            $mock->shouldNotReceive('extractNicNameReview');
+        });
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('new-nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('new-nic-back.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'Nimal Perera')
+            ->assertJsonPath('data.document_number', '200124103810');
+    }
+
+    public function test_old_nic_review_failure_preserves_the_existing_extraction(): void
+    {
+        $this->mock(GeminiDocumentService::class, function ($mock) {
+            $mock->shouldReceive('extract')->once()->andReturn([
+                'document_number' => '993100900V',
+                'nic_number' => '993100900V',
+                'driving_license_number' => '',
+                'full_name' => 'Existing Fallback Name',
+                'address' => '07, Main Road, Puttalam',
+                'full_name_original' => '',
+                'address_original' => '',
+            ]);
+            $mock->shouldReceive('extractNicNameReview')->once()->andThrow(new \RuntimeException('Temporary Gemini failure'));
+        });
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('old-nic-front.jpg', 800, 500),
+            'document_back_image' => UploadedFile::fake()->image('old-nic-back.jpg', 800, 500),
+        ])->assertOk()
+            ->assertJsonPath('data.full_name', 'Existing Fallback Name')
+            ->assertJsonPath('data.address', '07, Main Road, Puttalam');
+    }
+
     public function test_it_does_not_continue_when_name_or_address_is_missing(): void
     {
         $this->mockGemini(['document_number' => '200124103810']);
@@ -574,6 +788,24 @@ class VisitorVerificationTest extends TestCase
         $response->assertOk()->assertJson(['success' => true]);
         $this->assertEquals('completed', session('verification.photo_capture_status'));
         Storage::disk('visitor-media')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-photo.jpg');
+    }
+
+    public function test_face_capture_page_allows_reviewing_and_replacing_the_photo(): void
+    {
+        $response = $this->withSession(['verification' => [
+            'session_id' => '11111111-2222-4333-8444-555555555555',
+            'verification_id' => '11111111-2222-4333-8444-555555555555',
+            'document_type' => 'nic',
+            'document_number' => '199012345678',
+            'full_name' => 'Nimal Kamal Perera',
+            'address' => 'No. 12, Galle Road, Colombo 03',
+            'photo_path' => 'verified-visitors/document.jpg',
+        ]])->get(route('visitor.photo_capture'));
+
+        $response->assertOk()
+            ->assertSee('Captured visitor photo preview')
+            ->assertSee('Retake / replace photo')
+            ->assertSee('Use photo &amp; proceed', false);
     }
 
     public function test_it_rejects_an_invalid_camera_photo(): void

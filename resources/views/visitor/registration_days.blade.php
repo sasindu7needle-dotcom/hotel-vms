@@ -44,10 +44,10 @@
                 @foreach($registrationDays as $day)
                     <article class="event-day-item">
                         <div class="event-day-item-body">
-                            <div class="event-day-date-box">
+                            <time class="event-day-date-box" datetime="{{ $day->event_date->format('Y-m-d') }}" aria-label="{{ $day->event_date->format('l, d F Y') }}">
                                 <span class="event-day-date-num">{{ $day->event_date->format('d') }}</span>
                                 <span class="event-day-date-month">{{ $day->event_date->format('M Y') }}</span>
-                            </div>
+                            </time>
                             <div class="event-day-info">
                                 <h2>{{ $day->label }}</h2>
                                 <p class="event-day-full-date">

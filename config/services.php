@@ -45,10 +45,9 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
         'ca_bundle' => env('GEMINI_CA_BUNDLE', env('GOOGLE_VISION_CA_BUNDLE')),
         'allow_tesseract_fallback' => env('GEMINI_ALLOW_TESSERACT_FALLBACK', false),
-        // Detailed NIC spelling review requires extra Gemini requests. Keep
-        // normal visitor check-in fast; enable only when that extra review is
-        // needed for a deployment.
-        'nic_name_review' => env('GEMINI_NIC_NAME_REVIEW', false),
+        // Old-NIC Sinhala transcription uses two image reads plus one bounded
+        // transliteration request. New NICs and other documents never use it.
+        'nic_name_review' => env('GEMINI_NIC_NAME_REVIEW', true),
     ],
 
     // Generic JSON SMS gateway. Point this at the provider endpoint and use

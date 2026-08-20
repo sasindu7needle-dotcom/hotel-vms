@@ -92,11 +92,12 @@ class VisitorCheckinController extends Controller
             }
         }
 
-        // The image extraction already returns a suggested English name. The
-        // detailed NIC spelling review adds two or more sequential Gemini
-        // calls, so it is opt-in for installations that need it.
+        // Only the old 9-digit-plus-V/X NIC format needs the dedicated Sinhala
+        // transcription, verification, and transliteration sequence.
         $nameReview = $this->nameReviewFromExtraction($parsed, $docType);
-        if ($docType === 'nic' && config('services.gemini.nic_name_review', false)) {
+        $isOldNic = $docType === 'nic'
+            && $this->isOldNicNumber((string) data_get($parsed, 'document_number'));
+        if ($isOldNic && config('services.gemini.nic_name_review', true)) {
             try {
                 $nameReview = $gemini->extractNicNameReview(
                     $file->getRealPath(),
@@ -115,8 +116,9 @@ class VisitorCheckinController extends Controller
                     $parsed['full_name_original'] = $sinhalaName ?: $tamilName;
                 }
             } catch (\Throwable $exception) {
-                Log::info('Dedicated NIC name review failed; retaining the document extraction result.', [
-                    'message' => $exception->getMessage(),
+                Log::info('Old NIC name review failed; retaining the document extraction result.', [
+                    'document_type' => 'OLD_NIC',
+                    'exception' => get_class($exception),
                 ]);
             }
         }
@@ -245,6 +247,20 @@ class VisitorCheckinController extends Controller
             'photo_capture_status' => 'pending',
         ];
 
+        if ($isOldNic) {
+            $verification = array_merge($verification, [
+                'name_native' => data_get($nameReview, 'name_native'),
+                'name_alternatives' => data_get($nameReview, 'name_alternatives', []),
+                'name_needs_confirmation' => (bool) data_get($nameReview, 'name_needs_confirmation', false),
+                'full_name_native' => data_get($nameReview, 'name_native'),
+                'full_name_alternatives' => data_get($nameReview, 'name_alternatives', []),
+                'full_name_needs_confirmation' => (bool) data_get($nameReview, 'name_needs_confirmation', false),
+                'name_uncertain_segments' => data_get($nameReview, 'uncertain_segments', []),
+                'name_native_reads_agree' => data_get($nameReview, 'native_reads_agree'),
+                'name_ambiguity_reason' => data_get($nameReview, 'ambiguity_reason'),
+            ]);
+        }
+
         $request->session()->put('verification', $verification);
         $request->session()->put('didit_verification', $verification);
         $request->session()->save();
@@ -270,6 +286,11 @@ class VisitorCheckinController extends Controller
             'sinhala_transliteration' => '',
             'tamil_transliteration' => '',
             'english_name_alternatives' => $name !== '' ? [$name] : [],
+            'name_native' => preg_match('/[\x{0D80}-\x{0DFF}]/u', $original) === 1 ? $original : '',
+            'name_alternatives' => [],
+            'name_needs_confirmation' => false,
+            'uncertain_segments' => [],
+            'native_reads_agree' => null,
             'review_status' => $docType === 'nic' ? 'pending' : 'not_required',
             'scripts_agree' => null,
         ];
@@ -758,6 +779,11 @@ class VisitorCheckinController extends Controller
         return in_array($docType, ['nic', 'driving_license'], true)
             ? (string) preg_replace('/[^0-9VX]/', '', $value)
             : (string) preg_replace('/[^A-Z0-9]/', '', $value);
+    }
+
+    private function isOldNicNumber(string $value): bool
+    {
+        return preg_match('/^\d{9}[VX]$/', $this->normalizeDocumentNumber($value, 'nic')) === 1;
     }
 
     private function maskDocumentNumber(string $value): string
