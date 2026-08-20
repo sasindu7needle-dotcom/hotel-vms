@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Services\VisitorMediaService;
 use App\Services\GeminiDocumentService;
+use App\Services\EntranceCardImageService;
 use F9WebLtd\QrCode\Facades\QrCode;
 
 class VisitorController extends Controller
@@ -620,7 +621,7 @@ class VisitorController extends Controller
     }
 
     /** Download the active registration's entrance card without exposing another visitor's record. */
-    public function downloadCard(Request $request)
+    public function downloadCard(Request $request, EntranceCardImageService $cardImage)
     {
         $details = $request->session()->get('visitor_registration');
         if (! is_array($details) || blank(data_get($details, 'record_id'))) {
@@ -636,31 +637,16 @@ class VisitorController extends Controller
         $eventName = $visitor->eventRegistrationDay?->eventConfiguration?->event_name
             ?: config('vms.event_name');
         $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
-        $qrCode = preg_replace('/<\?xml[^>]*\?>/i', '', (string) QrCode::format('svg')
-            ->size(250)
-            ->margin(1)
-            ->errorCorrection('H')
-            ->generate($qrPayload));
         $photoDataUri = filled($visitor->selfie_path)
             ? app(VisitorMediaService::class)->dataUri($visitor->selfie_path, $visitor->selfie_mime)
             : null;
         $cardStatus = $visitor->payment_status === 'paid' ? 'VERIFIED' : 'PAYMENT PENDING';
-        $logoDataUri = 'data:image/png;base64,'.base64_encode((string) file_get_contents(public_path('img/logo.png')));
-
-        $svg = view('visitor.card_download', compact(
-            'visitor',
-            'eventName',
-            'qrPayload',
-            'qrCode',
-            'photoDataUri',
-            'cardStatus',
-            'logoDataUri'
-        ))->render();
+        $png = $cardImage->render($visitor, $eventName, $qrPayload, $cardStatus, $photoDataUri);
         $safeName = Str::slug($visitor->full_name ?: 'visitor') ?: 'visitor';
 
-        return response($svg, 200, [
-            'Content-Type' => 'image/svg+xml; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$safeName.'-entrance-card.svg"',
+        return response($png, 200, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'attachment; filename="'.$safeName.'-entrance-card.png"',
             'Cache-Control' => 'no-store, private',
             'X-Content-Type-Options' => 'nosniff',
         ]);

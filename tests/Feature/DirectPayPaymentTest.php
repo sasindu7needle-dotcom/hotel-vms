@@ -88,6 +88,32 @@ class DirectPayPaymentTest extends TestCase
         $this->assertNotNull($visitor->fresh()->paid_at);
     }
 
+    public function test_successful_card_payment_shows_the_completion_card_and_downloads_png(): void
+    {
+        [$visitor, $payment] = $this->pendingPayment();
+        $this->sendCallback($this->callbackPayload($payment, 'SUCCESS', '5000.00'))->assertOk();
+
+        $registration = $this->registration($visitor->fresh());
+        $registration['payment_reference'] = $payment->reference;
+
+        $this->withSession(['visitor_registration' => $registration])
+            ->get(route('visitor.payment.directpay.status', $payment->reference))
+            ->assertRedirect(route('visitor.thank-you'));
+
+        $this->get(route('visitor.thank-you'))
+            ->assertOk()
+            ->assertSee('REGISTRATION COMPLETE')
+            ->assertSee('Download Entrance Card')
+            ->assertSee('High-quality PNG image');
+
+        $download = $this->get(route('visitor.card.download'));
+        $download
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertDownload('payment-visitor-entrance-card.png');
+        $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $download->getContent());
+    }
+
     public function test_authenticated_failed_callback_does_not_mark_visitor_paid(): void
     {
         [$visitor, $payment] = $this->pendingPayment();

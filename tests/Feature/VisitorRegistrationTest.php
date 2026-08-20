@@ -248,26 +248,19 @@ class VisitorRegistrationTest extends TestCase
             ->get(route('visitor.payment.cash'))
             ->assertOk()
             ->assertSee('Download Entrance Card')
+            ->assertSee('High-quality PNG image')
             ->assertSee(route('visitor.card.download'));
 
         $download = $this->get(route('visitor.card.download'));
         $download
             ->assertOk()
-            ->assertHeader('Content-Type', 'image/svg+xml; charset=UTF-8')
-            ->assertDownload('cash-visitor-entrance-card.svg')
-            ->assertSee('PAYMENT PENDING')
-            ->assertSee('Cash Visitor')
-            ->assertSee('OCCUPATION')
-            ->assertSee('Concierge')
-            ->assertSee('COMPANY')
-            ->assertSee('City Hotel')
-            ->assertDontSee('EVENT NAME')
-            ->assertSee('data:image/png;base64,', false)
-            ->assertSee($visitor->verification_id)
-            ->assertSee('data:image/jpeg;base64,', false);
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertDownload('cash-visitor-entrance-card.png');
 
-        $svg = new \DOMDocument();
-        $this->assertTrue($svg->loadXML($download->getContent()), 'The downloaded card must be valid SVG/XML.');
+        $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $download->getContent());
+        $dimensions = getimagesizefromstring($download->getContent());
+        $this->assertIsArray($dimensions, 'The downloaded card must be a valid PNG image.');
+        $this->assertSame([680, 1058], array_slice($dimensions, 0, 2));
     }
 
     public function test_card_download_requires_the_active_registration_session(): void
