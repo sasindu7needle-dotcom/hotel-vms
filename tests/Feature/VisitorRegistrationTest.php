@@ -114,7 +114,7 @@ class VisitorRegistrationTest extends TestCase
             ->assertSessionHasErrors('registration');
     }
 
-    public function test_card_and_cash_methods_route_to_the_correct_next_step(): void
+    public function test_only_card_method_is_available_in_the_visitor_flow(): void
     {
         $registration = [
             'verification_id' => 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff',
@@ -135,7 +135,7 @@ class VisitorRegistrationTest extends TestCase
 
             $this->withSession(['visitor_registration' => $registration])
                 ->post(route('visitor.payment-method'), ['payment_method' => 'cash'])
-                ->assertRedirect(route('visitor.payment.cash'));
+                ->assertSessionHasErrors('payment_method');
         } finally {
             VerifiedVisitor::where('verification_id', $registration['verification_id'])->delete();
         }

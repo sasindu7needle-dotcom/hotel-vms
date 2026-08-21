@@ -552,7 +552,7 @@ class VisitorController extends Controller
         }
 
         $validated = $request->validate([
-            'payment_method' => 'required|in:visa_master,cash',
+            'payment_method' => 'required|in:visa_master',
         ]);
 
         $request->session()->put('visitor_registration.payment_method', $validated['payment_method']);
@@ -580,9 +580,7 @@ class VisitorController extends Controller
         }
         $request->session()->put('visitor_registration.record_id', $visitor->id);
 
-        return $validated['payment_method'] === 'cash'
-            ? redirect()->route('visitor.payment.cash')
-            : redirect()->route('visitor.payment.card');
+        return redirect()->route('visitor.payment.card');
     }
 
     /** Display the card gateway hand-off screen. */

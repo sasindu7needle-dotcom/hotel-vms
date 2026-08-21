@@ -196,7 +196,8 @@ class DailyVisitorRegistrationTest extends TestCase
             ->assertSee('Choose a payment method')
             ->assertSee('Visa / Master')
             ->assertDontSee('American Express')
-            ->assertSee('Cash');
+            ->assertDontSee('value="cash"', false)
+            ->assertDontSee('Pay at the entrance counter');
     }
 
     private function event(): EventConfiguration
