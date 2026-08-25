@@ -663,7 +663,7 @@
                     throw new Error(data.error || "Gemini document verification failed.");
                 }
 
-                showToast('Document verified successfully! Redirecting...', 'success');
+                showToast(data.message || 'Document verified successfully! Redirecting...', 'success');
                 setTimeout(() => {
                     window.location.href = data.redirect_url || "{{ route('visitor.photo_capture') }}";
                 }, 800);

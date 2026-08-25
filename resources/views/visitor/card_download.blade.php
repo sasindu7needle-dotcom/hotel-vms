@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="90mm" height="140mm" viewBox="0 0 340 529" role="img" aria-labelledby="card-title card-description">
     <title id="card-title">Entrance card for {{ $visitor->full_name ?: 'Verified Visitor' }}</title>
-    <desc id="card-description">{{ $eventName }} entrance card with visitor reference {{ $qrPayload }}</desc>
+    <desc id="card-description">{{ $eventName }} entrance card with participant reference number {{ $qrPayload }}</desc>
     <defs>
         <clipPath id="card-clip"><rect width="340" height="529" rx="22"/></clipPath>
         <clipPath id="photo-clip"><rect x="113" y="143" width="114" height="128" rx="14"/></clipPath>
@@ -45,7 +45,7 @@
 
         <path d="M0 411H340" stroke="#d8ded0" stroke-dasharray="4 4"/>
         <svg x="126" y="417" width="88" height="88" viewBox="0 0 250 250" aria-label="QR code">{!! $qrCode !!}</svg>
-        <text x="170" y="512" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.5" font-weight="700" letter-spacing="1">VISITOR REFERENCE</text>
+        <text x="170" y="512" fill="#718064" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.5" font-weight="700" letter-spacing="1">PARTICIPANT REFERENCE NUMBER</text>
         <text x="170" y="522" fill="#18202b" text-anchor="middle" font-family="Arial, sans-serif" font-size="6.5" font-weight="700">{{ $qrPayload }}</text>
     </g>
 </svg>

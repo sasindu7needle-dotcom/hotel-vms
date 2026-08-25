@@ -110,6 +110,10 @@ class DirectPayPaymentTest extends TestCase
         $this->get(route('visitor.thank-you'))
             ->assertOk()
             ->assertSee('REGISTRATION COMPLETE')
+            ->assertSee('PARTICIPANT REFERENCE')
+            ->assertSee($visitor->verification_id)
+            ->assertDontSee('PAYMENT REFERENCE')
+            ->assertDontSee($payment->reference)
             ->assertSee('Download Entrance Card')
             ->assertSee('High-quality PNG image');
 

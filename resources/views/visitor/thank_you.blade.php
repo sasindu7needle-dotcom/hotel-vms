@@ -57,7 +57,7 @@
 
                 <div class="badge-qr">
                     <div class="badge-qr-code" role="img" aria-label="QR code for visitor ID {{ $qrPayload }}">{!! $qrCode !!}</div>
-                    <div><span>PAYMENT REFERENCE</span><strong>{{ $paymentReference }}</strong></div>
+                    <div><span>PARTICIPANT REFERENCE</span><strong>{{ $qrPayload }}</strong></div>
                 </div>
             </article>
 

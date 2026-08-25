@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\GeminiDocumentService;
+use App\Services\VisitorRegistrationResumeService;
 use App\Services\VisitorMediaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +19,11 @@ class VisitorCheckinController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function verifyVision(Request $request, GeminiDocumentService $gemini)
+    public function verifyVision(
+        Request $request,
+        GeminiDocumentService $gemini,
+        VisitorRegistrationResumeService $registrationResume,
+    )
     {
         @set_time_limit(120);
 
@@ -212,6 +217,27 @@ class VisitorCheckinController extends Controller
                 'error' => 'Document extraction could not confidently read the '.implode(', ', $missingFields).'. Retake the document photos closer, avoid glare, and keep the card edges visible.',
                 'code' => 'incomplete_identity_fields',
             ], 422);
+        }
+
+        if ($docType === 'nic') {
+            $existingVisitor = $registrationResume->findByNic((string) data_get($parsed, 'document_number'));
+            if ($existingVisitor?->payment_status === 'paid') {
+                return response()->json([
+                    'success' => true,
+                    'resumed_registration' => true,
+                    'paid_registration' => true,
+                    'message' => 'Paid registration found. Opening your entrance card…',
+                    'redirect_url' => $registrationResume->resumePaid($request, $existingVisitor),
+                ]);
+            }
+            if ($existingVisitor) {
+                return response()->json([
+                    'success' => true,
+                    'resumed_registration' => true,
+                    'message' => 'Existing unpaid registration found. Redirecting to payment…',
+                    'redirect_url' => $registrationResume->resumePayment($request, $existingVisitor),
+                ]);
+            }
         }
 
         $verificationId = (string) Str::uuid();

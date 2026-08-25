@@ -55,7 +55,7 @@
                                     {{ $day->event_date->format('l, d F Y') }}
                                 </p>
                                 <div class="event-day-fee-row">
-                                    <span class="event-day-fee-amount">LKR {{ number_format((float) $day->entrance_fee, 2) }}</span>
+                                    <span class="event-day-fee-amount">LKR {{ number_format((float) ($visitorCategory?->entrance_fee ?? $day->entrance_fee), 2) }}</span>
                                     <span class="event-day-fee-unit">per registration</span>
                                 </div>
                             </div>

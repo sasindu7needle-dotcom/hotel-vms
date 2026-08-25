@@ -111,7 +111,7 @@ class EntranceCardImageService
         imagecopy($image, $qrImage, 248, 892, 0, 0, 184, 184);
         imagedestroy($qrImage);
 
-        $this->text($image, 'VISITOR REFERENCE', self::WIDTH / 2, 1110, 13, $label, true, 'center');
+        $this->text($image, 'PARTICIPANT REFERENCE NUMBER', self::WIDTH / 2, 1110, 13, $label, true, 'center');
         $this->fittedText($image, $qrPayload, self::WIDTH / 2, 1134, 13, $ink, true, 600, 'center');
 
         $output = imagecreatetruecolor(self::OUTPUT_WIDTH, self::OUTPUT_HEIGHT);

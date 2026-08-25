@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use App\Services\VisitorMediaService;
+use App\Services\VisitorRegistrationResumeService;
 use App\Services\GeminiDocumentService;
 use App\Services\EntranceCardImageService;
 use F9WebLtd\QrCode\Facades\QrCode;
@@ -44,7 +45,7 @@ class VisitorController extends Controller
     }
 
     /** Display the independently payable registration form for each configured event date. */
-    public function registrationDays()
+    public function registrationDays(Request $request)
     {
         $eventConfiguration = Schema::hasTable('event_configurations')
             ? EventConfiguration::query()
@@ -58,8 +59,9 @@ class VisitorController extends Controller
                 ->whereDate('event_date', '>=', today())
                 ->get()
             : collect();
+        $visitorCategory = $this->selfRegistrationCategory($request);
 
-        return view('visitor.registration_days', compact('eventConfiguration', 'registrationDays'));
+        return view('visitor.registration_days', compact('eventConfiguration', 'registrationDays', 'visitorCategory'));
     }
 
     /** Start a clean, separately paid registration for the selected event day. */
@@ -76,6 +78,8 @@ class VisitorController extends Controller
             ]);
         }
 
+        $visitorCategory = $this->selfRegistrationCategory($request);
+
         $request->session()->forget([
             'verification',
             'didit_verification',
@@ -85,8 +89,15 @@ class VisitorController extends Controller
             'id' => $registrationDay->id,
             'label' => $registrationDay->label,
             'event_date' => $registrationDay->event_date->format('Y-m-d'),
-            'entrance_fee' => $registrationDay->entrance_fee,
+            'entrance_fee' => $visitorCategory?->entrance_fee ?? $registrationDay->entrance_fee,
         ]);
+        if ($visitorCategory) {
+            $request->session()->put('visitor_category', [
+                'id' => $visitorCategory->id,
+                'name' => $visitorCategory->name,
+                'entrance_fee' => $visitorCategory->entrance_fee,
+            ]);
+        }
 
         return redirect()->route('visitor.create');
     }
@@ -155,6 +166,12 @@ class VisitorController extends Controller
                 'error' => 'A valid identity number could not be read from this document. Upload a clearer image and try again.',
             ], 422);
         }
+        if ($validated['document_type'] === 'nic' && $this->nicRegistrationExists($documentNumber)) {
+            return response()->json([
+                'success' => false,
+                'error' => $this->duplicateNicMessage(),
+            ], 409);
+        }
 
         $verificationId = (string) Str::uuid();
         $documentFront = $this->storeManualImage($front, $verificationId.'-document-front');
@@ -222,6 +239,16 @@ class VisitorController extends Controller
         }
 
         $verificationId = data_get($identity, 'verification_id');
+        $documentNumber = $this->normaliseManualDocumentNumber(
+            (string) data_get($identity, 'document_number'),
+            $validated['document_type']
+        );
+        if ($validated['document_type'] === 'nic'
+            && $this->nicRegistrationExists($documentNumber, (string) $verificationId)) {
+            return back()->withInput()->withErrors([
+                'identity' => $this->duplicateNicMessage(),
+            ]);
+        }
         $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
         $paymentSlip = $request->hasFile('payment_slip')
             ? $this->storeManualPaymentSlip($request->file('payment_slip'), $verificationId.'-payment-slip')
@@ -230,36 +257,47 @@ class VisitorController extends Controller
             ? null
             : VisitorCategory::query()->where('is_active', true)->findOrFail($validated['category_id']);
 
-        $visitor = $this->persistVerifiedVisitor([
-            'verification_id' => $verificationId,
-            'document_type' => $validated['document_type'],
-            'document_number' => data_get($identity, 'document_number'),
-            'full_name' => $validated['full_name'],
-            'full_name_latin' => $validated['full_name'],
-            'email' => strtolower(trim($validated['email'])),
-            'address' => $validated['address'],
-            'address_latin' => $validated['address'],
-            'mobile_number' => $this->normaliseSriLankanPhone($validated['mobile_number']),
-            'whatsapp_number' => $this->normaliseSriLankanPhone($validated['whatsapp_number'] ?: $validated['mobile_number']),
-            'occupation' => $validated['occupation'],
-            'company' => $exhibitorProfile?->company_name ?: $validated['company'],
-            'category' => $exhibitorProfile ? 'Exhibitor' : $category->name,
-            'visitor_category_id' => $exhibitorProfile ? null : $category?->id,
-            'exhibitor_profile_id' => $exhibitorProfile?->id,
-            'entrance_fee' => $exhibitorProfile ? 0 : $validated['entrance_fee'],
-            'photo_path' => data_get($identity, 'photo_path'),
-            'photo_mime' => data_get($identity, 'photo_mime'),
-            'back_photo_path' => data_get($identity, 'back_photo_path'),
-            'back_photo_mime' => data_get($identity, 'back_photo_mime'),
-            'selfie_path' => $facePhoto['path'],
-            'selfie_mime' => $facePhoto['mime'],
-            'payment_slip_path' => $paymentSlip['path'] ?? null,
-            'payment_slip_mime' => $paymentSlip['mime'] ?? null,
-            'payment_slip_uploaded_at' => $paymentSlip ? now() : null,
-            'identity_reviewed_at' => now(),
-            'verified_at' => now(),
-            'ocr_provider' => 'manual_registration',
-        ], ['face_verification_status' => 'manual_review']);
+        try {
+            $visitor = $this->persistVerifiedVisitor([
+                'verification_id' => $verificationId,
+                'document_type' => $validated['document_type'],
+                'document_number' => $documentNumber,
+                'full_name' => $validated['full_name'],
+                'full_name_latin' => $validated['full_name'],
+                'email' => strtolower(trim($validated['email'])),
+                'address' => $validated['address'],
+                'address_latin' => $validated['address'],
+                'mobile_number' => $this->normaliseSriLankanPhone($validated['mobile_number']),
+                'whatsapp_number' => $this->normaliseSriLankanPhone($validated['whatsapp_number'] ?: $validated['mobile_number']),
+                'occupation' => $validated['occupation'],
+                'company' => $exhibitorProfile?->company_name ?: $validated['company'],
+                'category' => $exhibitorProfile ? 'Exhibitor' : $category->name,
+                'visitor_category_id' => $exhibitorProfile ? null : $category?->id,
+                'exhibitor_profile_id' => $exhibitorProfile?->id,
+                'entrance_fee' => $exhibitorProfile ? 0 : $validated['entrance_fee'],
+                'photo_path' => data_get($identity, 'photo_path'),
+                'photo_mime' => data_get($identity, 'photo_mime'),
+                'back_photo_path' => data_get($identity, 'back_photo_path'),
+                'back_photo_mime' => data_get($identity, 'back_photo_mime'),
+                'selfie_path' => $facePhoto['path'],
+                'selfie_mime' => $facePhoto['mime'],
+                'payment_slip_path' => $paymentSlip['path'] ?? null,
+                'payment_slip_mime' => $paymentSlip['mime'] ?? null,
+                'payment_slip_uploaded_at' => $paymentSlip ? now() : null,
+                'identity_reviewed_at' => now(),
+                'verified_at' => now(),
+                'ocr_provider' => 'manual_registration',
+            ], ['face_verification_status' => 'manual_review']);
+        } catch (\Throwable $exception) {
+            if ($validated['document_type'] === 'nic'
+                && $this->nicRegistrationExists($documentNumber, (string) $verificationId)) {
+                return back()->withInput()->withErrors([
+                    'identity' => $this->duplicateNicMessage(),
+                ]);
+            }
+
+            throw $exception;
+        }
 
         $request->session()->put('visitor_registration', [
             'record_id' => $visitor->id,
@@ -317,6 +355,15 @@ class VisitorController extends Controller
 
         $type = data_get($verification, 'document_type', $type);
         $category = $request->session()->get('visitor_category', []);
+        $visitorCategory = $this->selfRegistrationCategory($request);
+        if ($visitorCategory) {
+            $category = [
+                'id' => $visitorCategory->id,
+                'name' => $visitorCategory->name,
+                'entrance_fee' => $visitorCategory->entrance_fee,
+            ];
+            $request->session()->put('visitor_category', $category);
+        }
 
         return view('visitor.create', compact('type', 'verification', 'category'));
     }
@@ -371,7 +418,7 @@ class VisitorController extends Controller
     /**
      * Validate the registration details and display the confirmation step.
      */
-    public function confirm(Request $request)
+    public function confirm(Request $request, VisitorRegistrationResumeService $registrationResume)
     {
         if ($redirect = $this->registrationDayRedirect($request)) {
             return $redirect;
@@ -379,6 +426,15 @@ class VisitorController extends Controller
 
         $verification = $request->session()->get('verification', $request->session()->get('didit_verification', []));
         $category = $request->session()->get('visitor_category', []);
+        $visitorCategory = $this->selfRegistrationCategory($request);
+        if ($visitorCategory) {
+            $category = [
+                'id' => $visitorCategory->id,
+                'name' => $visitorCategory->name,
+                'entrance_fee' => $visitorCategory->entrance_fee,
+            ];
+            $request->session()->put('visitor_category', $category);
+        }
         $registrationDaySession = $request->session()->get('event_registration_day', []);
         $registrationDay = filled(data_get($registrationDaySession, 'id'))
             ? EventRegistrationDay::find(data_get($registrationDaySession, 'id'))
@@ -411,11 +467,13 @@ class VisitorController extends Controller
         ]);
 
         $verifiedDocumentType = (string) data_get($verification, 'document_type', $validated['document_type']);
-        $verifiedDocumentNumber = strtoupper((string) preg_replace(
-            '/\s+/',
-            '',
-            (string) data_get($verification, 'document_number')
-        ));
+        $verifiedDocumentNumber = $verifiedDocumentType === 'nic'
+            ? $this->normaliseManualDocumentNumber((string) data_get($verification, 'document_number'), 'nic')
+            : strtoupper((string) preg_replace(
+                '/\s+/',
+                '',
+                (string) data_get($verification, 'document_number')
+            ));
         if ($verifiedDocumentNumber === '' || $verifiedDocumentType !== $validated['document_type']) {
             return redirect()->route('visitor.upload_document', ['type' => $verifiedDocumentType ?: 'nic'])
                 ->withErrors(['verification' => 'Your verified identity no longer matches this registration. Upload the document again.']);
@@ -448,9 +506,20 @@ class VisitorController extends Controller
             ]);
         }
 
+        $verificationId = (string) data_get($verification, 'verification_id', data_get($verification, 'session_id'));
+        if ($verifiedDocumentType === 'nic') {
+            $existingVisitor = $registrationResume->findByNic($verifiedDocumentNumber, $verificationId);
+            if ($existingVisitor?->payment_status === 'paid') {
+                return redirect()->to($registrationResume->resumePaid($request, $existingVisitor));
+            }
+            if ($existingVisitor) {
+                return redirect()->to($registrationResume->resumePayment($request, $existingVisitor));
+            }
+        }
+
         $details = array_merge($validated, [
-            'verification_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
-            'didit_session_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
+            'verification_id' => $verificationId,
+            'didit_session_id' => $verificationId,
             'document_type' => $verifiedDocumentType,
             'full_name' => $validated['full_name'],
             'full_name_latin' => $validated['full_name'],
@@ -483,9 +552,10 @@ class VisitorController extends Controller
             'verified_at' => data_get($verification, 'verified_at'),
             'whatsapp_number' => $whatsappNumber,
             'category' => data_get($category, 'name', 'Participant'),
-            'entrance_fee' => $registrationDay
-                ? $registrationDay->entrance_fee
-                : data_get($category, 'entrance_fee'),
+            'visitor_category_id' => $visitorCategory?->id ?: data_get($category, 'id'),
+            'entrance_fee' => $visitorCategory?->entrance_fee
+                ?? data_get($category, 'entrance_fee')
+                ?? $registrationDay?->entrance_fee,
             'event_registration_day_id' => $registrationDay?->id,
             'registration_day_label' => $registrationDay?->label,
             'registration_date' => $registrationDay?->event_date?->format('Y-m-d'),
@@ -534,6 +604,16 @@ class VisitorController extends Controller
         try {
             $visitor = $this->persistVerifiedVisitor($details, $paymentOverrides);
         } catch (\Throwable $exception) {
+            if ($verifiedDocumentType === 'nic') {
+                $existingVisitor = $registrationResume->findByNic($verifiedDocumentNumber, $verificationId);
+                if ($existingVisitor && $existingVisitor->payment_status !== 'paid') {
+                    return redirect()->to($registrationResume->resumePayment($request, $existingVisitor));
+                }
+                if ($existingVisitor) {
+                    return redirect()->to($registrationResume->resumePaid($request, $existingVisitor));
+                }
+            }
+
             Log::error('Verified visitor could not be saved.', [
                 'verification_id' => data_get($details, 'verification_id'),
                 'document_type' => data_get($details, 'document_type'),
@@ -767,9 +847,7 @@ class VisitorController extends Controller
 
         $eventName = $visitor->eventRegistrationDay?->eventConfiguration?->event_name
             ?: config('vms.event_name');
-        $paymentReference = data_get($details, 'payment_reference')
-            ?: 'VMS-'.now()->format('Ymd').'-'.str_pad((string) $visitor->id, 6, '0', STR_PAD_LEFT);
-        $qrPayload = (string) ($visitor->verification_id ?: $paymentReference ?: Str::uuid());
+        $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
         $qrCode = QrCode::format('svg')
             ->size(220)
             ->margin(1)
@@ -782,7 +860,6 @@ class VisitorController extends Controller
             'details',
             'visitor',
             'eventName',
-            'paymentReference',
             'qrCode',
             'qrPayload',
             'profilePhotoAvailable'
@@ -911,6 +988,11 @@ class VisitorController extends Controller
         if (Schema::hasColumn('verified_visitors', 'didit_session_id')) {
             $values['didit_session_id'] = $verificationId;
         }
+        if (Schema::hasColumn('verified_visitors', 'nic_registration_key')) {
+            $values['nic_registration_key'] = data_get($details, 'document_type') === 'nic'
+                ? $this->normaliseManualDocumentNumber((string) data_get($details, 'document_number'), 'nic')
+                : null;
+        }
 
         return VerifiedVisitor::updateOrCreate(
             ['verification_id' => $verificationId],
@@ -1029,6 +1111,17 @@ class VisitorController extends Controller
         return preg_match('/^[A-Z0-9]{7,12}$/', $number) === 1;
     }
 
+    private function nicRegistrationExists(string $documentNumber, ?string $exceptVerificationId = null): bool
+    {
+        return app(VisitorRegistrationResumeService::class)
+            ->findByNic($documentNumber, $exceptVerificationId) !== null;
+    }
+
+    private function duplicateNicMessage(): string
+    {
+        return 'This NIC number is already registered for this event. Only one registration is allowed per NIC.';
+    }
+
     private function hasCompleteIdentityFields(array $verification): bool
     {
         if (blank(data_get($verification, 'document_number'))
@@ -1073,6 +1166,34 @@ class VisitorController extends Controller
         return redirect()->route('visitor.registration-days')->withErrors([
             'registration_day' => 'Choose an available event day before starting registration.',
         ]);
+    }
+
+    /** Resolve the active category that owns the public participant registration fee. */
+    private function selfRegistrationCategory(Request $request): ?VisitorCategory
+    {
+        if (! Schema::hasTable('visitor_categories')) {
+            return null;
+        }
+
+        $sessionCategory = $request->session()->get('visitor_category', []);
+        $categoryId = data_get($sessionCategory, 'id');
+        if (filled($categoryId)) {
+            $category = VisitorCategory::query()
+                ->whereKey($categoryId)
+                ->where('is_active', true)
+                ->first();
+            if ($category) {
+                return $category;
+            }
+        }
+
+        return VisitorCategory::query()
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['participant'])
+                    ->orWhereRaw('LOWER(code) = ?', ['participant']);
+            })
+            ->first();
     }
 
     private function sameIdentityName(string $left, string $right): bool

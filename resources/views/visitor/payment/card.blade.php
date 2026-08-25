@@ -11,6 +11,7 @@
         .directpay-contact span,.directpay-contact strong { display:block; }
         .directpay-contact strong { margin-top:5px; overflow-wrap:anywhere; color:#17233f; font-size:13px; }
         .directpay-alert { margin:14px 0; padding:12px 14px; color:#991b1b; background:#fff1f1; border:1px solid #fecaca; border-radius:9px; font-size:12px; }
+        .directpay-resume { margin:14px 0; padding:12px 14px; color:#52601f; background:#f4f8df; border:1px solid #dce6b6; border-radius:9px; font-size:12px; }
         .directpay-loading { margin-top:15px; color:#64748b; font-size:12px; }
         #card_container { margin-top:20px; min-height:180px; }
         @media(max-width:520px){.directpay-contact{grid-template-columns:1fr}}
@@ -29,6 +30,10 @@
             @if(data_get($details, 'registration_date'))<p><strong>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}</strong></p>@endif
             <p>DirectPay securely handles your card details and 3DS authentication.</p>
             <div class="payment-amount"><span>Amount due</span><strong>LKR {{ number_format((float) $visitor->entrance_fee, 2) }}</strong></div>
+
+            @if(session('status'))
+                <div class="directpay-resume" role="status">{{ session('status') }}</div>
+            @endif
 
             @if($errors->any())
                 <div class="directpay-alert" role="alert">{{ $errors->first() }}</div>

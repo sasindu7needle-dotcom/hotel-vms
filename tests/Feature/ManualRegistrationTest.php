@@ -62,6 +62,50 @@ class ManualRegistrationTest extends TestCase
             ->assertSessionHasErrors('category_id');
     }
 
+    public function test_manual_registration_rejects_an_nic_already_used_for_the_event(): void
+    {
+        $category = VisitorCategory::create([
+            'name' => 'Staff',
+            'code' => 'staff',
+            'entrance_fee' => 500,
+            'is_active' => true,
+        ]);
+        VerifiedVisitor::create([
+            'verification_id' => '11111111-1111-4111-8111-000000000001',
+            'document_type' => 'nic',
+            'document_number' => '199012345678',
+            'nic_registration_key' => '199012345678',
+            'full_name' => 'Existing NIC Visitor',
+        ]);
+        $verificationId = '11111111-1111-4111-8111-000000000002';
+
+        $this->withSession(['manual_identity_verification' => [
+            'verification_id' => $verificationId,
+            'document_type' => 'nic',
+            'document_number' => '1990 1234-5678',
+            'photo_path' => 'verified-visitors/existing-document.jpg',
+        ]])->from(route('visitor.manual.create'))
+            ->post(route('visitor.manual.store'), [
+                'full_name' => 'Duplicate NIC Visitor',
+                'email' => 'duplicate@example.test',
+                'document_type' => 'nic',
+                'identity_verification_id' => $verificationId,
+                'mobile_number' => '+94771234567',
+                'whatsapp_number' => '',
+                'address' => '12 Galle Road, Colombo',
+                'occupation' => 'Engineer',
+                'company' => 'Example Ltd',
+                'category_id' => $category->id,
+                'entrance_fee' => '500.00',
+                'face_photo' => UploadedFile::fake()->image('face.jpg'),
+            ])->assertRedirect(route('visitor.manual.create'))
+            ->assertSessionHasErrors([
+                'identity' => 'This NIC number is already registered for this event. Only one registration is allowed per NIC.',
+            ]);
+
+        $this->assertDatabaseCount('verified_visitors', 1);
+    }
+
     public function test_walk_in_registration_is_saved_for_admin_and_receipt_manager(): void
     {
         $mediaDisk = (string) config('vms.media_disk', 'visitor-media');

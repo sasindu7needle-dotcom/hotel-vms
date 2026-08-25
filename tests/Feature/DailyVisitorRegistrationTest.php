@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\EventConfiguration;
 use App\Models\EventRegistrationDay;
 use App\Models\VerifiedVisitor;
+use App\Models\VisitorCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -46,7 +47,77 @@ class DailyVisitorRegistrationTest extends TestCase
         );
     }
 
-    public function test_same_person_can_register_and_pay_independently_for_different_days(): void
+    public function test_public_daily_registration_uses_the_participant_category_fee_through_payment(): void
+    {
+        Carbon::setTestNow('2026-08-09 10:00:00');
+        $event = $this->event();
+        $day = $event->registrationDays()->create([
+            'label' => 'Vision 2030',
+            'event_date' => '2026-08-10',
+            'entrance_fee' => 25000,
+            'is_active' => true,
+        ]);
+        $category = VisitorCategory::create([
+            'name' => 'Participant',
+            'code' => 'participant',
+            'entrance_fee' => 7500,
+            'is_active' => true,
+        ]);
+
+        $this->get(route('visitor.registration-days'))
+            ->assertOk()
+            ->assertSee('LKR 7,500.00')
+            ->assertDontSee('LKR 25,000.00');
+
+        $this->post(route('visitor.registration-days.select'), ['registration_day_id' => $day->id])
+            ->assertRedirect(route('visitor.create'))
+            ->assertSessionHas('visitor_category.id', $category->id)
+            ->assertSessionHas('event_registration_day.entrance_fee', '7500.00');
+
+        $verification = [
+            'session_id' => '11111111-2222-4333-8444-999999999999',
+            'verification_id' => '11111111-2222-4333-8444-999999999999',
+            'document_type' => 'passport',
+            'full_name' => 'Category Fee Visitor',
+            'document_number' => 'N1234567',
+            'address' => '12 Galle Road, Colombo',
+            'selfie_path' => 'verified-visitors/category-fee-photo.jpg',
+        ];
+
+        $this->withSession(['verification' => $verification])
+            ->post(route('visitor.confirm'), [
+                'document_type' => 'passport',
+                'full_name' => 'Category Fee Visitor',
+                'document_number' => 'N1234567',
+                'email' => 'category-fee@example.test',
+                'address' => '12 Galle Road, Colombo',
+                'mobile_number' => '771234567',
+                'same_as_mobile' => '1',
+                'occupation' => 'Manager',
+                'company' => 'Example Ltd',
+            ])->assertRedirect(route('visitor.confirm.show'));
+
+        $this->get(route('visitor.confirm.show'))
+            ->assertOk()
+            ->assertSee('LKR 7,500.00')
+            ->assertDontSee('LKR 25,000.00');
+
+        $this->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
+            ->assertRedirect(route('visitor.payment.card'));
+        $this->get(route('visitor.payment.card'))
+            ->assertOk()
+            ->assertSee('LKR 7,500.00')
+            ->assertDontSee('LKR 25,000.00');
+
+        $this->assertDatabaseHas('verified_visitors', [
+            'verification_id' => $verification['verification_id'],
+            'visitor_category_id' => $category->id,
+            'event_registration_day_id' => $day->id,
+            'entrance_fee' => '7500.00',
+        ]);
+    }
+
+    public function test_same_paid_nic_reopens_the_existing_card_instead_of_registering_another_day(): void
     {
         Carbon::setTestNow('2026-08-09 10:00:00');
         $event = $this->event();
@@ -55,70 +126,70 @@ class DailyVisitorRegistrationTest extends TestCase
             $event->registrationDays()->create(['label' => 'Registration for Day 2', 'event_date' => '2026-08-11', 'entrance_fee' => 1250, 'is_active' => true]),
         ]);
 
-        $this->get(route('visitor.start'))->assertRedirect(route('visitor.registration-days'));
-        $this->get(route('visitor.registration-days'))
-            ->assertOk()
-            ->assertSee('Registration for Day 1')
-            ->assertSee('Registration for Day 2');
+        $firstVerification = [
+            'session_id' => '11111111-2222-4333-8444-000000000001',
+            'full_name' => 'Repeat Visitor',
+            'document_number' => '199012345678',
+            'address' => '12 Galle Road, Colombo',
+            'selfie_path' => 'verified-visitors/repeat-photo.jpg',
+        ];
+        $this->post(route('visitor.registration-days.select'), ['registration_day_id' => $days[0]->id]);
+        $this->withSession([
+            'verification' => $firstVerification,
+            'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99],
+        ])->post(route('visitor.confirm'), [
+            'document_type' => 'nic',
+            'name_confirmation' => '1',
+            'full_name' => 'Repeat Visitor',
+            'document_number' => '199012345678',
+            'email' => 'repeat@example.test',
+            'address' => '12 Galle Road, Colombo',
+            'mobile_number' => '771234567',
+            'same_as_mobile' => '1',
+            'occupation' => 'Engineer',
+            'company' => 'Example Ltd',
+        ])->assertRedirect(route('visitor.confirm.show'));
 
-        foreach ($days as $index => $day) {
-            $verificationId = '11111111-2222-4333-8444-'.str_pad((string) ($index + 1), 12, '0', STR_PAD_LEFT);
-            $verification = [
-                'session_id' => $verificationId,
+        $registeredVisitor = VerifiedVisitor::where('document_number', '199012345678')->firstOrFail();
+        $registeredVisitor->update([
+            'payment_status' => 'paid',
+            'registration_status' => 'registered',
+            'paid_at' => now(),
+        ]);
+
+        $this->post(route('visitor.registration-days.select'), ['registration_day_id' => $days[1]->id]);
+        $secondVerification = array_merge($firstVerification, [
+            'session_id' => '11111111-2222-4333-8444-000000000002',
+        ]);
+        $this->withSession([
+            'verification' => $secondVerification,
+            'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99],
+        ])->from(route('visitor.create', ['type' => 'nic']))
+            ->post(route('visitor.confirm'), [
+                'document_type' => 'nic',
+                'name_confirmation' => '1',
                 'full_name' => 'Repeat Visitor',
                 'document_number' => '199012345678',
+                'email' => 'repeat@example.test',
                 'address' => '12 Galle Road, Colombo',
-                'selfie_path' => 'verified-visitors/repeat-photo.jpg',
-            ];
+                'mobile_number' => '771234567',
+                'same_as_mobile' => '1',
+                'occupation' => 'Engineer',
+                'company' => 'Example Ltd',
+            ])->assertRedirect(route('visitor.thank-you'));
 
-            $this->post(route('visitor.registration-days.select'), ['registration_day_id' => $day->id])
-                ->assertRedirect(route('visitor.create'));
-
-            $this->withSession(['verification' => $verification, 'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99]])
-                ->post(route('visitor.confirm'), [
-                    'document_type' => 'nic',
-                    'name_confirmation' => '1',
-                    'full_name' => 'Repeat Visitor',
-                    'document_number' => '199012345678',
-                    'email' => 'repeat@example.test',
-                    'address' => '12 Galle Road, Colombo',
-                    'mobile_number' => '771234567',
-                    'same_as_mobile' => '1',
-                    'occupation' => 'Engineer',
-                    'company' => 'Example Ltd',
-                ])->assertRedirect(route('visitor.confirm.show'));
-
-            $this->get(route('visitor.confirm.show'))
-                ->assertOk()
-                ->assertSee('Choose a payment method');
-
-            $this->post(route('visitor.payment-method'), ['payment_method' => 'visa_master'])
-                ->assertRedirect(route('visitor.payment.card'));
-
-            // Gateway confirmation is covered by DirectPayPaymentTest. This
-            // scenario only verifies that each event day keeps an independent
-            // payable visitor record.
-            VerifiedVisitor::where('event_registration_day_id', $day->id)
-                ->where('document_number', '199012345678')
-                ->update([
-                    'payment_status' => 'paid',
-                    'registration_status' => 'registered',
-                    'paid_at' => now(),
-                ]);
-        }
-
-        $this->assertSame(2, VerifiedVisitor::where('document_number', '199012345678')->count());
+        $this->assertSame($registeredVisitor->id, session('visitor_registration.record_id'));
+        $this->assertSame('paid', session('visitor_registration.payment_status'));
+        $this->assertSame(1, VerifiedVisitor::where('document_number', '199012345678')->count());
         $this->assertDatabaseHas('verified_visitors', [
             'document_number' => '199012345678',
             'event_registration_day_id' => $days[0]->id,
-            'entrance_fee' => '1000.00',
+            'nic_registration_key' => '199012345678',
+            'entrance_fee' => '99.00',
             'payment_status' => 'paid',
         ]);
-        $this->assertDatabaseHas('verified_visitors', [
-            'document_number' => '199012345678',
+        $this->assertDatabaseMissing('verified_visitors', [
             'event_registration_day_id' => $days[1]->id,
-            'entrance_fee' => '1250.00',
-            'payment_status' => 'paid',
         ]);
     }
 

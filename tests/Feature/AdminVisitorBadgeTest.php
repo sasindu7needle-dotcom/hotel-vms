@@ -41,6 +41,7 @@ class AdminVisitorBadgeTest extends TestCase
             ->assertSee('Institute of Hospitality')
             ->assertSee('Event Coordinator')
             ->assertSee('Hospitality Events Ltd')
+            ->assertSee('PARTICIPANT REFERENCE NUMBER')
             ->assertDontSee('EVENT NAME')
             ->assertSee($visitor->verification_id)
             ->assertSee('@media screen and (max-width: 480px)', false)
