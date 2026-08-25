@@ -246,7 +246,7 @@ class DailyVisitorRegistrationTest extends TestCase
         ]);
     }
 
-    public function test_reverified_unpaid_visitor_reuses_the_record_but_chooses_payment_again(): void
+    public function test_reverified_unpaid_driving_license_visitor_resumes_directly_at_payment(): void
     {
         Carbon::setTestNow('2026-08-09 10:00:00');
         $event = $this->event();
@@ -318,25 +318,22 @@ class DailyVisitorRegistrationTest extends TestCase
                 'occupation' => 'Coordinator',
                 'company' => 'Example Ltd',
             ])
-            ->assertRedirect(route('visitor.confirm.show'))
+            ->assertRedirect(route('visitor.payment.card'))
             ->assertSessionHas('visitor_registration.record_id', $existing->id)
             ->assertSessionHas('visitor_registration', fn (array $registration) =>
-                array_key_exists('payment_method', $registration) && $registration['payment_method'] === null
+                data_get($registration, 'payment_method') === 'visa_master'
+                && data_get($registration, 'payment_status') === 'pending'
             );
 
         $this->assertDatabaseCount('verified_visitors', 1);
         $this->assertDatabaseHas('verified_visitors', [
             'id' => $existing->id,
-            'payment_method' => null,
+            'payment_method' => 'visa_master',
             'payment_status' => 'pending',
         ]);
-        $this->get(route('visitor.confirm.show'))
+        $this->get(route('visitor.payment.card'))
             ->assertOk()
-            ->assertSee('Choose a payment method')
-            ->assertSee('Visa / Master / Amex')
-            ->assertSee('AMEX')
-            ->assertDontSee('value="cash"', false)
-            ->assertDontSee('Pay at the entrance counter');
+            ->assertSee('Your existing unpaid registration was found');
     }
 
     private function event(): EventConfiguration

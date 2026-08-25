@@ -169,7 +169,8 @@ class VisitorController extends Controller
                 'error' => 'A valid identity number could not be read from this document. Upload a clearer image and try again.',
             ], 422);
         }
-        if ($validated['document_type'] === 'nic' && $this->nicRegistrationExists($documentNumber)) {
+        if (in_array($validated['document_type'], ['nic', 'driving_license'], true)
+            && $this->nicRegistrationExists($documentNumber)) {
             return response()->json([
                 'success' => false,
                 'error' => $this->duplicateNicMessage(),
@@ -246,7 +247,7 @@ class VisitorController extends Controller
             (string) data_get($identity, 'document_number'),
             $validated['document_type']
         );
-        if ($validated['document_type'] === 'nic'
+        if (in_array($validated['document_type'], ['nic', 'driving_license'], true)
             && $this->nicRegistrationExists($documentNumber, (string) $verificationId)) {
             return back()->withInput()->withErrors([
                 'identity' => $this->duplicateNicMessage(),
@@ -292,7 +293,7 @@ class VisitorController extends Controller
                 'ocr_provider' => 'manual_registration',
             ], ['face_verification_status' => 'manual_review']);
         } catch (\Throwable $exception) {
-            if ($validated['document_type'] === 'nic'
+            if (in_array($validated['document_type'], ['nic', 'driving_license'], true)
                 && $this->nicRegistrationExists($documentNumber, (string) $verificationId)) {
                 return back()->withInput()->withErrors([
                     'identity' => $this->duplicateNicMessage(),
@@ -510,7 +511,7 @@ class VisitorController extends Controller
         }
 
         $verificationId = (string) data_get($verification, 'verification_id', data_get($verification, 'session_id'));
-        if ($verifiedDocumentType === 'nic') {
+        if (in_array($verifiedDocumentType, ['nic', 'driving_license'], true)) {
             $existingVisitor = $registrationResume->findByNic($verifiedDocumentNumber, $verificationId);
             if ($existingVisitor?->payment_status === 'paid') {
                 return redirect()->to($registrationResume->resumePaid($request, $existingVisitor));
@@ -606,7 +607,7 @@ class VisitorController extends Controller
         try {
             $visitor = $this->persistVerifiedVisitor($details, $paymentOverrides);
         } catch (\Throwable $exception) {
-            if ($verifiedDocumentType === 'nic') {
+            if (in_array($verifiedDocumentType, ['nic', 'driving_license'], true)) {
                 $existingVisitor = $registrationResume->findByNic($verifiedDocumentNumber, $verificationId);
                 if ($existingVisitor && $existingVisitor->payment_status !== 'paid') {
                     return redirect()->to($registrationResume->resumePayment($request, $existingVisitor));
@@ -991,7 +992,7 @@ class VisitorController extends Controller
             $values['didit_session_id'] = $verificationId;
         }
         if (Schema::hasColumn('verified_visitors', 'nic_registration_key')) {
-            $values['nic_registration_key'] = data_get($details, 'document_type') === 'nic'
+            $values['nic_registration_key'] = in_array(data_get($details, 'document_type'), ['nic', 'driving_license'], true)
                 ? $this->normaliseManualDocumentNumber((string) data_get($details, 'document_number'), 'nic')
                 : null;
         }

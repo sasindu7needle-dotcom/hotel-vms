@@ -22,7 +22,7 @@ class VisitorRegistrationResumeService
         $normalizedDocumentNumber = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(document_number, ''), ' ', ''), '-', ''), '.', ''), '/', ''))";
         $query = VerifiedVisitor::query()
             ->with(['eventRegistrationDay', 'visitorCategory'])
-            ->whereRaw("LOWER(COALESCE(document_type, '')) = ?", ['nic']);
+            ->whereRaw("LOWER(COALESCE(document_type, '')) IN (?, ?)", ['nic', 'driving_license']);
         if (Schema::hasColumn('verified_visitors', 'nic_registration_key')) {
             $query->where(function ($query) use ($nic, $normalizedDocumentNumber) {
                 $query->where('nic_registration_key', $nic)

@@ -74,6 +74,29 @@ class NicRegistrationResumeTest extends TestCase
         $this->get(route('visitor.payment.card'))->assertOk();
     }
 
+    public function test_uploading_a_driving_license_resumes_the_unpaid_record_by_field_4c_nic(): void
+    {
+        $visitor = $this->visitor([
+            'document_type' => 'driving_license',
+            'document_number' => '993100900V',
+            'nic_registration_key' => null,
+            'payment_status' => 'failed',
+        ]);
+        $this->mockDrivingLicenseReader();
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'driving_license',
+            'document_front_image' => UploadedFile::fake()->image('licence-front.jpg', 600, 400),
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('resumed_registration', true)
+            ->assertJsonPath('redirect_url', route('visitor.payment.card'));
+
+        $this->assertSame($visitor->id, session('visitor_registration.record_id'));
+        $this->assertSame('pending', session('visitor_registration.payment_status'));
+        $this->get(route('visitor.payment.card'))->assertOk();
+    }
+
     public function test_uploading_an_already_paid_nic_opens_the_thank_you_card_page(): void
     {
         $visitor = $this->visitor([
@@ -145,6 +168,34 @@ class NicRegistrationResumeTest extends TestCase
             ->assertSee('Download Entrance Card');
     }
 
+    public function test_uploading_a_driving_license_opens_the_paid_records_card_by_field_4c_nic(): void
+    {
+        $visitor = $this->visitor([
+            'document_type' => 'driving_license',
+            'document_number' => '993100900V',
+            'nic_registration_key' => null,
+            'full_name' => 'Paid Driving Licence Visitor',
+            'payment_method' => 'visa_master',
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'registration_status' => 'registered',
+        ]);
+        $this->mockDrivingLicenseReader();
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'driving_license',
+            'document_front_image' => UploadedFile::fake()->image('licence-front.jpg', 600, 400),
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('paid_registration', true)
+            ->assertJsonPath('redirect_url', route('visitor.thank-you'));
+
+        $this->assertSame($visitor->id, session('visitor_registration.record_id'));
+        $this->get(route('visitor.thank-you'))
+            ->assertOk()
+            ->assertSee('Download Entrance Card');
+    }
+
     private function visitor(array $overrides = []): VerifiedVisitor
     {
         return VerifiedVisitor::create(array_merge([
@@ -171,6 +222,19 @@ class NicRegistrationResumeTest extends TestCase
                 'full_name' => 'Existing Unpaid Visitor',
                 'address' => '12 Galle Road, Colombo',
             ], $overrides));
+        });
+    }
+
+    private function mockDrivingLicenseReader(): void
+    {
+        $this->mock(GeminiDocumentService::class, function ($mock) {
+            $mock->shouldReceive('extract')->once()->andReturn([
+                'document_number' => 'B4378596',
+                'nic_number' => '993100900V',
+                'driving_license_number' => 'B4378596',
+                'full_name' => '',
+                'address' => '',
+            ]);
         });
     }
 }
