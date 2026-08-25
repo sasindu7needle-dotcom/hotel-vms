@@ -20,10 +20,10 @@ class MigrateVisitorMedia extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         VerifiedVisitor::query()
-            ->select(['id', 'photo_path', 'back_photo_path', 'selfie_path'])
+            ->select(['id', 'photo_path', 'back_photo_path', 'selfie_path', 'payment_slip_path'])
             ->orderBy('id')
             ->each(function (VerifiedVisitor $visitor) use ($media, $dryRun, &$copied, &$skipped, &$missing): void {
-                foreach ([$visitor->photo_path, $visitor->back_photo_path, $visitor->selfie_path] as $path) {
+                foreach ([$visitor->photo_path, $visitor->back_photo_path, $visitor->selfie_path, $visitor->payment_slip_path] as $path) {
                     $path = str_replace('\\', '/', trim((string) $path));
                     if ($path === '' || ! str_starts_with($path, 'verified-visitors/') || str_contains($path, '..')) {
                         continue;

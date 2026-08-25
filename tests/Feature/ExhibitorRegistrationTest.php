@@ -180,6 +180,7 @@ class ExhibitorRegistrationTest extends TestCase
         ]])->post(route('visitor.manual.store'), [
             'exhibitor' => $exhibitor->registration_token,
             'full_name' => 'Member One',
+            'email' => 'member.one@gemhouse.test',
             'document_type' => 'nic',
             'identity_verification_id' => $verificationId,
             'mobile_number' => '+94771234567',

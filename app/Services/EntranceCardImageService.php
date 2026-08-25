@@ -13,7 +13,15 @@ class EntranceCardImageService
 {
     private const WIDTH = 680;
 
-    private const HEIGHT = 1058;
+    private const HEIGHT = 1190;
+
+    // 472 / 11,800 m = 4 cm and 826 / 11,800 m = 7 cm.
+    // The pHYs PNG metadata written below preserves that exact print size.
+    private const OUTPUT_WIDTH = 472;
+
+    private const OUTPUT_HEIGHT = 826;
+
+    private const PIXELS_PER_METRE = 11800;
 
     /** Render the downloadable visitor card as a real, portable PNG image. */
     public function render(
@@ -40,7 +48,7 @@ class EntranceCardImageService
         $line = $this->color($image, '#d8ded0');
 
         imagefill($image, 0, 0, $white);
-        imagefilledellipse($image, 670, 1050, 420, 420, $this->color($image, '#f4f8df'));
+        imagefilledellipse($image, 670, 1180, 420, 420, $this->color($image, '#f4f8df'));
         imagefilledrectangle($image, 0, 0, self::WIDTH, 92, $black);
         $this->text($image, 'ENTRANCE ID', 40, 58, 20, $white, true);
 
@@ -91,7 +99,7 @@ class EntranceCardImageService
         );
 
         for ($x = 0; $x < self::WIDTH; $x += 16) {
-            imageline($image, $x, 822, min($x + 8, self::WIDTH), 822, $line);
+            imageline($image, $x, 872, min($x + 8, self::WIDTH), 872, $line);
         }
 
         $qrPng = (new Writer(new GDLibRenderer(184, 2, 'png', 9)))
@@ -100,22 +108,54 @@ class EntranceCardImageService
         if (! $qrImage) {
             throw new RuntimeException('The entrance card QR code could not be created.');
         }
-        imagecopy($image, $qrImage, 248, 830, 0, 0, 184, 184);
+        imagecopy($image, $qrImage, 248, 892, 0, 0, 184, 184);
         imagedestroy($qrImage);
 
-        $this->text($image, 'VISITOR REFERENCE', self::WIDTH / 2, 1028, 13, $label, true, 'center');
-        $this->fittedText($image, $qrPayload, self::WIDTH / 2, 1048, 13, $ink, true, 600, 'center');
+        $this->text($image, 'VISITOR REFERENCE', self::WIDTH / 2, 1110, 13, $label, true, 'center');
+        $this->fittedText($image, $qrPayload, self::WIDTH / 2, 1134, 13, $ink, true, 600, 'center');
+
+        $output = imagecreatetruecolor(self::OUTPUT_WIDTH, self::OUTPUT_HEIGHT);
+        if (! $output) {
+            imagedestroy($image);
+
+            throw new RuntimeException('The entrance card output image could not be created.');
+        }
+        imagealphablending($output, true);
+        imagecopyresampled(
+            $output,
+            $image,
+            0,
+            0,
+            0,
+            0,
+            self::OUTPUT_WIDTH,
+            self::OUTPUT_HEIGHT,
+            self::WIDTH,
+            self::HEIGHT,
+        );
+        imagedestroy($image);
 
         ob_start();
-        imagepng($image, null, 8);
+        imagepng($output, null, 8);
         $png = ob_get_clean();
-        imagedestroy($image);
+        imagedestroy($output);
 
         if (! is_string($png) || $png === '') {
             throw new RuntimeException('The entrance card PNG could not be encoded.');
         }
 
-        return $png;
+        return $this->withPhysicalDimensions($png);
+    }
+
+    /** Add a PNG pHYs chunk so print software reads the card as exactly 4 cm x 7 cm. */
+    private function withPhysicalDimensions(string $png): string
+    {
+        $data = pack('NNC', self::PIXELS_PER_METRE, self::PIXELS_PER_METRE, 1);
+        $typeAndData = 'pHYs'.$data;
+        $chunk = pack('N', strlen($data)).$typeAndData.pack('N', crc32($typeAndData));
+
+        // PNG signature (8 bytes) + IHDR chunk (25 bytes).
+        return substr($png, 0, 33).$chunk.substr($png, 33);
     }
 
     private function color(GdImage $image, string $hex): int

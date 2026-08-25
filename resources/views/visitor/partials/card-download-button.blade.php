@@ -4,7 +4,7 @@
     </span>
     <span class="entrance-card-download-copy">
         <strong>Download Entrance Card</strong>
-        <small>High-quality PNG image</small>
+        <small>High-quality PNG image · 4 cm × 7 cm</small>
     </span>
     <span class="entrance-card-download-type" aria-hidden="true">PNG</span>
 </a>

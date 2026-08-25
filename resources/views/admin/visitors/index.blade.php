@@ -200,7 +200,7 @@
                                 <tr>
                                     <td class="admin-record-index">{{ ($visitors->firstItem() ?: 1) + $loop->index }}</td>
                                     <td><div class="admin-visitor-cell">
-                                        @if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif
+                                        @if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif
                                         <div><strong>{{ $visitor->full_name ?: 'Unnamed visitor' }}</strong><small>{{ strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Document')) }} · {{ $visitor->document_number ?: '—' }}</small></div>
                                     </div></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
@@ -224,13 +224,14 @@
                     <dialog id="visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-preview-dialog">
                         <div class="admin-dialog-heading"><div><span>VISITOR PROFILE</span><h2>{{ $visitor->full_name ?: 'Visitor details' }}</h2></div><a class="admin-header-print-button" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a><button type="button" data-close aria-label="Close">×</button></div>
                         <div class="admin-dialog-profile">
-                            <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Captured photo of {{ $visitor->full_name }}">@elseif($visitor->photo_path)<img src="{{ route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Document photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Visitor photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->selfie_path ? 'PHOTO CAPTURED' : 'NO PHOTO' }}</i></div>
+                            <div class="admin-dialog-photo">@if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Captured photo of {{ $visitor->full_name }}">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="Visitor photo of {{ $visitor->full_name }}">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif<i>{{ $visitor->selfie_path ? 'PHOTO CAPTURED' : 'NO PHOTO' }}</i></div>
                             <div class="admin-dialog-grid">
                                 @foreach([
                                     'Sinhala / Preferred Name' => $visitor->full_name,
                                     'Latin Name' => $visitor->full_name_latin,
                                     'Document Type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: '')),
                                     'NIC / Passport' => $visitor->document_number,
+                                    'Email Address' => $visitor->email,
                                     'Mobile Number' => $visitor->mobile_number,
                                     'WhatsApp Number' => $visitor->whatsapp_number,
                                     'Occupation' => $visitor->occupation,
@@ -255,6 +256,19 @@
                                         @if($visitor->back_photo_path)<a href="{{ route('admin.visitors.back_photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" target="_blank" rel="noopener"><img src="{{ route('admin.visitors.back_photo', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Back of document"><small>Back</small></a>@endif
                                     </div>
                                 </div>
+                                @if($visitor->payment_slip_path)
+                                    <div class="admin-dialog-wide admin-document-sides">
+                                        <span>Payment slip</span>
+                                        <div>
+                                            <a href="{{ route('admin.visitors.payment_slip', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" target="_blank" rel="noopener">
+                                                @if(str_starts_with((string) $visitor->payment_slip_mime, 'image/'))
+                                                    <img src="{{ route('admin.visitors.payment_slip', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="Payment slip for {{ $visitor->full_name }}">
+                                                @endif
+                                                <small>{{ $visitor->payment_slip_mime === 'application/pdf' ? 'Open payment slip PDF' : 'View payment slip' }}</small>
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="admin-activity-section">
                                     <span>Activity</span>
                                     <div class="table-responsive">
@@ -309,7 +323,7 @@
                         <div class="admin-dialog-heading"><div><span>PERMANENT DELETION</span><h2>Delete visitor?</h2></div><button type="button" data-close aria-label="Close">×</button></div>
                         <div class="admin-delete-content">
                             <p>You are about to permanently delete <strong>{{ $visitor->full_name ?: 'this visitor' }}</strong>. This action cannot be undone.</p>
-                            <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Captured visitor photo</li>@endif</ul>
+                            <ul class="admin-delete-list"><li>Visitor registration and contact data</li><li>NIC or passport front image</li>@if($visitor->back_photo_path)<li>Document back image</li>@endif @if($visitor->selfie_path)<li>Captured visitor photo</li>@endif @if($visitor->payment_slip_path)<li>Uploaded payment slip</li>@endif</ul>
                         </div>
                         <form method="POST" action="{{ route('admin.visitors.destroy', $visitor) }}" class="admin-delete-modal-form">@csrf @method('DELETE')<div class="admin-delete-actions-bar"><button type="button" class="btn-keep-visitor" data-close>Keep visitor</button><button type="submit" class="btn-delete-permanently">Delete permanently</button></div></form>
                     </dialog>

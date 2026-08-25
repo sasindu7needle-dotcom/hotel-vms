@@ -110,6 +110,7 @@ class AdminVisitorController extends Controller
             $visitor->photo_path,
             $visitor->back_photo_path,
             $visitor->selfie_path,
+            $visitor->payment_slip_path,
         ])
         ->filter()
         ->map(fn ($path) => str_replace('\\', '/', trim($path)));
@@ -162,7 +163,7 @@ class AdminVisitorController extends Controller
             return redirect()
                 ->route('admin.visitors.index')
                 ->withErrors([
-                    'delete' => 'The visitor was not deleted because one or more identity photos could not be removed. Please retry or check storage permissions.',
+                    'delete' => 'The visitor was not deleted because one or more private media files could not be removed. Please retry or check storage permissions.',
                 ]);
         }
 
@@ -177,7 +178,7 @@ class AdminVisitorController extends Controller
         $visitor->gateLogs()->delete();
         $visitor->delete();
 
-        return redirect()->route('admin.visitors.index')->with('status', 'Visitor record and all associated identity & document photos deleted successfully.');
+        return redirect()->route('admin.visitors.index')->with('status', 'Visitor record and all associated private media deleted successfully.');
     }
 
     public function photo(VerifiedVisitor $visitor)
@@ -218,6 +219,17 @@ class AdminVisitorController extends Controller
         abort_unless($visitor->back_photo_path && app(VisitorMediaService::class)->exists($visitor->back_photo_path), 404);
 
         return $this->currentPrivateImage($visitor->back_photo_path, $visitor->back_photo_mime);
+    }
+
+    public function paymentSlip(VerifiedVisitor $visitor)
+    {
+        abort_unless(
+            $visitor->payment_slip_path
+                && app(VisitorMediaService::class)->exists($visitor->payment_slip_path),
+            404
+        );
+
+        return $this->currentPrivateImage($visitor->payment_slip_path, $visitor->payment_slip_mime);
     }
 
     private function currentPrivateImage(string $path, ?string $mime)

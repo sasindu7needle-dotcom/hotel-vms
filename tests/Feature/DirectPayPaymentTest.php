@@ -33,9 +33,15 @@ class DirectPayPaymentTest extends TestCase
         $visitor = $this->visitor(['entrance_fee' => 5000]);
 
         $this->withSession(['visitor_registration' => $this->registration($visitor)])
+            ->get(route('visitor.payment.card'))
+            ->assertOk()
+            ->assertSee('visitor@example.test')
+            ->assertSee('+94771234567');
+
+        $this->withSession(['visitor_registration' => $this->registration($visitor)])
             ->post(route('visitor.payment.directpay.start', $visitor), [
-                'email' => 'visitor@example.test',
-                'mobile' => '+94771234567',
+                'email' => 'ignored@example.test',
+                'mobile' => '+441234567890',
                 'amount' => '1.00',
             ])
             ->assertRedirect();
@@ -54,7 +60,8 @@ class DirectPayPaymentTest extends TestCase
         $this->assertSame('ONE_TIME', $payload['type']);
         $this->assertSame($payment->reference, $payload['order_id']);
         $this->assertSame('LKR', $payload['currency']);
-        $this->assertSame('0771234567', $payload['phone']);
+        $this->assertSame('visitor@example.test', $payload['email']);
+        $this->assertSame('+94771234567', $payload['phone']);
         $this->assertSame(route('directpay.confirmation'), $payload['response_url']);
         $this->assertSame(hash_hmac('sha256', $configuration['dataString'], self::SECRET), $configuration['signature']);
 
@@ -190,6 +197,7 @@ class DirectPayPaymentTest extends TestCase
         return VerifiedVisitor::create(array_merge([
             'verification_id' => fake()->uuid(),
             'full_name' => 'Payment Visitor',
+            'email' => 'visitor@example.test',
             'mobile_number' => '+94771234567',
             'entrance_fee' => 5000,
             'payment_method' => 'visa_master',

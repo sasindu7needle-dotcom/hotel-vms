@@ -18,6 +18,7 @@ class VerifiedVisitor extends Model
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
         'identity_reviewed_at' => 'datetime',
+        'payment_slip_uploaded_at' => 'datetime',
         'is_blocked' => 'boolean',
     ];
 

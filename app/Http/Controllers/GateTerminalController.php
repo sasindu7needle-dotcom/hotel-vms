@@ -83,20 +83,18 @@ class GateTerminalController extends Controller
 
     public function photo(VerifiedVisitor $visitor): Response
     {
-        $path = $visitor->selfie_path ?: $visitor->photo_path;
+        $path = $visitor->selfie_path;
         $media = app(VisitorMediaService::class);
         abort_unless($path && $media->exists($path), 404);
 
-        $mime = $visitor->selfie_path ? $visitor->selfie_mime : $visitor->photo_mime;
-
-        return $media->response($path, $mime, [
+        return $media->response($path, $visitor->selfie_mime, [
             'Cache-Control' => 'private, max-age=300',
         ]);
     }
 
     private function visitorCard(VerifiedVisitor $visitor): array
     {
-        $hasPrivatePhoto = (bool) ($visitor->selfie_path ?: $visitor->photo_path);
+        $hasPrivatePhoto = (bool) $visitor->selfie_path;
 
         return [
             'name' => $visitor->full_name ?: 'Unnamed visitor',

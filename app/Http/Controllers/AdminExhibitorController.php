@@ -70,7 +70,7 @@ class AdminExhibitorController extends Controller
         $exhibitor = ExhibitorProfile::findOrFail($exhibitorId);
         abort_unless((int) $member->exhibitor_profile_id === $exhibitor->id, 404);
 
-        $paths = collect([$member->photo_path, $member->back_photo_path, $member->selfie_path])
+        $paths = collect([$member->photo_path, $member->back_photo_path, $member->selfie_path, $member->payment_slip_path])
             ->filter()
             ->map(fn ($path) => str_replace('\\', '/', trim($path)));
 
@@ -122,7 +122,7 @@ class AdminExhibitorController extends Controller
         if ($failedDeletes->isNotEmpty()) {
             return redirect()
                 ->route('admin.exhibitors.directory', $directoryParameters)
-                ->withErrors(['delete' => 'The member was not deleted because one or more identity photos could not be removed. Please retry or check storage permissions.']);
+                ->withErrors(['delete' => 'The member was not deleted because one or more private media files could not be removed. Please retry or check storage permissions.']);
         }
 
         $member->gateLogs()->delete();

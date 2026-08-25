@@ -35,6 +35,7 @@
 
             @if($canAccess('Visitors'))
                 <a href="{{ route('admin.visitors.index') }}" class="admin-nav-link @if(request()->routeIs('admin.visitors*')) active @endif"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path></svg><span>Visitors</span></a>
+                <a href="{{ route('visitor.manual.create') }}" class="admin-nav-link"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path><rect x="3" y="3" width="18" height="18" rx="4"></rect></svg><span>Manual Registration</span></a>
                 <div class="admin-nav-group @if(request()->routeIs('admin.exhibitors*')) active @else collapsed @endif">
                     <button type="button" class="admin-nav-group-title" aria-expanded="{{ request()->routeIs('admin.exhibitors*') ? 'true' : 'false' }}">
                         <svg class="admin-nav-group-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"></rect><path d="M3 10h18M8 5V3M16 5V3"></path></svg>

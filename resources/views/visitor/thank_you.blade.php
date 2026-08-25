@@ -37,10 +37,8 @@
                 </header>
 
                 <div class="badge-photo">
-                    @if(data_get($details, 'selfie_path') || data_get($details, 'photo_path'))
-                        <img src="{{ route('visitor.session_photo', ['type' => 'selfie']) }}" alt="Photo of {{ data_get($details, 'full_name', 'visitor') }}" onerror="this.onerror=null; this.src='{{ route('visitor.session_photo', ['type' => 'photo']) }}';">
-                    @elseif(data_get($details, 'photo_url'))
-                        <img src="{{ $details['photo_url'] }}" alt="Photo of {{ data_get($details, 'full_name', 'visitor') }}">
+                    @if($profilePhotoAvailable)
+                        <img src="{{ route('visitor.session_photo', ['type' => 'selfie', 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}" alt="Uploaded face photo of {{ $visitor->full_name ?: 'visitor' }}">
                     @else
                         <div class="badge-photo-placeholder" aria-label="Visitor photo unavailable">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>

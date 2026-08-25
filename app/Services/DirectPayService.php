@@ -53,7 +53,7 @@ class DirectPayService
             'first_name' => $firstName,
             'last_name' => $lastName,
             'email' => (string) $payment->visitor->email,
-            'phone' => $this->localPhone((string) $payment->visitor->mobile_number),
+            'phone' => (string) $payment->visitor->mobile_number,
             'logo' => secure_asset('img/logo.png'),
         ];
 
@@ -136,13 +136,4 @@ class DirectPayService
         return [$parts[0] ?? '', $parts[1] ?? ''];
     }
 
-    private function localPhone(string $phone): string
-    {
-        $digits = (string) preg_replace('/\D+/', '', $phone);
-        if (str_starts_with($digits, '94')) {
-            return '0'.substr($digits, 2);
-        }
-
-        return str_starts_with($digits, '0') ? $digits : '0'.$digits;
-    }
 }

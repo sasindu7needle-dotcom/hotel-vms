@@ -33,11 +33,9 @@
             <div class="confirmation-profile">
                 <div class="visitor-photo-frame">
                     @if(data_get($details, 'selfie_path'))
-                        <img src="{{ route('visitor.session_photo', ['type' => 'selfie']) }}" alt="Live camera visitor photo" onerror="this.onerror=null; this.src='{{ route('visitor.session_photo', ['type' => 'photo']) }}';">
+                        <img src="{{ route('visitor.session_photo', ['type' => 'selfie', 'v' => data_get($details, 'verification_id')]) }}" alt="Live camera visitor photo">
                     @elseif(data_get($details, 'photo_url'))
-                        <img src="{{ $details['photo_url'] }}" alt="Verified visitor photo" onerror="this.onerror=null; this.src='{{ route('visitor.session_photo', ['type' => 'photo']) }}';">
-                    @elseif(data_get($details, 'photo_path'))
-                        <img src="{{ route('visitor.session_photo', ['type' => 'photo']) }}" alt="Verified visitor photo">
+                        <img src="{{ $details['photo_url'] }}" alt="Verified visitor photo">
                     @else
                         <div class="visitor-photo-placeholder" aria-label="Visitor photo unavailable">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
@@ -49,6 +47,7 @@
                 <div class="confirmation-details-grid">
                     @foreach([
                         'full_name' => 'Full Name',
+                        'email' => 'Email Address',
                         'mobile_number' => 'Mobile Number',
                         'whatsapp_number' => 'WhatsApp Number',
                         'address' => 'Address',
@@ -61,7 +60,7 @@
                             <span>{{ $label }}</span>
                             <strong>
                                 @if(in_array($key, ['mobile_number', 'whatsapp_number']))
-                                    +94 {{ $details[$key] }}
+                                    {{ $details[$key] }}
                                 @elseif($key === 'entrance_fee')
                                     {{ $details[$key] !== null ? 'LKR '.number_format((float) $details[$key], 2) : 'Not assigned' }}
                                 @else
@@ -83,8 +82,8 @@
                         <label class="payment-option">
                             <input type="radio" name="payment_method" value="visa_master" checked required>
                             <span class="payment-option-indicator"></span>
-                            <span class="payment-option-copy"><strong>Visa / Master</strong><small>Credit or debit card</small></span>
-                            <span class="card-marks"><b>VISA</b><b>MC</b></span>
+                            <span class="payment-option-copy"><strong>Visa / Master / Amex</strong><small>Credit or debit card</small></span>
+                            <span class="card-marks"><b>VISA</b><b>MC</b><b>AMEX</b></span>
                         </label>
                     </div>
                     @error('payment_method')<span class="form-error-msg">{{ $message }}</span>@enderror

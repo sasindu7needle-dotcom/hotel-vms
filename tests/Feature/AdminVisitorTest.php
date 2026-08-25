@@ -149,7 +149,7 @@ class AdminVisitorTest extends TestCase
     {
         Storage::fake('local');
         Storage::fake('public');
-        foreach (['front.jpg', 'back.jpg', 'live.jpg'] as $file) {
+        foreach (['front.jpg', 'back.jpg', 'live.jpg', 'payment-slip.png'] as $file) {
             Storage::disk('local')->put('verified-visitors/'.$file, $file);
         }
 
@@ -159,6 +159,8 @@ class AdminVisitorTest extends TestCase
             'photo_path' => 'verified-visitors/front.jpg',
             'back_photo_path' => 'verified-visitors/back.jpg',
             'selfie_path' => 'verified-visitors/live.jpg',
+            'payment_slip_path' => 'verified-visitors/payment-slip.png',
+            'payment_slip_mime' => 'image/png',
             'payment_status' => 'paid',
             'face_verification_status' => 'verified',
             'is_blocked' => false,
@@ -179,6 +181,7 @@ class AdminVisitorTest extends TestCase
             'verified-visitors/front.jpg',
             'verified-visitors/back.jpg',
             'verified-visitors/live.jpg',
+            'verified-visitors/payment-slip.png',
             $relatedOrphan,
         ]);
         Storage::disk('public')->assertMissing($legacyRelated);

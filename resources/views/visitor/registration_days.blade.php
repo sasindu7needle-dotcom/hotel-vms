@@ -23,7 +23,7 @@
     <section class="registration-card event-day-card" aria-labelledby="event-day-title">
         <div class="registration-heading event-day-heading">
             <span class="tagline no-margin">DAILY REGISTRATION</span>
-            <h1 id="event-day-title" class="headline">Choose your event day<span class="dot">.</span></h1>
+            {{-- <h1 id="event-day-title" class="headline">Choose your event day<span class="dot">.</span></h1> --}}
             <p>Each day requires a separate registration and payment. Your QR pass will work only on the selected date.</p>
             @if($eventConfiguration)
                 <div class="event-day-location-badge">

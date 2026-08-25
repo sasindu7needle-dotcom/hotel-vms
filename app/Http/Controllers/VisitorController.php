@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use App\Services\VisitorMediaService;
 use App\Services\GeminiDocumentService;
 use App\Services\EntranceCardImageService;
@@ -192,6 +193,7 @@ class VisitorController extends Controller
 
         $validated = $request->validate([
             'full_name' => ['required', 'string', 'max:180'],
+            'email' => ['required', 'email:rfc', 'max:100'],
             'document_type' => ['required', 'in:nic,driving_license,passport'],
             'identity_verification_id' => ['required', 'uuid'],
             'mobile_number' => ['required', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
@@ -199,8 +201,12 @@ class VisitorController extends Controller
             'address' => ['required', 'string', 'max:500'],
             'occupation' => ['required', 'string', 'max:100'],
             'company' => ['required', 'string', 'max:150'],
-            'category_id' => ['nullable', 'exists:visitor_categories,id'],
+            'category_id' => [
+                $exhibitorProfile ? 'nullable' : 'required',
+                Rule::exists('visitor_categories', 'id')->where('is_active', true),
+            ],
             'entrance_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'],
+            'payment_slip' => ['nullable', 'file', 'mimes:jpeg,jpg,png,webp,pdf', 'max:10240'],
             'face_photo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
         ]);
 
@@ -217,7 +223,12 @@ class VisitorController extends Controller
 
         $verificationId = data_get($identity, 'verification_id');
         $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
-        $category = ! empty($validated['category_id']) ? VisitorCategory::find($validated['category_id']) : null;
+        $paymentSlip = $request->hasFile('payment_slip')
+            ? $this->storeManualPaymentSlip($request->file('payment_slip'), $verificationId.'-payment-slip')
+            : null;
+        $category = $exhibitorProfile
+            ? null
+            : VisitorCategory::query()->where('is_active', true)->findOrFail($validated['category_id']);
 
         $visitor = $this->persistVerifiedVisitor([
             'verification_id' => $verificationId,
@@ -225,13 +236,14 @@ class VisitorController extends Controller
             'document_number' => data_get($identity, 'document_number'),
             'full_name' => $validated['full_name'],
             'full_name_latin' => $validated['full_name'],
+            'email' => strtolower(trim($validated['email'])),
             'address' => $validated['address'],
             'address_latin' => $validated['address'],
             'mobile_number' => $this->normaliseSriLankanPhone($validated['mobile_number']),
             'whatsapp_number' => $this->normaliseSriLankanPhone($validated['whatsapp_number'] ?: $validated['mobile_number']),
             'occupation' => $validated['occupation'],
             'company' => $exhibitorProfile?->company_name ?: $validated['company'],
-            'category' => $exhibitorProfile ? 'Exhibitor' : ($category?->name ?: 'Manual registration'),
+            'category' => $exhibitorProfile ? 'Exhibitor' : $category->name,
             'visitor_category_id' => $exhibitorProfile ? null : $category?->id,
             'exhibitor_profile_id' => $exhibitorProfile?->id,
             'entrance_fee' => $exhibitorProfile ? 0 : $validated['entrance_fee'],
@@ -241,6 +253,9 @@ class VisitorController extends Controller
             'back_photo_mime' => data_get($identity, 'back_photo_mime'),
             'selfie_path' => $facePhoto['path'],
             'selfie_mime' => $facePhoto['mime'],
+            'payment_slip_path' => $paymentSlip['path'] ?? null,
+            'payment_slip_mime' => $paymentSlip['mime'] ?? null,
+            'payment_slip_uploaded_at' => $paymentSlip ? now() : null,
             'identity_reviewed_at' => now(),
             'verified_at' => now(),
             'ocr_provider' => 'manual_registration',
@@ -250,11 +265,14 @@ class VisitorController extends Controller
             'record_id' => $visitor->id,
             'verification_id' => $visitor->verification_id,
             'full_name' => $visitor->full_name,
+            'email' => $visitor->email,
             'category' => $visitor->category,
             'photo_path' => $visitor->photo_path,
             'photo_mime' => $visitor->photo_mime,
             'selfie_path' => $visitor->selfie_path,
             'selfie_mime' => $visitor->selfie_mime,
+            'payment_slip_path' => $visitor->payment_slip_path,
+            'payment_slip_mime' => $visitor->payment_slip_mime,
             'manual_registration' => true,
             'exhibitor_profile_token' => $exhibitorProfile?->registration_token,
         ]);
@@ -376,18 +394,55 @@ class VisitorController extends Controller
             'document_type' => 'required|in:nic,driving_license,passport',
             'full_name' => 'required|string|max:180',
             'document_number' => 'required|string|max:30',
+            'email' => ['required', 'email:rfc', 'max:100'],
             'address' => 'required|string|max:500',
-            'mobile_number' => ['required', 'regex:/^[0-9]{9}$/'],
+            'mobile_country_code' => ['nullable', 'regex:/^\+?[1-9]\d{0,2}$/'],
+            'mobile_number' => ['required', 'regex:/^\d{4,14}$/'],
             'same_as_mobile' => 'nullable|boolean',
-            'whatsapp_number' => ['required_unless:same_as_mobile,1', 'nullable', 'regex:/^[0-9]{9}$/'],
+            'whatsapp_country_code' => ['nullable', 'regex:/^\+?[1-9]\d{0,2}$/'],
+            'whatsapp_number' => ['required_unless:same_as_mobile,1', 'nullable', 'regex:/^\d{4,14}$/'],
             'occupation' => 'required|string|max:100',
             'company' => 'required|string|max:150',
         ], [
-            'mobile_number.regex' => 'Enter a 9-digit number after +94.',
-            'whatsapp_number.regex' => 'Enter a 9-digit number after +94.',
+            'mobile_country_code.regex' => 'Enter a valid country code, for example +94.',
+            'mobile_number.regex' => 'Enter the mobile number using digits only.',
+            'whatsapp_country_code.regex' => 'Enter a valid country code, for example +94.',
+            'whatsapp_number.regex' => 'Enter the WhatsApp number using digits only.',
         ]);
 
-        if ($validated['document_type'] === 'nic' && ! $request->boolean('name_confirmation')) {
+        $verifiedDocumentType = (string) data_get($verification, 'document_type', $validated['document_type']);
+        $verifiedDocumentNumber = strtoupper((string) preg_replace(
+            '/\s+/',
+            '',
+            (string) data_get($verification, 'document_number')
+        ));
+        if ($verifiedDocumentNumber === '' || $verifiedDocumentType !== $validated['document_type']) {
+            return redirect()->route('visitor.upload_document', ['type' => $verifiedDocumentType ?: 'nic'])
+                ->withErrors(['verification' => 'Your verified identity no longer matches this registration. Upload the document again.']);
+        }
+
+        $mobileNumber = $this->normaliseInternationalPhone(
+            (string) ($validated['mobile_country_code'] ?? '+94'),
+            $validated['mobile_number']
+        );
+        $whatsappNumber = $request->boolean('same_as_mobile')
+            ? $mobileNumber
+            : $this->normaliseInternationalPhone(
+                (string) ($validated['whatsapp_country_code'] ?? $validated['mobile_country_code'] ?? '+94'),
+                (string) $validated['whatsapp_number']
+            );
+        $phoneErrors = [];
+        if (! $this->isValidInternationalPhone($mobileNumber)) {
+            $phoneErrors['mobile_number'] = 'Enter a valid international mobile number (maximum 15 digits including the country code).';
+        }
+        if (! $this->isValidInternationalPhone($whatsappNumber)) {
+            $phoneErrors['whatsapp_number'] = 'Enter a valid international WhatsApp number (maximum 15 digits including the country code).';
+        }
+        if ($phoneErrors !== []) {
+            return back()->withInput()->withErrors($phoneErrors);
+        }
+
+        if ($verifiedDocumentType === 'nic' && ! $request->boolean('name_confirmation')) {
             return back()->withInput()->withErrors([
                 'name_confirmation' => 'Confirm that the English spelling of your name is correct.',
             ]);
@@ -396,6 +451,7 @@ class VisitorController extends Controller
         $details = array_merge($validated, [
             'verification_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
             'didit_session_id' => data_get($verification, 'verification_id', data_get($verification, 'session_id')),
+            'document_type' => $verifiedDocumentType,
             'full_name' => $validated['full_name'],
             'full_name_latin' => $validated['full_name'],
             'sinhala_name' => data_get($verification, 'sinhala_name'),
@@ -405,14 +461,17 @@ class VisitorController extends Controller
             'sinhala_transliteration' => data_get($verification, 'sinhala_transliteration'),
             'tamil_transliteration' => data_get($verification, 'tamil_transliteration'),
             'english_name_alternatives' => data_get($verification, 'english_name_alternatives', []),
-            'name_review_status' => $validated['document_type'] === 'nic'
+            'name_review_status' => $verifiedDocumentType === 'nic'
                 ? ($this->sameIdentityName($validated['full_name'], (string) data_get($verification, 'suggested_english_name')) ? 'confirmed' : 'corrected')
                 : 'not_required',
-            'document_number' => strtoupper(preg_replace('/\s+/', '', $validated['document_number'])),
+            // Identity numbers always come from the server-side OCR session.
+            // A readonly browser field is only a presentation safeguard.
+            'document_number' => $verifiedDocumentNumber,
+            'email' => strtolower(trim($validated['email'])),
             'address' => $validated['address'],
             'address_latin' => $validated['address'],
-            'photo_url' => data_get($verification, 'photo_url')
-                ?: route('visitor.session_photo', ['type' => data_get($verification, 'selfie_path') ? 'selfie' : 'photo']),
+            'mobile_number' => $mobileNumber,
+            'photo_url' => data_get($verification, 'photo_url'),
             'photo_path' => data_get($verification, 'photo_path'),
             'photo_mime' => data_get($verification, 'photo_mime'),
             'back_photo_path' => data_get($verification, 'back_photo_path'),
@@ -422,10 +481,8 @@ class VisitorController extends Controller
             'ocr_provider' => data_get($verification, 'provider'),
             'identity_reviewed_at' => now()->toIso8601String(),
             'verified_at' => data_get($verification, 'verified_at'),
-            'whatsapp_number' => $request->boolean('same_as_mobile')
-                ? $validated['mobile_number']
-                : $validated['whatsapp_number'],
-            'category' => data_get($category, 'name', 'Not assigned'),
+            'whatsapp_number' => $whatsappNumber,
+            'category' => data_get($category, 'name', 'Participant'),
             'entrance_fee' => $registrationDay
                 ? $registrationDay->entrance_fee
                 : data_get($category, 'entrance_fee'),
@@ -520,16 +577,21 @@ class VisitorController extends Controller
         $verification = $request->session()->get('verification', []);
         $registration = $request->session()->get('visitor_registration', []);
 
-        $pathKey = in_array($type, ['selfie', 'photo', 'back_photo']) ? $type.'_path' : 'selfie_path';
-        $mimeKey = in_array($type, ['selfie', 'photo', 'back_photo']) ? $type.'_mime' : 'selfie_mime';
+        $mediaType = in_array($type, ['selfie', 'photo', 'back_photo'], true) ? $type : 'selfie';
+        $pathKey = $mediaType.'_path';
+        $mimeKey = $mediaType.'_mime';
+        $visitor = filled(data_get($registration, 'record_id'))
+            ? VerifiedVisitor::find(data_get($registration, 'record_id'))
+            : null;
 
-        $path = data_get($registration, $pathKey, data_get($verification, $pathKey));
-        $mime = data_get($registration, $mimeKey, data_get($verification, $mimeKey, 'image/jpeg'));
-
-        // Fallback if selfie path is empty
-        if (blank($path) && $type === 'selfie') {
-            $path = data_get($registration, 'photo_path', data_get($verification, 'photo_path'));
-            $mime = data_get($registration, 'photo_mime', data_get($verification, 'photo_mime', 'image/jpeg'));
+        // Once registration is persisted, the visitor record is canonical.
+        // Never substitute an identity-document image for a missing selfie.
+        if ($visitor) {
+            $path = $visitor->{$pathKey};
+            $mime = $visitor->{$mimeKey} ?: 'image/jpeg';
+        } else {
+            $path = data_get($registration, $pathKey, data_get($verification, $pathKey));
+            $mime = data_get($registration, $mimeKey, data_get($verification, $mimeKey, 'image/jpeg'));
         }
 
         $media = app(VisitorMediaService::class);
@@ -538,7 +600,9 @@ class VisitorController extends Controller
         }
 
         return $media->response($path, $mime, [
-            'Cache-Control' => 'no-cache, private',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, private, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 
@@ -711,6 +775,8 @@ class VisitorController extends Controller
             ->margin(1)
             ->errorCorrection('H')
             ->generate($qrPayload);
+        $profilePhotoAvailable = filled($visitor->selfie_path)
+            && app(VisitorMediaService::class)->exists($visitor->selfie_path);
 
         return view('visitor.thank_you', compact(
             'details',
@@ -718,7 +784,8 @@ class VisitorController extends Controller
             'eventName',
             'paymentReference',
             'qrCode',
-            'qrPayload'
+            'qrPayload',
+            'profilePhotoAvailable'
         ));
     }
 
@@ -813,10 +880,11 @@ class VisitorController extends Controller
             'document_number' => data_get($details, 'document_number'),
             'full_name' => data_get($details, 'full_name'),
             'full_name_latin' => data_get($details, 'full_name_latin'),
+            'email' => data_get($details, 'email'),
             'address' => data_get($details, 'address'),
             'address_latin' => data_get($details, 'address_latin'),
-            'mobile_number' => '+94'.data_get($details, 'mobile_number'),
-            'whatsapp_number' => '+94'.data_get($details, 'whatsapp_number'),
+            'mobile_number' => $this->normalisePhoneForStorage(data_get($details, 'mobile_number')),
+            'whatsapp_number' => $this->normalisePhoneForStorage(data_get($details, 'whatsapp_number')),
             'occupation' => data_get($details, 'occupation'),
             'company' => data_get($details, 'company'),
             'photo_url' => data_get($details, 'photo_url'),
@@ -826,6 +894,9 @@ class VisitorController extends Controller
             'back_photo_mime' => data_get($details, 'back_photo_mime'),
             'selfie_path' => data_get($details, 'selfie_path'),
             'selfie_mime' => data_get($details, 'selfie_mime'),
+            'payment_slip_path' => data_get($details, 'payment_slip_path'),
+            'payment_slip_mime' => data_get($details, 'payment_slip_mime'),
+            'payment_slip_uploaded_at' => data_get($details, 'payment_slip_uploaded_at'),
             'ocr_provider' => data_get($details, 'ocr_provider'),
             'identity_reviewed_at' => data_get($details, 'identity_reviewed_at', now()),
             'category' => data_get($details, 'category'),
@@ -855,6 +926,28 @@ class VisitorController extends Controller
         return ['path' => $path, 'mime' => $file->getMimeType() ?: 'image/jpeg'];
     }
 
+    private function storeManualPaymentSlip($file, string $filename): array
+    {
+        $mime = $file->getMimeType() ?: 'application/octet-stream';
+        $extension = match ($mime) {
+            'application/pdf' => 'pdf',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
+        $path = app(VisitorMediaService::class)->storeAs(
+            $file,
+            'verified-visitors',
+            $filename.'.'.$extension
+        );
+
+        if (! is_string($path) || $path === '') {
+            throw new \RuntimeException('The payment slip could not be stored.');
+        }
+
+        return ['path' => $path, 'mime' => $mime];
+    }
+
     private function normaliseSriLankanPhone(string $number): string
     {
         $digits = preg_replace('/\D+/', '', $number);
@@ -866,6 +959,42 @@ class VisitorController extends Controller
         }
 
         return substr($digits, 2);
+    }
+
+    private function normaliseInternationalPhone(string $countryCode, string $nationalNumber): string
+    {
+        $countryDigits = (string) preg_replace('/\D+/', '', $countryCode);
+        $nationalDigits = (string) preg_replace('/\D+/', '', $nationalNumber);
+        $nationalDigits = ltrim($nationalDigits, '0');
+
+        return '+'.$countryDigits.$nationalDigits;
+    }
+
+    private function normalisePhoneForStorage(mixed $number): ?string
+    {
+        if (blank($number)) {
+            return null;
+        }
+
+        $value = trim((string) $number);
+        $digits = (string) preg_replace('/\D+/', '', $value);
+        if (str_starts_with($value, '+')) {
+            return '+'.$digits;
+        }
+        if (str_starts_with($digits, '94') && strlen($digits) >= 11) {
+            return '+'.$digits;
+        }
+        if (str_starts_with($digits, '0')) {
+            return '+94'.substr($digits, 1);
+        }
+
+        // Legacy registration sessions stored only the nine Sri Lankan digits.
+        return '+94'.$digits;
+    }
+
+    private function isValidInternationalPhone(string $number): bool
+    {
+        return preg_match('/^\+[1-9]\d{7,14}$/', $number) === 1;
     }
 
     private function normaliseManualDocumentNumber(string $number, string $documentType): string

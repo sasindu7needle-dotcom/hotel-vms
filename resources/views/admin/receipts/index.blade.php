@@ -69,7 +69,7 @@
             $mediaVersion = $visitor->updated_at?->format('Uu') ?: $visitor->id;
             $photoUrl = $visitor->selfie_path
                 ? route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion])
-                : ($visitor->photo_path ? route('admin.visitors.photo', ['visitor' => $visitor, 'v' => $mediaVersion]) : $visitor->photo_url);
+                : $visitor->photo_url;
         @endphp
         <section class="admin-panel receipt-result-panel">
             <div class="configuration-panel-heading">
@@ -91,12 +91,16 @@
                 </div>
 
                 <dl class="receipt-details">
+                    <div class="receipt-detail-wide"><dt>Email address</dt><dd>{{ $visitor->email ?: 'Not provided' }}</dd></div>
                     <div><dt>Mobile number</dt><dd>{{ $visitor->mobile_number ?: 'Not provided' }}</dd></div>
                     <div><dt>WhatsApp number</dt><dd>{{ $visitor->whatsapp_number ?: 'Not provided' }}</dd></div>
                     <div class="receipt-detail-wide"><dt>Address</dt><dd>{{ $visitor->address ?: 'Not provided' }}</dd></div>
                     <div><dt>Occupation</dt><dd>{{ $visitor->occupation ?: 'Not provided' }}</dd></div>
                     <div><dt>Company</dt><dd>{{ $visitor->company ?: 'Not provided' }}</dd></div>
                     <div class="receipt-detail-wide"><dt>Visitor category</dt><dd>{{ $visitor->category ?: 'Not assigned' }}</dd></div>
+                    @if($visitor->payment_slip_path)
+                        <div class="receipt-detail-wide"><dt>Payment slip</dt><dd><a class="receipt-slip-link" href="{{ route('admin.visitors.payment_slip', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" target="_blank" rel="noopener">View uploaded payment slip</a></dd></div>
+                    @endif
                     @if($visitor->eventRegistrationDay)<div class="receipt-detail-wide"><dt>Paid event date</dt><dd>{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d F Y') }}</dd></div>@endif
                 </dl>
 
@@ -141,6 +145,7 @@ body.landing-page .receipt-result-panel{margin-top:20px}.receipt-profile-grid{di
 body.landing-page .receipt-photo{display:grid;place-items:center;overflow:hidden;width:170px;height:205px;background:#f1f7d5;border:1px solid #d8e59d;border-radius:12px;color:#536b00;font-size:46px;font-weight:800}
 body.landing-page .receipt-photo img{width:100%;height:100%;object-fit:cover}
 body.landing-page .receipt-details{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;align-content:start;margin:0}.receipt-details div{padding:0 0 12px;border-bottom:1px solid #edf0f2}.receipt-details .receipt-detail-wide{grid-column:1/-1}.receipt-details dt{margin-bottom:5px;color:#7b8795;font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase}.receipt-details dd{margin:0;color:#253043;font-size:12px;font-weight:600;line-height:1.45}
+.receipt-details .receipt-slip-link{display:inline-flex;padding:7px 10px;color:#53620b;background:#f7faeb;border:1px solid #dce8aa;border-radius:7px;font-size:10px;font-weight:800;text-decoration:none}
 body.landing-page .receipt-payment-form{display:grid;gap:14px;align-content:start;padding:19px;background:#fafbf8;border:1px solid #e1e7da;border-radius:12px}.receipt-payment-title{padding-bottom:13px;border-bottom:1px solid #e1e7da}.receipt-payment-title span,.receipt-payment-title strong{display:block}.receipt-payment-title span{color:#80920f;font-size:9px;font-weight:800;letter-spacing:.8px}.receipt-payment-title strong{margin-top:5px;color:#172033;font-size:14px}.receipt-payment-form label>span{display:block;margin-bottom:7px}.receipt-payment-form input,.receipt-payment-form select{width:100%;height:42px;padding:0 11px;box-sizing:border-box;color:#172033;background:#fff;border:1px solid #d8e0e7;border-radius:8px;font:600 12px Inter,sans-serif;outline:0}.receipt-payment-form input:focus,.receipt-payment-form select:focus{border-color:#a8bd38;box-shadow:0 0 0 3px rgba(200,224,99,.23)}.receipt-payment-form .btn{height:43px;margin-top:3px}.receipt-payment-form small{color:#7c8997;font-size:10px;line-height:1.45}.receipt-error{margin-bottom:20px;padding:14px 18px;background:#fff1f1;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:12px;font-weight:600}
 @media(max-width:900px){body.landing-page .receipt-profile-grid{grid-template-columns:150px minmax(0,1fr)}body.landing-page .receipt-photo{width:150px;height:180px}body.landing-page .receipt-payment-form{grid-column:1/-1;grid-template-columns:1fr 1fr}.receipt-payment-title{grid-column:1/-1}.receipt-payment-form .btn,.receipt-payment-form small{grid-column:1/-1}}
 @media(max-width:650px){body.landing-page .receipt-search-form{grid-template-columns:1fr;padding:20px 18px}body.landing-page .receipt-search-form .btn{width:100%}body.landing-page .receipt-profile-grid{grid-template-columns:1fr;padding:20px 18px}body.landing-page .receipt-photo{width:100%;height:210px}body.landing-page .receipt-details{grid-template-columns:1fr}.receipt-details .receipt-detail-wide{grid-column:auto}body.landing-page .receipt-payment-form{grid-column:auto;grid-template-columns:1fr}.receipt-match-list{grid-template-columns:1fr}}

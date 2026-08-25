@@ -52,12 +52,20 @@ class DirectPayPaymentController extends Controller
     {
         $this->authorizeSessionVisitor($request, $visitor);
 
-        $validated = $request->validate([
-            'email' => ['required', 'email:rfc', 'max:100'],
-            'mobile' => ['required', 'regex:/^(?:\+94|94|0)?7\d{8}$/'],
-        ], [
-            'mobile.regex' => 'Enter a DirectPay-supported Sri Lankan mobile number, for example +94771234567.',
-        ]);
+        if ($visitor->payment_status === 'paid') {
+            $this->syncPaidSession($request, $visitor);
+
+            return redirect()->route('visitor.thank-you');
+        }
+
+        if (! filter_var($visitor->email, FILTER_VALIDATE_EMAIL)) {
+            return redirect()->route('visitor.create', ['type' => $visitor->document_type])
+                ->withErrors(['email' => 'Add a valid email address before continuing to payment.']);
+        }
+        if (! $this->hasValidDirectPayMobile($visitor->mobile_number)) {
+            return redirect()->route('visitor.create', ['type' => $visitor->document_type])
+                ->withErrors(['mobile_number' => 'Add a valid international mobile number before continuing to payment.']);
+        }
 
         if (! $this->directPay->isConfigured()) {
             return back()->withErrors([
@@ -65,7 +73,7 @@ class DirectPayPaymentController extends Controller
             ]);
         }
 
-        $result = DB::transaction(function () use ($visitor, $validated) {
+        $result = DB::transaction(function () use ($visitor) {
             $lockedVisitor = VerifiedVisitor::whereKey($visitor->id)->lockForUpdate()->firstOrFail();
             if ($lockedVisitor->payment_status === 'paid') {
                 return ['paid' => true];
@@ -81,8 +89,6 @@ class DirectPayPaymentController extends Controller
                 ->first();
 
             $lockedVisitor->update([
-                'email' => $validated['email'],
-                'mobile_number' => $this->normalizeMobile($validated['mobile']),
                 'payment_status' => 'pending',
                 'registration_status' => 'payment_pending',
             ]);
@@ -130,7 +136,7 @@ class DirectPayPaymentController extends Controller
 
         if (! $this->hasValidDirectPayMobile($payment->visitor->mobile_number)) {
             return redirect()->route('visitor.payment.card')->withErrors([
-                'mobile' => 'DirectPay rejected the saved mobile number. Enter a supported number and try again.',
+                'mobile' => 'DirectPay rejected the saved mobile number. Return to your details and enter a valid international number.',
             ]);
         }
 
@@ -313,20 +319,8 @@ class DirectPayPaymentController extends Controller
         );
     }
 
-    private function normalizeMobile(string $mobile): string
-    {
-        $digits = (string) preg_replace('/\D+/', '', $mobile);
-        if (str_starts_with($digits, '94')) {
-            $digits = substr($digits, 2);
-        } elseif (str_starts_with($digits, '0')) {
-            $digits = substr($digits, 1);
-        }
-
-        return '+94'.$digits;
-    }
-
     private function hasValidDirectPayMobile(?string $mobile): bool
     {
-        return preg_match('/^\+947\d{8}$/', (string) $mobile) === 1;
+        return preg_match('/^\+[1-9]\d{7,14}$/', (string) $mobile) === 1;
     }
 }

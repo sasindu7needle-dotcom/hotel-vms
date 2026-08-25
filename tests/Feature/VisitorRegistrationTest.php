@@ -36,6 +36,7 @@ class VisitorRegistrationTest extends TestCase
             ->assertOk()
             ->assertSee('Nimal Perera')
             ->assertSee('199012345678')
+            ->assertSee('readonly aria-readonly="true"', false)
             ->assertSee('12 Galle Road, Colombo')
             ->assertSee('LKR 1,500.00')
             ->assertSee('Same as Mobile')
@@ -80,12 +81,14 @@ class VisitorRegistrationTest extends TestCase
             'visitor_category' => $this->category,
         ])->post(route('visitor.confirm'), [
             'document_type' => 'passport',
-            'mobile_number' => '771234567',
+            'email' => 'nimal@example.test',
+            'mobile_country_code' => '+44',
+            'mobile_number' => '7700900123',
             'same_as_mobile' => '1',
             'occupation' => 'Engineer',
             'company' => 'Acme',
             'full_name' => 'Tampered Name',
-            'document_number' => '199012345678',
+            'document_number' => 'TAMPERED999',
             'address' => '12 Galle Road, Colombo',
             'entrance_fee' => '0',
         ])->assertRedirect(route('visitor.confirm.show'));
@@ -94,7 +97,8 @@ class VisitorRegistrationTest extends TestCase
             ->assertOk()
             ->assertSee('Tampered Name')
             ->assertSee('LKR 1,500.00')
-            ->assertSee('+94 771234567')
+            ->assertSee('nimal@example.test')
+            ->assertSee('+447700900123')
             ->assertSee(route('visitor.session_photo', ['type' => 'selfie']))
             ->assertSee('Choose a payment method');
 
@@ -103,6 +107,8 @@ class VisitorRegistrationTest extends TestCase
             'document_type' => 'passport',
             'document_number' => '199012345678',
             'full_name' => 'Tampered Name',
+            'email' => 'nimal@example.test',
+            'mobile_number' => '+447700900123',
             'address' => '12 Galle Road, Colombo',
         ]);
     }
@@ -112,6 +118,34 @@ class VisitorRegistrationTest extends TestCase
         $this->get(route('visitor.confirm.show'))
             ->assertRedirect(route('visitor.create'))
             ->assertSessionHasErrors('registration');
+    }
+
+    public function test_self_registration_defaults_to_participant_category(): void
+    {
+        $this->withSession([
+            'verification' => $this->verification,
+        ])->post(route('visitor.confirm'), [
+            'document_type' => 'passport',
+            'full_name' => 'Nimal Perera',
+            'document_number' => '199012345678',
+            'email' => 'nimal@example.test',
+            'address' => '12 Galle Road, Colombo',
+            'mobile_country_code' => '+94',
+            'mobile_number' => '771234567',
+            'same_as_mobile' => '1',
+            'occupation' => 'Engineer',
+            'company' => 'Acme',
+        ])->assertRedirect(route('visitor.confirm.show'))
+            ->assertSessionHas('visitor_registration.category', 'Participant');
+
+        $this->get(route('visitor.confirm.show'))
+            ->assertOk()
+            ->assertSeeInOrder(['Category', 'Participant']);
+
+        $this->assertDatabaseHas('verified_visitors', [
+            'verification_id' => $this->verification['session_id'],
+            'category' => 'Participant',
+        ]);
     }
 
     public function test_only_card_method_is_available_in_the_visitor_flow(): void
@@ -141,7 +175,7 @@ class VisitorRegistrationTest extends TestCase
         }
     }
 
-    public function test_phone_numbers_must_contain_nine_digits_after_country_prefix(): void
+    public function test_phone_numbers_must_be_valid_for_the_selected_country_code(): void
     {
         $this->withSession([
             'verification' => $this->verification,
@@ -152,8 +186,11 @@ class VisitorRegistrationTest extends TestCase
                 'document_type' => 'nic',
                 'full_name' => 'Nimal Perera',
                 'document_number' => '199012345678',
+                'email' => 'nimal@example.test',
                 'address' => '12 Galle Road, Colombo',
+                'mobile_country_code' => '+94',
                 'mobile_number' => '123',
+                'whatsapp_country_code' => '+94',
                 'whatsapp_number' => '456',
                 'occupation' => 'Engineer',
                 'company' => 'Acme',
@@ -172,8 +209,11 @@ class VisitorRegistrationTest extends TestCase
                 'document_type' => 'nic',
                 'full_name' => 'Nimal Perera',
                 'document_number' => '199012345678',
+                'email' => 'nimal@example.test',
                 'address' => '12 Galle Road, Colombo',
+                'mobile_country_code' => '+94',
                 'mobile_number' => '771234567',
+                'whatsapp_country_code' => '+94',
                 'whatsapp_number' => '771234567',
                 'occupation' => 'Engineer',
                 'company' => 'Acme',
@@ -260,7 +300,11 @@ class VisitorRegistrationTest extends TestCase
         $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $download->getContent());
         $dimensions = getimagesizefromstring($download->getContent());
         $this->assertIsArray($dimensions, 'The downloaded card must be a valid PNG image.');
-        $this->assertSame([680, 1058], array_slice($dimensions, 0, 2));
+        $this->assertSame([472, 826], array_slice($dimensions, 0, 2));
+        $physicalChunk = strpos($download->getContent(), 'pHYs');
+        $this->assertNotFalse($physicalChunk, 'The PNG must declare its physical print dimensions.');
+        $physical = unpack('Nx/Ny/Cunit', substr($download->getContent(), $physicalChunk + 4, 9));
+        $this->assertSame(['x' => 11800, 'y' => 11800, 'unit' => 1], $physical);
     }
 
     public function test_card_download_requires_the_active_registration_session(): void

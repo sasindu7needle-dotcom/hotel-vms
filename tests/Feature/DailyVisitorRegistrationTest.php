@@ -80,6 +80,7 @@ class DailyVisitorRegistrationTest extends TestCase
                     'name_confirmation' => '1',
                     'full_name' => 'Repeat Visitor',
                     'document_number' => '199012345678',
+                    'email' => 'repeat@example.test',
                     'address' => '12 Galle Road, Colombo',
                     'mobile_number' => '771234567',
                     'same_as_mobile' => '1',
@@ -173,6 +174,7 @@ class DailyVisitorRegistrationTest extends TestCase
                 'document_type' => 'driving_license',
                 'full_name' => 'Existing Visitor',
                 'document_number' => '993100900V',
+                'email' => 'existing@example.test',
                 'address' => '07 Main Road, Puttalam',
                 'mobile_number' => '716175003',
                 'same_as_mobile' => '1',
@@ -194,8 +196,8 @@ class DailyVisitorRegistrationTest extends TestCase
         $this->get(route('visitor.confirm.show'))
             ->assertOk()
             ->assertSee('Choose a payment method')
-            ->assertSee('Visa / Master')
-            ->assertDontSee('American Express')
+            ->assertSee('Visa / Master / Amex')
+            ->assertSee('AMEX')
             ->assertDontSee('value="cash"', false)
             ->assertDontSee('Pay at the entrance counter');
     }

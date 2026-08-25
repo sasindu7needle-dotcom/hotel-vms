@@ -153,6 +153,27 @@ class AdminUserAuthenticationTest extends TestCase
             ->assertDontSee('Event Configurations');
     }
 
+    public function test_manual_registration_remains_in_shared_admin_sidebars(): void
+    {
+        $user = User::factory()->create([
+            'username' => 'multi_page_officer',
+            'status' => 'active',
+            'permissions' => ['Visitors', 'Users & Access', 'Revenue Summary'],
+        ]);
+        $session = [
+            'admin_authenticated' => true,
+            'admin_user_id' => $user->id,
+        ];
+
+        foreach ([route('admin.configurations.users.index'), route('admin.revenue.summary')] as $url) {
+            $this->withSession($session)
+                ->get($url)
+                ->assertOk()
+                ->assertSee('Manual Registration')
+                ->assertSee(route('visitor.manual.create'));
+        }
+    }
+
     public function test_superadmin_can_delete_the_final_system_user_account(): void
     {
         $user = User::factory()->create();

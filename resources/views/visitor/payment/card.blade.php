@@ -6,11 +6,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <style>
-        .directpay-email { display:grid; gap:8px; margin:20px 0; text-align:left; }
-        .directpay-email input { box-sizing:border-box; width:100%; min-height:48px; padding:11px 13px; border:1px solid #d8e0e7; border-radius:9px; font:600 13px Inter,sans-serif; }
+        .directpay-contact { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:20px 0; text-align:left; }
+        .directpay-contact div { min-width:0; padding:12px 13px; border:1px solid #d8e0e7; border-radius:9px; background:#f8fafc; }
+        .directpay-contact span,.directpay-contact strong { display:block; }
+        .directpay-contact strong { margin-top:5px; overflow-wrap:anywhere; color:#17233f; font-size:13px; }
         .directpay-alert { margin:14px 0; padding:12px 14px; color:#991b1b; background:#fff1f1; border:1px solid #fecaca; border-radius:9px; font-size:12px; }
         .directpay-loading { margin-top:15px; color:#64748b; font-size:12px; }
         #card_container { margin-top:20px; min-height:180px; }
+        @media(max-width:520px){.directpay-contact{grid-template-columns:1fr}}
     </style>
 </head>
 <body class="landing-page visitor-registration-page">
@@ -38,14 +41,10 @@
             @else
                 <form action="{{ route('visitor.payment.directpay.start', $visitor) }}" method="POST" id="directpay-start-form">
                     @csrf
-                    <label class="directpay-email" for="payment-email">
-                        <span class="form-label-premium">Email address</span>
-                        <input id="payment-email" name="email" type="email" maxlength="100" value="{{ old('email', $visitor->email) }}" autocomplete="email" required>
-                    </label>
-                    <label class="directpay-email" for="payment-mobile">
-                        <span class="form-label-premium">Mobile number</span>
-                        <input id="payment-mobile" name="mobile" type="tel" maxlength="12" value="{{ old('mobile', $visitor->mobile_number) }}" placeholder="+94771234567" autocomplete="tel" required>
-                    </label>
+                    <div class="directpay-contact" aria-label="Contact details sent to DirectPay">
+                        <div><span class="form-label-premium">Email address</span><strong>{{ $visitor->email }}</strong></div>
+                        <div><span class="form-label-premium">Mobile number</span><strong>{{ $visitor->mobile_number }}</strong></div>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-large registration-next" id="directpay-start-button" @disabled(! $directPayConfigured)>Pay securely</button>
                 </form>
                 @unless($directPayConfigured)

@@ -12345,6 +12345,17 @@ body.landing-page .phone-control input {
     font-size: 14px;
 }
 
+body.landing-page .phone-control .country-code-input {
+    width: 72px;
+    flex: 0 0 72px;
+    padding-right: 8px;
+    color: #334155;
+    background: #f1f5f9;
+    border-right: 1px solid #e2e8f0;
+    font-weight: 700;
+    text-align: center;
+}
+
 body.landing-page .field-label-row {
     min-height: 22px;
     display: flex;
@@ -15792,6 +15803,8 @@ body.cash-payment-page .cash-payment-card form .registration-next {
 
     body.thank-you-page .thank-you-heading {
         margin-bottom: 18px;
+        width: 100%;
+        text-align: center;
     }
 
     body.thank-you-page .success-check {
@@ -15803,6 +15816,7 @@ body.cash-payment-page .cash-payment-card form .registration-next {
     body.thank-you-page .thank-you-heading .headline {
         font-size: clamp(28px, 9vw, 36px) !important;
         letter-spacing: -1px;
+        text-align: center;
     }
 
     body.thank-you-page .entrance-badge {
@@ -17899,4 +17913,251 @@ body.landing-page.visitor-registration-page .btn-select-day .arrow-icon {
     body.landing-page.visitor-registration-page .event-day-item-footer {
         padding: 0 14px 14px;
     }
+}
+
+/* Manual registration flow */
+body.manual-registration-flow .registration-card {
+    width: min(100%, 1040px);
+    max-width: 1040px;
+}
+
+body.manual-registration-flow .registration-form {
+    display: grid;
+    gap: 22px;
+}
+
+body.manual-registration-flow .manual-flow-errors {
+    margin: 0 0 20px;
+    padding: 13px 16px;
+    color: #9f1d2c;
+    background: #fff5f5;
+    border: 1px solid #fecdd3;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+body.manual-registration-flow .manual-flow-stage {
+    min-width: 0;
+    margin: 0;
+    padding: 24px;
+    background: rgba(255, 255, 255, .86);
+    border: 1px solid var(--theme-border, #e2e8f0);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(20, 33, 61, .05);
+}
+
+body.manual-registration-flow .manual-flow-stage legend {
+    display: grid;
+    grid-template-columns: 34px max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0 0 22px;
+    padding: 0 0 16px;
+    color: var(--theme-primary, #14213d);
+    border-bottom: 1px solid var(--theme-border, #e2e8f0);
+}
+
+body.manual-registration-flow .manual-flow-stage legend > span {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    color: #fff;
+    background: var(--theme-primary, #14213d);
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+body.manual-registration-flow .manual-flow-stage legend > strong {
+    font-size: 19px;
+    line-height: 1.25;
+}
+
+body.manual-registration-flow .manual-flow-stage legend > small {
+    min-width: 0;
+    color: var(--theme-muted, #64748b);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: right;
+}
+
+body.manual-registration-flow .manual-flow-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 14px;
+}
+
+body.manual-registration-flow .manual-flow-upload {
+    position: relative;
+    display: flex;
+    min-height: 116px;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: hidden;
+    color: var(--theme-primary, #14213d);
+    text-align: center;
+    background: #f8fafc;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+body.manual-registration-flow .manual-flow-upload:hover,
+body.manual-registration-flow .manual-flow-upload:focus-within {
+    background: #fffbeb;
+    border-color: var(--theme-accent, #d4a017);
+    box-shadow: 0 8px 20px rgba(20, 33, 61, .08);
+    transform: translateY(-1px);
+}
+
+body.manual-registration-flow .manual-flow-upload:has(input:disabled) {
+    opacity: .58;
+    cursor: not-allowed;
+    transform: none;
+}
+
+body.manual-registration-flow .manual-flow-upload input[type="file"] {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+body.manual-registration-flow .manual-flow-upload input[type="file"]:disabled {
+    cursor: not-allowed;
+}
+
+body.manual-registration-flow .manual-flow-upload strong,
+body.manual-registration-flow .manual-flow-upload small {
+    display: block;
+    pointer-events: none;
+}
+
+body.manual-registration-flow .manual-flow-upload strong {
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+body.manual-registration-flow .manual-flow-upload small {
+    margin-top: 6px;
+    color: var(--theme-muted, #64748b);
+    font-size: 12px;
+}
+
+body.manual-registration-flow .manual-flow-upload[hidden],
+body.manual-registration-flow #manual-back-field[hidden] {
+    display: none !important;
+}
+
+body.manual-registration-flow .manual-flow-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+body.manual-registration-flow .manual-flow-actions .field-microcopy {
+    margin: 0;
+}
+
+body.manual-registration-flow .manual-flow-actions .registration-next {
+    width: auto;
+    min-width: min(100%, 260px);
+    margin-top: 0;
+}
+
+body.manual-registration-flow .manual-flow-cancel {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 22px;
+    color: var(--theme-primary, #14213d) !important;
+    background: #fff;
+    border: 1px solid var(--theme-border, #e2e8f0);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: border-color .2s ease, background-color .2s ease;
+}
+
+body.manual-registration-flow .manual-flow-cancel:hover {
+    background: #f8fafc;
+    border-color: var(--theme-primary, #14213d);
+}
+
+body.manual-registration-flow button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+@media (max-width: 760px) {
+    body.manual-registration-flow .registration-form {
+        gap: 18px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage {
+        padding: 20px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage legend {
+        grid-template-columns: 34px minmax(0, 1fr);
+        row-gap: 4px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage legend > small {
+        grid-column: 2;
+        text-align: left;
+    }
+
+    body.manual-registration-flow .manual-flow-upload-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    body.manual-registration-flow .manual-flow-stage {
+        padding: 17px 14px;
+        border-radius: 11px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage legend {
+        grid-template-columns: 30px minmax(0, 1fr);
+        margin-bottom: 18px;
+        padding-bottom: 13px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage legend > span {
+        width: 30px;
+        height: 30px;
+        font-size: 13px;
+    }
+
+    body.manual-registration-flow .manual-flow-stage legend > strong {
+        font-size: 17px;
+    }
+
+    body.manual-registration-flow .manual-flow-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    body.manual-registration-flow .manual-flow-actions .btn,
+body.manual-registration-flow .manual-flow-actions .registration-next,
+body.manual-registration-flow .manual-flow-cancel {
+    width: 100%;
+  }
 }

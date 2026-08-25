@@ -125,6 +125,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/visitors/{visitor}/badge', [AdminVisitorController::class, 'badge'])->name('visitors.badge');
         Route::get('/visitors/{visitor}/back-photo', [AdminVisitorController::class, 'backPhoto'])->name('visitors.back_photo');
         Route::get('/visitors/{visitor}/selfie', [AdminVisitorController::class, 'selfie'])->name('visitors.selfie');
+        Route::get('/visitors/{visitor}/payment-slip', [AdminVisitorController::class, 'paymentSlip'])->name('visitors.payment_slip');
     });
 
     // Logout must remain reachable even when an old or mixed session fails

@@ -58,7 +58,8 @@
                         <label for="document_number" class="form-label-premium">
                             {{ $type === 'passport' ? 'Passport Number' : 'NIC Number' }}
                         </label>
-                        <input id="document_number" name="document_number" class="form-control-premium @error('document_number') is-invalid @enderror" value="{{ old('document_number', data_get($verification, 'document_number')) }}" required>
+                        <input id="document_number" name="document_number" class="form-control-premium form-control-readonly @error('document_number') is-invalid @enderror" value="{{ data_get($verification, 'document_number') }}" readonly aria-readonly="true" required>
+                        <span class="field-microcopy">This number was read from your verified document and cannot be changed.</span>
                         @if($type === 'driving_license' && data_get($verification, 'driving_license_number'))
                             <span class="field-microcopy">NIC read from field 4c · Licence {{ data_get($verification, 'driving_license_number') }}</span>
                         @endif
@@ -80,12 +81,20 @@
                         @error('address')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
 
+                    <div class="form-group form-group-wide">
+                        <label for="email" class="form-label-premium">Email Address</label>
+                        <input id="email" name="email" type="email" class="form-control-premium @error('email') is-invalid @enderror" value="{{ old('email') }}" maxlength="100" autocomplete="email" required>
+                        <span class="field-microcopy">This email will be sent securely to the payment provider.</span>
+                        @error('email')<span class="form-error-msg">{{ $message }}</span>@enderror
+                    </div>
+
                     <div class="form-group">
                         <label for="mobile_number" class="form-label-premium">Mobile Number</label>
-                        <div class="phone-control @error('mobile_number') is-invalid @enderror">
-                            <span>+94</span>
-                            <input id="mobile_number" name="mobile_number" type="tel" inputmode="numeric" maxlength="9" value="{{ old('mobile_number') }}" required autocomplete="tel">
+                        <div class="phone-control phone-control-international @error('mobile_country_code') is-invalid @enderror @error('mobile_number') is-invalid @enderror">
+                            <input class="country-code-input" id="mobile_country_code" name="mobile_country_code" type="tel" inputmode="tel" maxlength="4" value="{{ old('mobile_country_code', '+94') }}" pattern="\+?[1-9][0-9]{0,2}" title="Country code, for example +94" aria-label="Mobile country code" required>
+                            <input id="mobile_number" name="mobile_number" type="tel" inputmode="numeric" maxlength="14" value="{{ old('mobile_number') }}" placeholder="771234567" required autocomplete="tel-national">
                         </div>
+                        @error('mobile_country_code')<span class="form-error-msg">{{ $message }}</span>@enderror
                         @error('mobile_number')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
 
@@ -94,10 +103,11 @@
                             <label for="whatsapp_number" class="form-label-premium">WhatsApp Number</label>
                             <label class="same-number-label"><input id="same_as_mobile" name="same_as_mobile" type="checkbox" value="1" @checked(old('same_as_mobile'))> Same as Mobile</label>
                         </div>
-                        <div class="phone-control @error('whatsapp_number') is-invalid @enderror">
-                            <span>+94</span>
-                            <input id="whatsapp_number" name="whatsapp_number" type="tel" inputmode="numeric" maxlength="9" value="{{ old('whatsapp_number') }}" required autocomplete="tel">
+                        <div class="phone-control phone-control-international @error('whatsapp_country_code') is-invalid @enderror @error('whatsapp_number') is-invalid @enderror">
+                            <input class="country-code-input" id="whatsapp_country_code" name="whatsapp_country_code" type="tel" inputmode="tel" maxlength="4" value="{{ old('whatsapp_country_code', '+94') }}" pattern="\+?[1-9][0-9]{0,2}" title="Country code, for example +94" aria-label="WhatsApp country code" required>
+                            <input id="whatsapp_number" name="whatsapp_number" type="tel" inputmode="numeric" maxlength="14" value="{{ old('whatsapp_number') }}" placeholder="771234567" required autocomplete="tel-national">
                         </div>
+                        @error('whatsapp_country_code')<span class="form-error-msg">{{ $message }}</span>@enderror
                         @error('whatsapp_number')<span class="form-error-msg">{{ $message }}</span>@enderror
                     </div>
 
@@ -123,21 +133,33 @@
 
     <script>
         const mobile = document.getElementById('mobile_number');
+        const mobileCountryCode = document.getElementById('mobile_country_code');
         const whatsapp = document.getElementById('whatsapp_number');
+        const whatsappCountryCode = document.getElementById('whatsapp_country_code');
         const sameAsMobile = document.getElementById('same_as_mobile');
 
         function syncWhatsApp() {
             whatsapp.disabled = sameAsMobile.checked;
+            whatsappCountryCode.disabled = sameAsMobile.checked;
             whatsapp.required = !sameAsMobile.checked;
-            if (sameAsMobile.checked) whatsapp.value = mobile.value;
+            whatsappCountryCode.required = !sameAsMobile.checked;
+            if (sameAsMobile.checked) {
+                whatsapp.value = mobile.value;
+                whatsappCountryCode.value = mobileCountryCode.value;
+            }
         }
 
         sameAsMobile.addEventListener('change', syncWhatsApp);
         mobile.addEventListener('input', () => {
-            mobile.value = mobile.value.replace(/\D/g, '').slice(0, 9);
+            mobile.value = mobile.value.replace(/\D/g, '').slice(0, 14);
             if (sameAsMobile.checked) whatsapp.value = mobile.value;
         });
-        whatsapp.addEventListener('input', () => whatsapp.value = whatsapp.value.replace(/\D/g, '').slice(0, 9));
+        mobileCountryCode.addEventListener('input', () => {
+            mobileCountryCode.value = '+' + mobileCountryCode.value.replace(/\D/g, '').slice(0, 3);
+            if (sameAsMobile.checked) whatsappCountryCode.value = mobileCountryCode.value;
+        });
+        whatsappCountryCode.addEventListener('input', () => whatsappCountryCode.value = '+' + whatsappCountryCode.value.replace(/\D/g, '').slice(0, 3));
+        whatsapp.addEventListener('input', () => whatsapp.value = whatsapp.value.replace(/\D/g, '').slice(0, 14));
         syncWhatsApp();
     </script>
 </body>
