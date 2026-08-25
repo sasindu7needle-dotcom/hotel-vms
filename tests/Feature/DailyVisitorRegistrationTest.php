@@ -58,8 +58,8 @@ class DailyVisitorRegistrationTest extends TestCase
             'is_active' => true,
         ]);
         $category = VisitorCategory::create([
-            'name' => 'Participant',
-            'code' => 'participant',
+            'name' => 'Public Participants',
+            'code' => 'public-participants',
             'entrance_fee' => 7500,
             'is_active' => true,
         ]);
@@ -117,6 +117,53 @@ class DailyVisitorRegistrationTest extends TestCase
         ]);
     }
 
+    public function test_public_daily_registration_never_falls_back_to_the_event_fee(): void
+    {
+        Carbon::setTestNow('2026-08-09 10:00:00');
+        $event = $this->event();
+        $day = $event->registrationDays()->create([
+            'label' => 'Vision 2030',
+            'event_date' => '2026-08-10',
+            'entrance_fee' => 25000,
+            'is_active' => true,
+        ]);
+
+        $this->get(route('visitor.registration-days'))
+            ->assertOk()
+            ->assertSee('Fee unavailable')
+            ->assertSee('visitor category fee has not been configured')
+            ->assertDontSee('LKR 25,000.00');
+
+        $this->from(route('visitor.registration-days'))
+            ->post(route('visitor.registration-days.select'), ['registration_day_id' => $day->id])
+            ->assertRedirect(route('visitor.registration-days'))
+            ->assertSessionHasErrors('visitor_category')
+            ->assertSessionMissing('event_registration_day');
+    }
+
+    public function test_single_active_visitor_category_owns_the_public_participant_fee(): void
+    {
+        Carbon::setTestNow('2026-08-09 10:00:00');
+        $event = $this->event();
+        $event->registrationDays()->create([
+            'label' => 'Vision 2030',
+            'event_date' => '2026-08-10',
+            'entrance_fee' => 25000,
+            'is_active' => true,
+        ]);
+        VisitorCategory::create([
+            'name' => 'General Admission',
+            'code' => 'general-admission',
+            'entrance_fee' => 6800,
+            'is_active' => true,
+        ]);
+
+        $this->get(route('visitor.registration-days'))
+            ->assertOk()
+            ->assertSee('LKR 6,800.00')
+            ->assertDontSee('LKR 25,000.00');
+    }
+
     public function test_same_paid_nic_reopens_the_existing_card_instead_of_registering_another_day(): void
     {
         Carbon::setTestNow('2026-08-09 10:00:00');
@@ -124,6 +171,12 @@ class DailyVisitorRegistrationTest extends TestCase
         $days = collect([
             $event->registrationDays()->create(['label' => 'Registration for Day 1', 'event_date' => '2026-08-10', 'entrance_fee' => 1000, 'is_active' => true]),
             $event->registrationDays()->create(['label' => 'Registration for Day 2', 'event_date' => '2026-08-11', 'entrance_fee' => 1250, 'is_active' => true]),
+        ]);
+        $category = VisitorCategory::create([
+            'name' => 'Participant',
+            'code' => 'participant',
+            'entrance_fee' => 99,
+            'is_active' => true,
         ]);
 
         $firstVerification = [
@@ -136,7 +189,7 @@ class DailyVisitorRegistrationTest extends TestCase
         $this->post(route('visitor.registration-days.select'), ['registration_day_id' => $days[0]->id]);
         $this->withSession([
             'verification' => $firstVerification,
-            'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99],
+            'visitor_category' => ['id' => $category->id, 'name' => $category->name, 'entrance_fee' => $category->entrance_fee],
         ])->post(route('visitor.confirm'), [
             'document_type' => 'nic',
             'name_confirmation' => '1',
@@ -163,7 +216,7 @@ class DailyVisitorRegistrationTest extends TestCase
         ]);
         $this->withSession([
             'verification' => $secondVerification,
-            'visitor_category' => ['name' => 'Adult', 'entrance_fee' => 99],
+            'visitor_category' => ['id' => $category->id, 'name' => $category->name, 'entrance_fee' => $category->entrance_fee],
         ])->from(route('visitor.create', ['type' => 'nic']))
             ->post(route('visitor.confirm'), [
                 'document_type' => 'nic',
@@ -203,12 +256,20 @@ class DailyVisitorRegistrationTest extends TestCase
             'entrance_fee' => 1500,
             'is_active' => true,
         ]);
+        $category = VisitorCategory::create([
+            'name' => 'Participant',
+            'code' => 'participant',
+            'entrance_fee' => 1500,
+            'is_active' => true,
+        ]);
         $existing = VerifiedVisitor::create([
             'verification_id' => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
             'document_type' => 'driving_license',
             'document_number' => '993100900V',
             'full_name' => 'Existing Visitor',
             'event_registration_day_id' => $day->id,
+            'visitor_category_id' => $category->id,
+            'category' => $category->name,
             'entrance_fee' => 1500,
             'payment_method' => 'cash',
             'payment_status' => 'pending',
@@ -225,6 +286,11 @@ class DailyVisitorRegistrationTest extends TestCase
         ];
         $session = [
             'verification' => $verification,
+            'visitor_category' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'entrance_fee' => $category->entrance_fee,
+            ],
             'event_registration_day' => [
                 'id' => $day->id,
                 'label' => $day->label,

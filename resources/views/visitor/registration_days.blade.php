@@ -24,7 +24,7 @@
         <div class="registration-heading event-day-heading">
             <span class="tagline no-margin">DAILY REGISTRATION</span>
             {{-- <h1 id="event-day-title" class="headline">Choose your event day<span class="dot">.</span></h1> --}}
-            <p>Each day requires a separate registration and payment. Your QR pass will work only on the selected date.</p>
+            {{-- <p>Each day requires a separate registration and payment. Your QR pass will work only on the selected date.</p> --}}
             @if($eventConfiguration)
                 <div class="event-day-location-badge">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>
@@ -36,6 +36,10 @@
         @if($errors->any())
             <div class="event-day-alert-error" role="alert">
                 {{ $errors->first() }}
+            </div>
+        @elseif(!$visitorCategory)
+            <div class="event-day-alert-error" role="alert">
+                Participant registration is temporarily unavailable because its visitor category fee has not been configured.
             </div>
         @endif
 
@@ -55,7 +59,9 @@
                                     {{ $day->event_date->format('l, d F Y') }}
                                 </p>
                                 <div class="event-day-fee-row">
-                                    <span class="event-day-fee-amount">LKR {{ number_format((float) ($visitorCategory?->entrance_fee ?? $day->entrance_fee), 2) }}</span>
+                                    <span class="event-day-fee-amount">
+                                        {{ $visitorCategory ? 'LKR '.number_format((float) $visitorCategory->entrance_fee, 2) : 'Fee unavailable' }}
+                                    </span>
                                     <span class="event-day-fee-unit">per registration</span>
                                 </div>
                             </div>
@@ -64,7 +70,7 @@
                             <form method="POST" action="{{ route('visitor.registration-days.select') }}">
                                 @csrf
                                 <input type="hidden" name="registration_day_id" value="{{ $day->id }}">
-                                <button type="submit" class="btn btn-primary btn-select-day">
+                                <button type="submit" class="btn btn-primary btn-select-day" @disabled(!$visitorCategory)>
                                     <span>Register for this day</span>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-icon" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                                 </button>

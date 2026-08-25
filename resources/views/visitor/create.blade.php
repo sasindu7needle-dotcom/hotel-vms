@@ -31,7 +31,7 @@
                 <div class="form-error-msg" role="alert" style="margin: 0 0 18px; text-align: center;">{{ $errors->first('verification') ?: $errors->first('registration') }}</div>
             @endif
 
-            @php($entranceFee = data_get($category, 'entrance_fee', data_get(session('event_registration_day', []), 'entrance_fee')))
+            @php($entranceFee = data_get($category, 'entrance_fee'))
 
             <form method="POST" action="{{ route('visitor.confirm') }}" class="registration-form">
                 @csrf

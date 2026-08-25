@@ -45,7 +45,7 @@ class VisitorController extends Controller
     }
 
     /** Display the independently payable registration form for each configured event date. */
-    public function registrationDays(Request $request)
+    public function registrationDays()
     {
         $eventConfiguration = Schema::hasTable('event_configurations')
             ? EventConfiguration::query()
@@ -59,7 +59,7 @@ class VisitorController extends Controller
                 ->whereDate('event_date', '>=', today())
                 ->get()
             : collect();
-        $visitorCategory = $this->selfRegistrationCategory($request);
+        $visitorCategory = $this->selfRegistrationCategory();
 
         return view('visitor.registration_days', compact('eventConfiguration', 'registrationDays', 'visitorCategory'));
     }
@@ -78,7 +78,12 @@ class VisitorController extends Controller
             ]);
         }
 
-        $visitorCategory = $this->selfRegistrationCategory($request);
+        $visitorCategory = $this->selfRegistrationCategory();
+        if (! $visitorCategory) {
+            return back()->withErrors([
+                'visitor_category' => 'Participant registration is unavailable because an active visitor category fee has not been configured.',
+            ]);
+        }
 
         $request->session()->forget([
             'verification',
@@ -89,15 +94,13 @@ class VisitorController extends Controller
             'id' => $registrationDay->id,
             'label' => $registrationDay->label,
             'event_date' => $registrationDay->event_date->format('Y-m-d'),
-            'entrance_fee' => $visitorCategory?->entrance_fee ?? $registrationDay->entrance_fee,
+            'entrance_fee' => $visitorCategory->entrance_fee,
         ]);
-        if ($visitorCategory) {
-            $request->session()->put('visitor_category', [
-                'id' => $visitorCategory->id,
-                'name' => $visitorCategory->name,
-                'entrance_fee' => $visitorCategory->entrance_fee,
-            ]);
-        }
+        $request->session()->put('visitor_category', [
+            'id' => $visitorCategory->id,
+            'name' => $visitorCategory->name,
+            'entrance_fee' => $visitorCategory->entrance_fee,
+        ]);
 
         return redirect()->route('visitor.create');
     }
@@ -355,7 +358,7 @@ class VisitorController extends Controller
 
         $type = data_get($verification, 'document_type', $type);
         $category = $request->session()->get('visitor_category', []);
-        $visitorCategory = $this->selfRegistrationCategory($request);
+        $visitorCategory = $this->selfRegistrationCategory();
         if ($visitorCategory) {
             $category = [
                 'id' => $visitorCategory->id,
@@ -426,7 +429,7 @@ class VisitorController extends Controller
 
         $verification = $request->session()->get('verification', $request->session()->get('didit_verification', []));
         $category = $request->session()->get('visitor_category', []);
-        $visitorCategory = $this->selfRegistrationCategory($request);
+        $visitorCategory = $this->selfRegistrationCategory();
         if ($visitorCategory) {
             $category = [
                 'id' => $visitorCategory->id,
@@ -554,8 +557,7 @@ class VisitorController extends Controller
             'category' => data_get($category, 'name', 'Participant'),
             'visitor_category_id' => $visitorCategory?->id ?: data_get($category, 'id'),
             'entrance_fee' => $visitorCategory?->entrance_fee
-                ?? data_get($category, 'entrance_fee')
-                ?? $registrationDay?->entrance_fee,
+                ?? data_get($category, 'entrance_fee'),
             'event_registration_day_id' => $registrationDay?->id,
             'registration_day_label' => $registrationDay?->label,
             'registration_date' => $registrationDay?->event_date?->format('Y-m-d'),
@@ -1169,31 +1171,34 @@ class VisitorController extends Controller
     }
 
     /** Resolve the active category that owns the public participant registration fee. */
-    private function selfRegistrationCategory(Request $request): ?VisitorCategory
+    private function selfRegistrationCategory(): ?VisitorCategory
     {
         if (! Schema::hasTable('visitor_categories')) {
             return null;
         }
 
-        $sessionCategory = $request->session()->get('visitor_category', []);
-        $categoryId = data_get($sessionCategory, 'id');
-        if (filled($categoryId)) {
-            $category = VisitorCategory::query()
-                ->whereKey($categoryId)
-                ->where('is_active', true)
-                ->first();
-            if ($category) {
-                return $category;
-            }
+        $categories = VisitorCategory::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+        $configuredCode = Str::slug((string) config('vms.participant_category_code', 'participant'));
+
+        $configuredCategory = $categories->first(fn (VisitorCategory $category): bool =>
+            Str::slug((string) $category->code) === $configuredCode
+            || Str::slug($category->name) === $configuredCode
+        );
+        if ($configuredCategory) {
+            return $configuredCategory;
         }
 
-        return VisitorCategory::query()
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->whereRaw('LOWER(name) = ?', ['participant'])
-                    ->orWhereRaw('LOWER(code) = ?', ['participant']);
-            })
-            ->first();
+        $participantCategory = $categories->first(fn (VisitorCategory $category): bool =>
+            str_contains(Str::slug((string) $category->code), 'participant')
+            || str_contains(Str::slug($category->name), 'participant')
+        );
+
+        // A single active category is unambiguous and can safely own the
+        // public flow even when the organiser has given it a custom name.
+        return $participantCategory ?: ($categories->count() === 1 ? $categories->first() : null);
     }
 
     private function sameIdentityName(string $left, string $right): bool
