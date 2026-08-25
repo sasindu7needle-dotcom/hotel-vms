@@ -144,6 +144,31 @@ class VisitorCheckinController extends Controller
 
         $parsed['document_number'] = $this->normalizeDocumentNumber((string) data_get($parsed, 'document_number'), $docType);
 
+        // Returning visitors only need a valid NIC match. Do this before
+        // requiring OCR to re-read their name and address, because the saved
+        // registration is already the canonical source for those details.
+        if ($docType === 'nic'
+            && $this->isPlausibleDocumentNumber((string) data_get($parsed, 'document_number'), $docType)) {
+            $existingVisitor = $registrationResume->findByNic((string) data_get($parsed, 'document_number'));
+            if ($existingVisitor?->payment_status === 'paid') {
+                return response()->json([
+                    'success' => true,
+                    'resumed_registration' => true,
+                    'paid_registration' => true,
+                    'message' => 'Paid registration found. Opening your entrance card…',
+                    'redirect_url' => $registrationResume->resumePaid($request, $existingVisitor),
+                ]);
+            }
+            if ($existingVisitor) {
+                return response()->json([
+                    'success' => true,
+                    'resumed_registration' => true,
+                    'message' => 'Existing unpaid registration found. Redirecting to payment…',
+                    'redirect_url' => $registrationResume->resumePayment($request, $existingVisitor),
+                ]);
+            }
+        }
+
         if ((int) data_get($parsed, 'confidence', 100) < 20) {
             Log::info('Gemini reported low document readability; applying structural validation.', [
                 'document_type' => $docType,
@@ -217,27 +242,6 @@ class VisitorCheckinController extends Controller
                 'error' => 'Document extraction could not confidently read the '.implode(', ', $missingFields).'. Retake the document photos closer, avoid glare, and keep the card edges visible.',
                 'code' => 'incomplete_identity_fields',
             ], 422);
-        }
-
-        if ($docType === 'nic') {
-            $existingVisitor = $registrationResume->findByNic((string) data_get($parsed, 'document_number'));
-            if ($existingVisitor?->payment_status === 'paid') {
-                return response()->json([
-                    'success' => true,
-                    'resumed_registration' => true,
-                    'paid_registration' => true,
-                    'message' => 'Paid registration found. Opening your entrance card…',
-                    'redirect_url' => $registrationResume->resumePaid($request, $existingVisitor),
-                ]);
-            }
-            if ($existingVisitor) {
-                return response()->json([
-                    'success' => true,
-                    'resumed_registration' => true,
-                    'message' => 'Existing unpaid registration found. Redirecting to payment…',
-                    'redirect_url' => $registrationResume->resumePayment($request, $existingVisitor),
-                ]);
-            }
         }
 
         $verificationId = (string) Str::uuid();

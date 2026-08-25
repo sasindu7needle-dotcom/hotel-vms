@@ -19,19 +19,28 @@ class VisitorRegistrationResumeService
             return null;
         }
 
+        $normalizedDocumentNumber = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(document_number, ''), ' ', ''), '-', ''), '.', ''), '/', ''))";
         $query = VerifiedVisitor::query()
             ->with(['eventRegistrationDay', 'visitorCategory'])
-            ->where('document_type', 'nic');
+            ->whereRaw("LOWER(COALESCE(document_type, '')) = ?", ['nic']);
         if (Schema::hasColumn('verified_visitors', 'nic_registration_key')) {
-            $query->where('nic_registration_key', $nic);
+            $query->where(function ($query) use ($nic, $normalizedDocumentNumber) {
+                $query->where('nic_registration_key', $nic)
+                    ->orWhereRaw("{$normalizedDocumentNumber} = ?", [$nic]);
+            });
         } else {
-            $query->where('document_number', $nic);
+            $query->whereRaw("{$normalizedDocumentNumber} = ?", [$nic]);
         }
         if (filled($exceptVerificationId)) {
             $query->where('verification_id', '!=', $exceptVerificationId);
         }
 
-        return $query->oldest('id')->first();
+        // Historical databases may contain more than one row for the same NIC.
+        // A completed payment is canonical; otherwise resume the first claim.
+        return $query
+            ->orderByRaw("CASE WHEN LOWER(COALESCE(payment_status, '')) = 'paid' THEN 0 ELSE 1 END")
+            ->oldest('id')
+            ->first();
     }
 
     /** Restore the original unpaid registration and return its payment URL. */
@@ -40,6 +49,7 @@ class VisitorRegistrationResumeService
         $visitor->loadMissing(['eventRegistrationDay', 'visitorCategory']);
         $visitor->update([
             'payment_method' => 'visa_master',
+            'payment_status' => 'pending',
             'registration_status' => 'payment_pending',
         ]);
 

@@ -17,7 +17,7 @@ class NicRegistrationResumeTest extends TestCase
     {
         Storage::fake('visitor-media');
         $visitor = $this->visitor(['payment_status' => 'pending']);
-        $this->mockNicReader();
+        $this->mockNicReader(['full_name' => '', 'address' => '']);
 
         $response = $this->postJson(route('visitor.verify_vision'), [
             'document_type' => 'nic',
@@ -42,6 +42,38 @@ class NicRegistrationResumeTest extends TestCase
             ->assertSee('Your existing unpaid registration was found');
     }
 
+    public function test_retrying_a_failed_historical_nic_payment_redirects_to_payment(): void
+    {
+        $visitor = $this->visitor([
+            'document_number' => '1990 1234-5678',
+            'nic_registration_key' => null,
+            'payment_method' => 'visa_master',
+            'payment_status' => 'failed',
+            'registration_status' => 'payment_failed',
+        ]);
+        $this->mockNicReader(['full_name' => '', 'address' => '']);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 600, 400),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 600, 400),
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('resumed_registration', true)
+            ->assertJsonPath('redirect_url', route('visitor.payment.card'));
+
+        $this->assertSame($visitor->id, session('visitor_registration.record_id'));
+        $this->assertSame('pending', session('visitor_registration.payment_status'));
+        $this->assertDatabaseHas('verified_visitors', [
+            'id' => $visitor->id,
+            'payment_method' => 'visa_master',
+            'payment_status' => 'pending',
+            'registration_status' => 'payment_pending',
+        ]);
+
+        $this->get(route('visitor.payment.card'))->assertOk();
+    }
+
     public function test_uploading_an_already_paid_nic_opens_the_thank_you_card_page(): void
     {
         $visitor = $this->visitor([
@@ -51,7 +83,7 @@ class NicRegistrationResumeTest extends TestCase
             'paid_at' => now(),
             'registration_status' => 'registered',
         ]);
-        $this->mockNicReader();
+        $this->mockNicReader(['full_name' => '', 'address' => '']);
 
         $this->postJson(route('visitor.verify_vision'), [
             'document_type' => 'nic',
@@ -80,6 +112,39 @@ class NicRegistrationResumeTest extends TestCase
             ->assertDownload('existing-paid-visitor-entrance-card.png');
     }
 
+    public function test_paid_historical_duplicate_takes_priority_and_opens_the_card_page(): void
+    {
+        $this->visitor([
+            'verification_id' => '11111111-2222-4333-8444-555555555555',
+            'payment_status' => 'failed',
+        ]);
+        $paidVisitor = $this->visitor([
+            'verification_id' => '99999999-8888-4777-8666-555555555555',
+            'document_number' => '1990-1234-5678',
+            'nic_registration_key' => null,
+            'full_name' => 'Historical Paid Visitor',
+            'payment_method' => 'visa_master',
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'registration_status' => 'registered',
+        ]);
+        $this->mockNicReader(['full_name' => '', 'address' => '']);
+
+        $this->postJson(route('visitor.verify_vision'), [
+            'document_type' => 'nic',
+            'document_front_image' => UploadedFile::fake()->image('nic-front.jpg', 600, 400),
+            'document_back_image' => UploadedFile::fake()->image('nic-back.jpg', 600, 400),
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('paid_registration', true)
+            ->assertJsonPath('redirect_url', route('visitor.thank-you'));
+
+        $this->assertSame($paidVisitor->id, session('visitor_registration.record_id'));
+        $this->get(route('visitor.thank-you'))
+            ->assertOk()
+            ->assertSee('Download Entrance Card');
+    }
+
     private function visitor(array $overrides = []): VerifiedVisitor
     {
         return VerifiedVisitor::create(array_merge([
@@ -98,14 +163,14 @@ class NicRegistrationResumeTest extends TestCase
         ], $overrides));
     }
 
-    private function mockNicReader(): void
+    private function mockNicReader(array $overrides = []): void
     {
-        $this->mock(GeminiDocumentService::class, function ($mock) {
-            $mock->shouldReceive('extract')->once()->andReturn([
+        $this->mock(GeminiDocumentService::class, function ($mock) use ($overrides) {
+            $mock->shouldReceive('extract')->once()->andReturn(array_merge([
                 'document_number' => '1990 1234-5678',
                 'full_name' => 'Existing Unpaid Visitor',
                 'address' => '12 Galle Road, Colombo',
-            ]);
+            ], $overrides));
         });
     }
 }
