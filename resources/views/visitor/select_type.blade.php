@@ -40,7 +40,7 @@
 
     <section class="hero">
         <div class="hero-content">
-            <div class="tagline">Check-in Flow</div>
+            {{-- <div class="tagline">Check-in Flow</div> --}}
             <h1 class="headline">Verify your identity<span class="dot">.</span></h1>
             @include('visitor.partials.selected-registration-day')
 

@@ -147,9 +147,11 @@ class VisitorCheckinController extends Controller
         // Returning visitors only need a valid NIC match. Do this before
         // requiring OCR to re-read their name and address, because the saved
         // registration is already the canonical source for those details.
-        if (in_array($docType, ['nic', 'driving_license'], true)
-            && $this->isPlausibleDocumentNumber((string) data_get($parsed, 'document_number'), $docType)) {
-            $existingVisitor = $registrationResume->findByNic((string) data_get($parsed, 'document_number'));
+        if ($this->isPlausibleDocumentNumber((string) data_get($parsed, 'document_number'), $docType)) {
+            $existingVisitor = $registrationResume->findByIdentity(
+                $docType,
+                (string) data_get($parsed, 'document_number')
+            );
             if ($existingVisitor?->payment_status === 'paid') {
                 return response()->json([
                     'success' => true,

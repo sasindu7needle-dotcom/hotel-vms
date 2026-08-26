@@ -22,7 +22,7 @@
 
     <section class="registration-card event-day-card" aria-labelledby="event-day-title">
         <div class="registration-heading event-day-heading">
-            <span class="tagline no-margin">DAILY REGISTRATION</span>
+            {{-- <span class="tagline no-margin">DAILY REGISTRATION</span> --}}
             {{-- <h1 id="event-day-title" class="headline">Choose your event day<span class="dot">.</span></h1> --}}
             {{-- <p>Each day requires a separate registration and payment. Your QR pass will work only on the selected date.</p> --}}
             @if($eventConfiguration)
@@ -71,7 +71,7 @@
                                 @csrf
                                 <input type="hidden" name="registration_day_id" value="{{ $day->id }}">
                                 <button type="submit" class="btn btn-primary btn-select-day" @disabled(!$visitorCategory)>
-                                    <span>Register for this day</span>
+                                    <span>Register</span>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-icon" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                                 </button>
                             </form>

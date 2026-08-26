@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\Schema;
 
 class VisitorRegistrationResumeService
 {
+    public function findByIdentity(
+        string $documentType,
+        string $documentNumber,
+        ?string $exceptVerificationId = null,
+    ): ?VerifiedVisitor {
+        return $documentType === 'passport'
+            ? $this->findByPassport($documentNumber, $exceptVerificationId)
+            : $this->findByNic($documentNumber, $exceptVerificationId);
+    }
+
     public function findByNic(string $documentNumber, ?string $exceptVerificationId = null): ?VerifiedVisitor
     {
         if (! Schema::hasTable('verified_visitors')) {
@@ -37,6 +47,39 @@ class VisitorRegistrationResumeService
 
         // Historical databases may contain more than one row for the same NIC.
         // A completed payment is canonical; otherwise resume the first claim.
+        return $query
+            ->orderByRaw("CASE WHEN LOWER(COALESCE(payment_status, '')) = 'paid' THEN 0 ELSE 1 END")
+            ->oldest('id')
+            ->first();
+    }
+
+    public function findByPassport(string $documentNumber, ?string $exceptVerificationId = null): ?VerifiedVisitor
+    {
+        if (! Schema::hasTable('verified_visitors')) {
+            return null;
+        }
+
+        $passport = $this->normalizePassport($documentNumber);
+        if ($passport === '') {
+            return null;
+        }
+
+        $normalizedDocumentNumber = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(document_number, ''), ' ', ''), '-', ''), '.', ''), '/', ''))";
+        $query = VerifiedVisitor::query()
+            ->with(['eventRegistrationDay', 'visitorCategory'])
+            ->whereRaw("LOWER(COALESCE(document_type, '')) = ?", ['passport']);
+        if (Schema::hasColumn('verified_visitors', 'passport_registration_key')) {
+            $query->where(function ($query) use ($passport, $normalizedDocumentNumber) {
+                $query->where('passport_registration_key', $passport)
+                    ->orWhereRaw("{$normalizedDocumentNumber} = ?", [$passport]);
+            });
+        } else {
+            $query->whereRaw("{$normalizedDocumentNumber} = ?", [$passport]);
+        }
+        if (filled($exceptVerificationId)) {
+            $query->where('verification_id', '!=', $exceptVerificationId);
+        }
+
         return $query
             ->orderByRaw("CASE WHEN LOWER(COALESCE(payment_status, '')) = 'paid' THEN 0 ELSE 1 END")
             ->oldest('id')
@@ -131,5 +174,10 @@ class VisitorRegistrationResumeService
     public function normalizeNic(string $documentNumber): string
     {
         return strtoupper((string) preg_replace('/[^0-9VX]/', '', trim($documentNumber)));
+    }
+
+    public function normalizePassport(string $documentNumber): string
+    {
+        return strtoupper((string) preg_replace('/[^A-Z0-9]/i', '', trim($documentNumber)));
     }
 }

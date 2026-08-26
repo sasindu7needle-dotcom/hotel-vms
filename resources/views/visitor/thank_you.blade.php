@@ -64,7 +64,7 @@
             @include('visitor.partials.card-download-button', ['class' => 'thank-you-download'])
 
             @if(!data_get($details, 'exhibitor_profile_token'))
-            <p class="printing-instruction">Please proceed to the <strong>Printing Booth</strong> to collect your Entrance ID.</p>
+            <p class="printing-instruction">Please download this and keep it.</p>
             @if(data_get($details, 'registration_date'))
                 <p class="printing-instruction" style="margin-top:8px"><strong>This QR is valid only on {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}.</strong></p>
             @endif
