@@ -226,7 +226,6 @@ class VisitorController extends Controller
                 Rule::exists('visitor_categories', 'id')->where('is_active', true),
             ],
             'entrance_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'],
-            'payment_slip' => ['nullable', 'file', 'mimes:jpeg,jpg,png,webp,pdf', 'max:10240'],
             'face_photo' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
         ]);
 
@@ -252,9 +251,6 @@ class VisitorController extends Controller
             ]);
         }
         $facePhoto = $this->storeManualImage($request->file('face_photo'), $verificationId.'-face');
-        $paymentSlip = $request->hasFile('payment_slip')
-            ? $this->storeManualPaymentSlip($request->file('payment_slip'), $verificationId.'-payment-slip')
-            : null;
         $category = $exhibitorProfile
             ? null
             : VisitorCategory::query()->where('is_active', true)->findOrFail($validated['category_id']);
@@ -283,9 +279,6 @@ class VisitorController extends Controller
                 'back_photo_mime' => data_get($identity, 'back_photo_mime'),
                 'selfie_path' => $facePhoto['path'],
                 'selfie_mime' => $facePhoto['mime'],
-                'payment_slip_path' => $paymentSlip['path'] ?? null,
-                'payment_slip_mime' => $paymentSlip['mime'] ?? null,
-                'payment_slip_uploaded_at' => $paymentSlip ? now() : null,
                 'identity_reviewed_at' => now(),
                 'verified_at' => now(),
                 'ocr_provider' => 'manual_registration',
@@ -310,8 +303,6 @@ class VisitorController extends Controller
             'photo_mime' => $visitor->photo_mime,
             'selfie_path' => $visitor->selfie_path,
             'selfie_mime' => $visitor->selfie_mime,
-            'payment_slip_path' => $visitor->payment_slip_path,
-            'payment_slip_mime' => $visitor->payment_slip_mime,
             'manual_registration' => true,
             'exhibitor_profile_token' => $exhibitorProfile?->registration_token,
         ]);
@@ -1019,28 +1010,6 @@ class VisitorController extends Controller
         $path = app(VisitorMediaService::class)->storeAs($file, 'verified-visitors', $filename.'.'.$extension);
 
         return ['path' => $path, 'mime' => $file->getMimeType() ?: 'image/jpeg'];
-    }
-
-    private function storeManualPaymentSlip($file, string $filename): array
-    {
-        $mime = $file->getMimeType() ?: 'application/octet-stream';
-        $extension = match ($mime) {
-            'application/pdf' => 'pdf',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            default => 'jpg',
-        };
-        $path = app(VisitorMediaService::class)->storeAs(
-            $file,
-            'verified-visitors',
-            $filename.'.'.$extension
-        );
-
-        if (! is_string($path) || $path === '') {
-            throw new \RuntimeException('The payment slip could not be stored.');
-        }
-
-        return ['path' => $path, 'mime' => $mime];
     }
 
     private function normaliseSriLankanPhone(string $number): string

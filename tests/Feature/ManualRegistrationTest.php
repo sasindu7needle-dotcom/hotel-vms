@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PaymentConfirmationMail;
 use App\Models\VisitorCategory;
 use App\Models\VerifiedVisitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -20,7 +22,9 @@ class ManualRegistrationTest extends TestCase
             ->assertSee('manual-flow-stage', false)
             ->assertSee('manual-flow-upload', false)
             ->assertSee('name="email"', false)
-            ->assertSee('name="payment_slip"', false);
+            ->assertSee('The payment confirmation, entrance card, and invoice will be sent to this email.')
+            ->assertDontSee('name="payment_slip"', false)
+            ->assertDontSee('Payment slip (optional)');
 
         $compiledCss = file_get_contents(public_path('css/app.css'));
 
@@ -108,6 +112,7 @@ class ManualRegistrationTest extends TestCase
 
     public function test_walk_in_registration_is_saved_for_admin_and_receipt_manager(): void
     {
+        Mail::fake();
         $mediaDisk = (string) config('vms.media_disk', 'visitor-media');
         Storage::fake($mediaDisk);
         $category = VisitorCategory::create([
@@ -141,16 +146,14 @@ class ManualRegistrationTest extends TestCase
             'company' => 'Example Ltd',
             'category_id' => $category->id,
             'entrance_fee' => '500.00',
-            'payment_slip' => UploadedFile::fake()->image('payment-slip.png', 640, 900),
             'face_photo' => UploadedFile::fake()->image('face.jpg'),
         ])->assertRedirect(route('visitor.thank-you'));
 
         $visitor = VerifiedVisitor::where('verification_id', $verificationId)->firstOrFail();
         $this->assertNotSame($visitor->photo_path, $visitor->selfie_path);
         $this->assertStringContainsString('-face.', $visitor->selfie_path);
-        $this->assertStringContainsString('-payment-slip.', $visitor->payment_slip_path);
+        $this->assertNull($visitor->payment_slip_path);
         Storage::disk($mediaDisk)->assertExists($visitor->selfie_path);
-        Storage::disk($mediaDisk)->assertExists($visitor->payment_slip_path);
 
         $profilePhoto = $this->get(route('visitor.session_photo', ['type' => 'selfie']))
             ->assertOk()
@@ -180,13 +183,51 @@ class ManualRegistrationTest extends TestCase
         $adminVisitors = $this->withSession($adminSession)->get(route('admin.visitors.index'));
         $adminVisitors->assertOk()
             ->assertSee('manual.visitor@example.test')
-            ->assertSee(route('admin.visitors.payment_slip', $visitor), false);
+            ->assertDontSee(route('admin.visitors.payment_slip', $visitor), false);
+
+        $this->withSession($adminSession)->get(route('admin.receipts.index'))
+            ->assertOk()
+            ->assertSee('Recent manual visitors')
+            ->assertSee('Manual Visitor')
+            ->assertSee(route('admin.receipts.index', ['manual_id' => $visitor->id]), false);
 
         $this->withSession($adminSession)->get(route('admin.receipts.index', [
-            'search' => $visitor->document_number,
-            'visitor_id' => $visitor->id,
+            'manual_id' => $visitor->id,
         ]))->assertOk()
             ->assertSee('manual.visitor@example.test')
+            ->assertSee('name="payment_slip"', false)
+            ->assertDontSee('Confirm entrance payment')
+            ->assertDontSee('View uploaded payment slip');
+
+        $this->withSession($adminSession)->post(route('admin.receipts.payment_slip.store', $visitor), [
+            'payment_slip' => UploadedFile::fake()->image('payment-slip.png', 640, 900),
+        ])->assertRedirect(route('admin.receipts.index', ['manual_id' => $visitor->id]))
+            ->assertSessionHas('status', 'Payment confirmed for Manual Visitor. The entrance card and invoice were emailed successfully.');
+
+        $visitor->refresh();
+        $this->assertStringContainsString('-payment-slip.', $visitor->payment_slip_path);
+        Storage::disk($mediaDisk)->assertExists($visitor->payment_slip_path);
+        $this->assertNotNull($visitor->paid_at);
+        $this->assertNotNull($visitor->payment_confirmation_emailed_at);
+        Mail::assertSent(PaymentConfirmationMail::class, function (PaymentConfirmationMail $mail) use ($visitor) {
+            $mail->assertTo($visitor->email);
+            $this->assertSame('500.00', $mail->invoice['amount']);
+            $attachments = collect($mail->attachments())->map(fn ($attachment) => $attachment->attachWith(
+                fn () => null,
+                fn ($data, $resolvedAttachment) => [
+                    'data' => $data(),
+                    'mime' => $resolvedAttachment->mime,
+                ],
+            ));
+            $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $attachments->firstWhere('mime', 'image/png')['data'] ?? '');
+            $this->assertStringStartsWith('%PDF-', $attachments->firstWhere('mime', 'application/pdf')['data'] ?? '');
+
+            return true;
+        });
+
+        $this->withSession($adminSession)->get(route('admin.receipts.index', [
+            'manual_id' => $visitor->id,
+        ]))->assertOk()
             ->assertSee('View uploaded payment slip')
             ->assertSee(route('admin.visitors.payment_slip', $visitor), false);
 
@@ -206,7 +247,9 @@ class ManualRegistrationTest extends TestCase
             'mobile_number' => '+94771234567',
             'category' => 'Staff',
             'entrance_fee' => '500.00',
-            'payment_status' => 'pending',
+            'payment_method' => 'cash',
+            'payment_status' => 'paid',
+            'registration_status' => 'paid',
             'payment_slip_mime' => 'image/png',
         ]);
     }
@@ -232,5 +275,45 @@ class ManualRegistrationTest extends TestCase
             'photo_path' => $documentPath,
         ]])->get(route('visitor.session_photo', ['type' => 'selfie']))
             ->assertNotFound();
+    }
+
+    public function test_manual_payment_slip_actions_do_not_change_standard_receipt_confirmation(): void
+    {
+        Storage::fake((string) config('vms.media_disk', 'visitor-media'));
+        $standardVisitor = VerifiedVisitor::create([
+            'verification_id' => '33333333-3333-4333-8333-333333333333',
+            'full_name' => 'Standard Visitor',
+            'ocr_provider' => 'gemini',
+            'payment_status' => 'pending',
+        ]);
+        $manualVisitor = VerifiedVisitor::create([
+            'verification_id' => '44444444-4444-4444-8444-444444444444',
+            'full_name' => 'Manual Visitor',
+            'ocr_provider' => 'manual_registration',
+            'payment_status' => 'pending',
+        ]);
+        $adminSession = ['admin_authenticated' => true, 'admin_username' => 'admin'];
+
+        $this->withSession($adminSession)->post(route('admin.receipts.confirm', $standardVisitor), [
+            'entrance_fee' => '750.00',
+            'payment_method' => 'cash',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('verified_visitors', [
+            'id' => $standardVisitor->id,
+            'entrance_fee' => '750.00',
+            'payment_method' => 'cash',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->withSession($adminSession)->post(route('admin.receipts.payment_slip.store', $standardVisitor), [
+            'payment_slip' => UploadedFile::fake()->image('payment-slip.png'),
+        ])->assertNotFound();
+        $this->withSession($adminSession)->post(route('admin.receipts.confirm', $manualVisitor), [
+            'entrance_fee' => '750.00',
+            'payment_method' => 'cash',
+        ])->assertNotFound();
+        $this->withSession($adminSession)->post(route('admin.receipts.payment_slip.store', $manualVisitor), [
+            'payment_slip' => UploadedFile::fake()->create('notes.txt', 10, 'text/plain'),
+        ])->assertSessionHasErrors('payment_slip');
     }
 }

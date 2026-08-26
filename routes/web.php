@@ -117,6 +117,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/exhibitors/{exhibitorId}/members/{member}', [AdminExhibitorController::class, 'destroyMember'])->name('exhibitors.members.destroy');
         Route::get('/receipts', [AdminReceiptController::class, 'index'])->name('receipts.index');
         Route::post('/receipts/{visitor}/confirm', [AdminReceiptController::class, 'confirm'])->name('receipts.confirm');
+        Route::post('/receipts/{visitor}/payment-slip', [AdminReceiptController::class, 'uploadPaymentSlip'])->name('receipts.payment_slip.store');
         Route::get('/visitors/{visitor}', fn (VerifiedVisitor $visitor) => redirect()->route('admin.visitors.index'))->name('visitors.show');
         Route::patch('/visitors/{visitor}/checkin', [AdminVisitorController::class, 'toggleCheckin'])->name('visitors.checkin');
         Route::patch('/visitors/{visitor}', [AdminVisitorController::class, 'update'])->name('visitors.update');
