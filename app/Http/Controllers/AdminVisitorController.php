@@ -9,8 +9,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GateLogService;
+use App\Services\PaymentConfirmationEmailService;
 use App\Services\VisitorMediaService;
 use F9WebLtd\QrCode\Facades\QrCode;
+use Illuminate\Support\Facades\Log;
 
 class AdminVisitorController extends Controller
 {
@@ -76,7 +78,11 @@ class AdminVisitorController extends Controller
         return redirect()->route('admin.visitors.index')->with('status', 'Visitor checked '.strtoupper($log->direction).' from the admin control.');
     }
 
-    public function update(Request $request, VerifiedVisitor $visitor)
+    public function update(
+        Request $request,
+        VerifiedVisitor $visitor,
+        PaymentConfirmationEmailService $paymentEmail,
+    )
     {
         $validated = $request->validate([
             'full_name' => 'nullable|string|max:180',
@@ -100,6 +106,17 @@ class AdminVisitorController extends Controller
         $validated['full_name_latin'] = $validated['full_name'] ?? null;
         $validated['address_latin'] = $validated['address'] ?? null;
         $visitor->update($validated);
+
+        if ($visitor->payment_status === 'paid') {
+            try {
+                $paymentEmail->sendIfNeeded($visitor);
+            } catch (\Throwable $exception) {
+                Log::error('Payment confirmation email could not be sent.', [
+                    'visitor_id' => $visitor->id,
+                    'exception_class' => $exception::class,
+                ]);
+            }
+        }
 
         return redirect()->route('admin.visitors.index')->with('status', 'Visitor details updated successfully.');
     }

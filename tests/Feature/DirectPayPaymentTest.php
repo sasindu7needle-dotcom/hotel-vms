@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PaymentConfirmationMail;
 use App\Models\DirectPayPayment;
 use App\Models\VerifiedVisitor;
 use App\Services\DirectPayService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -95,6 +97,43 @@ class DirectPayPaymentTest extends TestCase
         $this->assertNotNull($visitor->fresh()->paid_at);
     }
 
+    public function test_success_callback_emails_png_card_and_pdf_invoice_exactly_once(): void
+    {
+        Mail::fake();
+        [$visitor, $payment] = $this->pendingPayment();
+        $callback = $this->callbackPayload($payment, 'SUCCESS', '5000.00');
+
+        $this->sendCallback($callback)->assertOk();
+
+        Mail::assertSent(PaymentConfirmationMail::class, function (PaymentConfirmationMail $mail) use ($visitor, $payment) {
+            $mail->assertTo($visitor->email);
+            $this->assertSame($payment->reference, $mail->invoice['payment_reference']);
+            $this->assertSame('5,000.00', $mail->invoice['amount']);
+
+            $attachments = collect($mail->attachments())->map(fn ($attachment) => $attachment->attachWith(
+                fn () => null,
+                fn ($data, $resolvedAttachment) => [
+                    'data' => $data(),
+                    'name' => $resolvedAttachment->as,
+                    'mime' => $resolvedAttachment->mime,
+                ],
+            ));
+
+            $card = $attachments->firstWhere('mime', 'image/png');
+            $invoice = $attachments->firstWhere('mime', 'application/pdf');
+            $this->assertSame('payment-visitor-entrance-card.png', $card['name'] ?? null);
+            $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $card['data'] ?? '');
+            $this->assertSame('inv-dp-v'.$visitor->id.'-a82f91.pdf', $invoice['name'] ?? null);
+            $this->assertStringStartsWith('%PDF-', $invoice['data'] ?? '');
+
+            return true;
+        });
+        $this->assertNotNull($visitor->fresh()->payment_confirmation_emailed_at);
+
+        $this->sendCallback($callback)->assertOk();
+        Mail::assertSent(PaymentConfirmationMail::class, 1);
+    }
+
     public function test_successful_card_payment_shows_the_completion_card_and_downloads_png(): void
     {
         [$visitor, $payment] = $this->pendingPayment();
@@ -127,6 +166,7 @@ class DirectPayPaymentTest extends TestCase
 
     public function test_authenticated_failed_callback_does_not_mark_visitor_paid(): void
     {
+        Mail::fake();
         [$visitor, $payment] = $this->pendingPayment();
 
         $this->sendCallback($this->callbackPayload($payment, 'FAILURE', '5000.00'))
@@ -135,6 +175,7 @@ class DirectPayPaymentTest extends TestCase
 
         $this->assertSame('failed', $visitor->fresh()->payment_status);
         $this->assertNull($visitor->fresh()->paid_at);
+        Mail::assertNothingSent();
     }
 
     public function test_fake_callback_with_invalid_hmac_cannot_mark_visitor_paid(): void

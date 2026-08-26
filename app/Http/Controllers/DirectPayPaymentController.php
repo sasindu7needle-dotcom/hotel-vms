@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DirectPayPayment;
 use App\Models\VerifiedVisitor;
 use App\Services\DirectPayService;
+use App\Services\PaymentConfirmationEmailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,8 +14,10 @@ use RuntimeException;
 
 class DirectPayPaymentController extends Controller
 {
-    public function __construct(private DirectPayService $directPay)
-    {
+    public function __construct(
+        private DirectPayService $directPay,
+        private PaymentConfirmationEmailService $paymentEmail,
+    ) {
     }
 
     public function showStart(Request $request)
@@ -296,6 +299,18 @@ class DirectPayPaymentController extends Controller
             ]);
 
             return response()->json(['message' => $exception->getMessage()], 409);
+        }
+
+        if ($status === 'paid') {
+            try {
+                $this->paymentEmail->sendIfNeeded($payment->visitor()->firstOrFail(), $payment);
+            } catch (\Throwable $exception) {
+                Log::error('Payment confirmation email could not be sent.', [
+                    'payment_reference' => $reference,
+                    'visitor_id' => $payment->verified_visitor_id,
+                    'exception_class' => $exception::class,
+                ]);
+            }
         }
 
         return response()->json(['received' => true, 'status' => $status]);

@@ -3,12 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\VerifiedVisitor;
+use App\Services\PaymentConfirmationEmailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class AdminReceiptController extends Controller
 {
+    public function __construct(private PaymentConfirmationEmailService $paymentEmail)
+    {
+    }
+
     public function index(Request $request): View
     {
         $validated = $request->validate([
@@ -52,6 +58,15 @@ class AdminReceiptController extends Controller
             'paid_at' => $visitor->paid_at ?: now(),
             'registration_status' => 'paid',
         ]);
+
+        try {
+            $this->paymentEmail->sendIfNeeded($visitor->fresh());
+        } catch (\Throwable $exception) {
+            Log::error('Payment confirmation email could not be sent.', [
+                'visitor_id' => $visitor->id,
+                'exception_class' => $exception::class,
+            ]);
+        }
 
         return redirect()
             ->route('admin.receipts.index', [
