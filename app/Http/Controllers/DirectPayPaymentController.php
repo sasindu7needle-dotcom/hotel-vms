@@ -48,6 +48,7 @@ class DirectPayPaymentController extends Controller
             'payment' => null,
             'directPayConfig' => null,
             'directPayConfigured' => $this->directPay->isConfigured(),
+            'directPayEnvironment' => $this->directPay->environmentLabel(),
         ]);
     }
 
@@ -155,6 +156,7 @@ class DirectPayPaymentController extends Controller
             'payment' => $payment,
             'directPayConfig' => $this->directPay->checkoutConfiguration($payment),
             'directPayConfigured' => true,
+            'directPayEnvironment' => $this->directPay->environmentLabel(),
         ]);
     }
 

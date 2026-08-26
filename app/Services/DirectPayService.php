@@ -11,10 +11,25 @@ class DirectPayService
 {
     public function isConfigured(): bool
     {
-        return config('services.directpay.environment') === 'sandbox'
+        return in_array($this->environment(), ['sandbox', 'production'], true)
             && filled($this->merchantId())
             && filled($this->merchantSecret())
             && $this->currency() === 'LKR';
+    }
+
+    public function environment(): string
+    {
+        return strtolower(trim((string) config('services.directpay.environment', 'sandbox')));
+    }
+
+    public function stage(): string
+    {
+        return $this->environment() === 'production' ? 'PROD' : 'DEV';
+    }
+
+    public function environmentLabel(): string
+    {
+        return $this->environment() === 'production' ? 'LIVE' : 'SANDBOX';
     }
 
     public function merchantId(): string
@@ -66,7 +81,7 @@ class DirectPayService
         return [
             'signature' => hash_hmac('sha256', $dataString, $this->merchantSecret()),
             'dataString' => $dataString,
-            'stage' => 'DEV',
+            'stage' => $this->stage(),
             'container' => 'card_container',
         ];
     }

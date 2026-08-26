@@ -66,6 +66,7 @@ class DirectPayPaymentTest extends TestCase
         $this->assertSame('+94771234567', $payload['phone']);
         $this->assertSame(route('directpay.confirmation'), $payload['response_url']);
         $this->assertSame(hash_hmac('sha256', $configuration['dataString'], self::SECRET), $configuration['signature']);
+        $this->assertSame('DEV', $configuration['stage']);
 
         $this->withSession(['visitor_registration' => $this->registration($visitor)])
             ->get(route('visitor.payment.directpay.checkout', $payment->reference))
@@ -73,7 +74,31 @@ class DirectPayPaymentTest extends TestCase
             ->assertSee('https://cdn.directpay.lk/v3/directpayipg.min.js', false)
             ->assertSee('DirectPayIpg.Init', false)
             ->assertSee('doInContainerCheckout', false)
+            ->assertSee('DIRECTPAY SANDBOX')
             ->assertDontSee(self::SECRET);
+    }
+
+    public function test_production_configuration_uses_prod_stage_and_live_label(): void
+    {
+        config()->set('services.directpay.environment', 'production');
+        [$visitor, $payment] = $this->pendingPayment();
+
+        $this->assertTrue(app(DirectPayService::class)->isConfigured());
+        $this->assertSame('PROD', app(DirectPayService::class)->checkoutConfiguration($payment)['stage']);
+
+        $this->withSession(['visitor_registration' => $this->registration($visitor)])
+            ->get(route('visitor.payment.directpay.checkout', $payment->reference))
+            ->assertOk()
+            ->assertSee('DIRECTPAY LIVE')
+            ->assertSee('"stage":"PROD"', false)
+            ->assertDontSee('sandbox stage is invalid');
+    }
+
+    public function test_unknown_environment_is_not_configured(): void
+    {
+        config()->set('services.directpay.environment', 'live');
+
+        $this->assertFalse(app(DirectPayService::class)->isConfigured());
     }
 
     public function test_authenticated_success_callback_marks_payment_and_visitor_paid(): void

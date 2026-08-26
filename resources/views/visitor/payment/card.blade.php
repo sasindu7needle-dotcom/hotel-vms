@@ -25,7 +25,7 @@
             <div class="payment-status-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20M6 15h4"></path></svg>
             </div>
-            <span class="tagline no-margin">DIRECTPAY SANDBOX</span>
+            <span class="tagline no-margin">DIRECTPAY {{ $directPayEnvironment }}</span>
             <h1 class="headline">Secure card payment<span class="dot">.</span></h1>
             @if(data_get($details, 'registration_date'))<p><strong>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}</strong></p>@endif
             <p>DirectPay securely handles your card details and 3DS authentication.</p>
@@ -53,7 +53,7 @@
                     <button type="submit" class="btn btn-primary btn-large registration-next" id="directpay-start-button" @disabled(! $directPayConfigured)>Pay securely</button>
                 </form>
                 @unless($directPayConfigured)
-                    <div class="directpay-alert">DirectPay sandbox credentials have not been configured.</div>
+                    <div class="directpay-alert">DirectPay {{ strtolower($directPayEnvironment) }} credentials have not been configured.</div>
                 @endunless
             @endif
             <small class="payment-provider-note">The amount is loaded from your saved registration. Card details are never sent to or stored by this website.</small>
@@ -73,7 +73,7 @@
                     const problems = [];
                     if (!config.signature) problems.push('payment signature is missing');
                     if (!config.dataString) problems.push('payment data is missing');
-                    if (config.stage !== 'DEV') problems.push('sandbox stage is invalid');
+                    if (!['DEV', 'PROD'].includes(config.stage)) problems.push('payment stage is invalid');
                     if (config.container !== 'card_container') problems.push('card container is invalid');
                     return problems;
                 }
