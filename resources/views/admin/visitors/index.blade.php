@@ -228,7 +228,6 @@
                             <div class="admin-dialog-grid">
                                 @foreach([
                                     'Sinhala / Preferred Name' => $visitor->full_name,
-                                    'Latin Name' => $visitor->full_name_latin,
                                     'Document Type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: '')),
                                     'NIC / Passport' => $visitor->document_number,
                                     'Email Address' => $visitor->email,
@@ -244,7 +243,6 @@
                                     'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',
                                     'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
                                     'Visitor Photo' => $visitor->selfie_path ? 'CAPTURED' : 'NOT CAPTURED',
-                                    'OCR Provider' => $visitor->ocr_provider ? strtoupper(str_replace('_', ' ', $visitor->ocr_provider)) : null,
                                     'Identity Reviewed' => $visitor->identity_reviewed_at?->format('M j, Y · g:i A'),
                                 ] as $label => $value)<div><span>{{ $label }}</span><strong>{{ filled($value) ? $value : '—' }}</strong></div>@endforeach
                                 <div class="admin-dialog-wide"><span>Address</span><strong>{{ $visitor->address ?: '—' }}</strong></div>

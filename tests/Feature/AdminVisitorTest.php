@@ -37,6 +37,25 @@ class AdminVisitorTest extends TestCase
             ->assertSee('Schedule Manager');
     }
 
+    public function test_visitor_profile_hides_latin_name_and_ocr_provider(): void
+    {
+        VerifiedVisitor::create([
+            'verification_id' => '022c9075-1d4c-44df-9412-dde29c60616f',
+            'full_name' => 'Preferred Visitor Name',
+            'full_name_latin' => 'Latin Visitor Name',
+            'ocr_provider' => 'google_gemini',
+        ]);
+
+        $this->withSession(['admin_authenticated' => true, 'admin_username' => 'admin'])
+            ->get(route('admin.visitors.index'))
+            ->assertOk()
+            ->assertSee('Preferred Visitor Name')
+            ->assertDontSee('Latin Name')
+            ->assertDontSee('Latin Visitor Name')
+            ->assertDontSee('OCR Provider')
+            ->assertDontSee('GOOGLE GEMINI');
+    }
+
     public function test_admin_can_update_visitor_payment_status_and_details(): void
     {
         $visitor = VerifiedVisitor::create([

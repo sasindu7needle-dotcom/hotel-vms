@@ -5861,8 +5861,8 @@ body.cash-payment-page .registration-trust {
 
 @media (max-width: 520px) {
     body.cash-payment-page .cash-payment-shell {
-        width: 100vw;
-        max-width: 100vw;
+        width: 100%;
+        max-width: 100%;
         min-width: 0;
         min-height: 100dvh;
         padding: 16px 10px 12px;
@@ -5871,8 +5871,8 @@ body.cash-payment-page .registration-trust {
     }
 
     body.cash-payment-page .cash-payment-card {
-        width: calc(100vw - 20px);
-        max-width: calc(100vw - 20px);
+        width: 100%;
+        max-width: 100%;
         min-width: 0;
         margin-inline: auto;
         padding: 28px 16px 24px;
@@ -5941,8 +5941,8 @@ body.cash-payment-page .registration-trust {
     }
 
     body.cash-payment-page .registration-trust {
-        width: calc(100vw - 20px);
-        max-width: calc(100vw - 20px);
+        width: 100%;
+        max-width: 100%;
         margin-inline: auto;
         overflow-wrap: anywhere;
     }
@@ -7322,6 +7322,159 @@ body.manual-registration-flow button:disabled {
     body.manual-registration-flow .manual-flow-actions .registration-next,
     body.manual-registration-flow .manual-flow-cancel {
         width: 100%;
+    }
+}
+
+/* Visitor journey mobile containment
+   Keep every screen from document upload through payment completion inside
+   the visual viewport, including third-party payment content. */
+html.visitor-journey,
+html.visitor-journey body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+    html.visitor-journey,
+    html.visitor-journey body {
+        overflow-x: clip;
+    }
+}
+
+html.visitor-journey body.landing-page .hero,
+html.visitor-journey body.landing-page .registration-shell,
+html.visitor-journey body.landing-page .hero-content,
+html.visitor-journey body.landing-page .registration-card,
+html.visitor-journey body.landing-page .registration-form,
+html.visitor-journey body.landing-page .registration-grid,
+html.visitor-journey body.landing-page .confirmation-card,
+html.visitor-journey body.landing-page .confirmation-profile,
+html.visitor-journey body.landing-page .confirmation-details-grid,
+html.visitor-journey body.landing-page .payment-choice-form,
+html.visitor-journey body.landing-page .payment-option-grid,
+html.visitor-journey body.landing-page .payment-status-card,
+html.visitor-journey body.landing-page .cash-payment-card,
+html.visitor-journey body.landing-page .thank-you-content,
+html.visitor-journey body.landing-page .entrance-badge,
+html.visitor-journey body.landing-page .face-card,
+html.visitor-journey body.landing-page .upload-doc-card {
+    min-width: 0;
+    max-width: 100%;
+}
+
+html.visitor-journey body.landing-page .registration-background {
+    overflow: hidden;
+}
+
+html.visitor-journey body.landing-page .payment-amount,
+html.visitor-journey body.landing-page .payment-reference,
+html.visitor-journey body.landing-page .directpay-contact,
+html.visitor-journey body.landing-page .directpay-contact > div,
+html.visitor-journey body.landing-page .payment-option,
+html.visitor-journey body.landing-page .confirmation-detail,
+html.visitor-journey body.landing-page .badge-visitor-details,
+html.visitor-journey body.landing-page .badge-visitor-details > div {
+    min-width: 0;
+    max-width: 100%;
+}
+
+html.visitor-journey body.landing-page .payment-amount > *,
+html.visitor-journey body.landing-page .payment-reference strong,
+html.visitor-journey body.landing-page .directpay-contact strong,
+html.visitor-journey body.landing-page .registration-trust,
+html.visitor-journey body.landing-page .payment-provider-note {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+html.visitor-journey body.landing-page #card_container,
+html.visitor-journey body.landing-page #card_container > *,
+html.visitor-journey body.landing-page #card_container iframe {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+@media (max-width: 760px) {
+    html.visitor-journey body.landing-page .hero,
+    html.visitor-journey body.landing-page .registration-shell {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    html.visitor-journey body.landing-page .registration-card,
+    html.visitor-journey body.landing-page .confirmation-card,
+    html.visitor-journey body.landing-page .payment-status-card,
+    html.visitor-journey body.landing-page .cash-payment-card {
+        width: 100%;
+        max-width: 100%;
+        margin-right: auto;
+        margin-left: auto;
+    }
+
+    html.visitor-journey body.landing-page .directpay-contact {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 520px) {
+    html.visitor-journey body.landing-page .site-page-logo + .hero,
+    html.visitor-journey body.landing-page .site-page-logo + .registration-shell {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    html.visitor-journey body.landing-page.live-face-page .hero-visual,
+    html.visitor-journey body.landing-page.upload-document-page .hero-visual {
+        display: none;
+    }
+
+    html.visitor-journey body.landing-page .payment-amount {
+        gap: 8px;
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+
+    html.visitor-journey body.landing-page .payment-amount strong {
+        font-size: clamp(15px, 5vw, 18px);
+        text-align: right;
+    }
+
+    html.visitor-journey body.visitor-confirmation-page .payment-option {
+        grid-template-columns: 18px minmax(0, 1fr);
+    }
+
+    html.visitor-journey body.visitor-confirmation-page .card-marks,
+    html.visitor-journey body.visitor-confirmation-page .amex-mark,
+    html.visitor-journey body.visitor-confirmation-page .cash-mark {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    html.visitor-journey body.thank-you-page .badge-topbar,
+    html.visitor-journey body.thank-you-page .badge-event,
+    html.visitor-journey body.thank-you-page .badge-identity,
+    html.visitor-journey body.thank-you-page .badge-qr {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+}
+
+@media (max-width: 340px) {
+    html.visitor-journey body.landing-page .payment-amount {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        text-align: center;
+    }
+
+    html.visitor-journey body.landing-page .payment-amount strong {
+        text-align: center;
+    }
+
+    html.visitor-journey body.thank-you-page .badge-visitor-details {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
