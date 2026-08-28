@@ -1,3 +1,7 @@
+@unless(request()->routeIs('gate.*'))
+    @include('layouts.meta-pixel')
+@endunless
+
 <style>
     .site-page-logo {
         position: absolute;
