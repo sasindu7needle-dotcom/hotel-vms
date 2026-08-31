@@ -116,11 +116,54 @@ class AdminVisitorController extends Controller
                 Log::error('Payment confirmation email could not be sent.', [
                     'visitor_id' => $visitor->id,
                     'exception_class' => $exception::class,
+                    'exception_message' => $exception->getMessage(),
                 ]);
             }
         }
 
         return redirect()->route('admin.visitors.index')->with('status', 'Visitor details updated successfully.');
+    }
+
+    public function resendPaymentConfirmation(
+        VerifiedVisitor $visitor,
+        PaymentConfirmationEmailService $paymentEmail,
+    ) {
+        if ($visitor->payment_status !== 'paid') {
+            return redirect()->route('admin.visitors.index')->withErrors([
+                'email' => 'The payment confirmation can be sent only after payment is marked paid.',
+            ]);
+        }
+
+        if (! filter_var($visitor->email, FILTER_VALIDATE_EMAIL)) {
+            return redirect()->route('admin.visitors.index')->withErrors([
+                'email' => 'This visitor does not have a valid email address.',
+            ]);
+        }
+
+        try {
+            $sent = $paymentEmail->resend($visitor);
+        } catch (\Throwable $exception) {
+            Log::error('Payment confirmation email could not be resent.', [
+                'visitor_id' => $visitor->id,
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+            ]);
+
+            return redirect()->route('admin.visitors.index')->withErrors([
+                'email' => 'The confirmation email could not be sent. Check the live mail configuration and application log.',
+            ]);
+        }
+
+        if (! $sent) {
+            return redirect()->route('admin.visitors.index')->withErrors([
+                'email' => 'The confirmation email was not sent. Confirm that this visitor is paid and has a valid email address.',
+            ]);
+        }
+
+        return redirect()->route('admin.visitors.index')->with(
+            'status',
+            'Payment confirmation, entrance card and invoice sent to '.$visitor->email.'.',
+        );
     }
 
     public function destroy(VerifiedVisitor $visitor)

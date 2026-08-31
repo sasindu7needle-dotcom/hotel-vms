@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PaymentConfirmationMail;
 use App\Models\GateLog;
 use App\Models\VerifiedVisitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -90,6 +92,42 @@ class AdminVisitorTest extends TestCase
             'payment_status' => 'paid',
             'payment_method' => 'cash',
         ]);
+    }
+
+    public function test_admin_can_send_and_resend_a_paid_visitors_confirmation_email(): void
+    {
+        Mail::fake();
+        $visitor = VerifiedVisitor::create([
+            'verification_id' => 'f9c3fa4f-542a-44e6-b98d-9ff6e9228f43',
+            'full_name' => 'Paid Email Visitor',
+            'email' => 'paid-visitor@example.test',
+            'payment_status' => 'paid',
+            'payment_method' => 'visa_master',
+            'entrance_fee' => 25000,
+            'paid_at' => now(),
+        ]);
+        $session = ['admin_authenticated' => true, 'admin_username' => 'admin'];
+
+        $this->withSession($session)
+            ->post(route('admin.visitors.payment_confirmation.resend', $visitor))
+            ->assertRedirect(route('admin.visitors.index'))
+            ->assertSessionHas('status');
+
+        $this->assertNotNull($visitor->fresh()->payment_confirmation_emailed_at);
+        Mail::assertSent(PaymentConfirmationMail::class, 1);
+
+        $this->withSession($session)
+            ->get(route('admin.visitors.index'))
+            ->assertOk()
+            ->assertSee('Confirmation Email')
+            ->assertSee('SENT')
+            ->assertSee('Resend Email');
+
+        $this->withSession($session)
+            ->post(route('admin.visitors.payment_confirmation.resend', $visitor))
+            ->assertRedirect(route('admin.visitors.index'));
+
+        Mail::assertSent(PaymentConfirmationMail::class, 2);
     }
 
     public function test_get_individual_visitor_route_redirects_to_index(): void

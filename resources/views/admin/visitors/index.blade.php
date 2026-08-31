@@ -240,6 +240,9 @@
                                     'Event Day' => $visitor->eventRegistrationDay ? $visitor->eventRegistrationDay->label.' · '.$visitor->eventRegistrationDay->event_date->format('d M Y') : null,
                                     'Payment Method' => strtoupper(str_replace('_', ' / ', $visitor->payment_method ?: '')),
                                     'Payment Status' => strtoupper(in_array($visitor->payment_status, ['cash_pending', 'card_pending'], true) ? 'pending' : $visitor->payment_status),
+                                    'Confirmation Email' => $visitor->payment_confirmation_emailed_at
+                                        ? 'SENT · '.$visitor->payment_confirmation_emailed_at->format('M j, Y · g:i A')
+                                        : 'NOT SENT',
                                     'Access Status' => $visitor->is_blocked ? 'BLOCKED' : 'ALLOWED',
                                     'Verification ID' => $visitor->verification_id ?: $visitor->didit_session_id,
                                     'Visitor Photo' => $visitor->selfie_path ? 'CAPTURED' : 'NOT CAPTURED',
@@ -291,7 +294,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="admin-dialog-actions"><form method="POST" action="{{ route('admin.visitors.checkin', $visitor) }}">@csrf @method('PATCH')<button class="btn {{ $visitor->checkin_status ? 'btn-secondary' : 'btn-primary' }}" type="submit">{{ $visitor->checkin_status ? 'Check Out Visitor' : 'Check In Visitor' }}</button></form><a class="btn btn-primary" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a><button type="button" class="admin-edit-button" data-dialog-switch="edit-visitor-{{ $visitor->id }}">Edit record</button><button type="button" class="admin-modal-close-button" data-close>Close</button></div>
+                        <div class="admin-dialog-actions"><form method="POST" action="{{ route('admin.visitors.checkin', $visitor) }}">@csrf @method('PATCH')<button class="btn {{ $visitor->checkin_status ? 'btn-secondary' : 'btn-primary' }}" type="submit">{{ $visitor->checkin_status ? 'Check Out Visitor' : 'Check In Visitor' }}</button></form><a class="btn btn-primary" href="{{ route('admin.visitors.badge', $visitor) }}" target="_blank" rel="noopener">Print Card</a>@if($visitor->payment_status === 'paid')<form method="POST" action="{{ route('admin.visitors.payment_confirmation.resend', $visitor) }}">@csrf<button class="admin-edit-button" type="submit">{{ $visitor->payment_confirmation_emailed_at ? 'Resend Email' : 'Send Email' }}</button></form>@endif<button type="button" class="admin-edit-button" data-dialog-switch="edit-visitor-{{ $visitor->id }}">Edit record</button><button type="button" class="admin-modal-close-button" data-close>Close</button></div>
                     </dialog>
 
                     <dialog id="edit-visitor-{{ $visitor->id }}" class="admin-visitor-dialog admin-edit-dialog">

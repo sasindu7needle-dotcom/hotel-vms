@@ -311,6 +311,7 @@ class DirectPayPaymentController extends Controller
                     'payment_reference' => $reference,
                     'visitor_id' => $payment->verified_visitor_id,
                     'exception_class' => $exception::class,
+                    'exception_message' => $exception->getMessage(),
                 ]);
             }
         }

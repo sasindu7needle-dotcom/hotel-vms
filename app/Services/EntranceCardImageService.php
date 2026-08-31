@@ -188,7 +188,10 @@ class EntranceCardImageService
         imagedestroy($qrImage);
 
         $this->text($image, 'REFERENCE', 496, 715, 12, $muted, true, 'center');
-        $this->fittedText($image, $qrPayload, 496, 741, 11, $ink, true, 220, 'center');
+        $referenceLines = array_slice(str_split($qrPayload, 18), 0, 2);
+        foreach ($referenceLines as $index => $referenceLine) {
+            $this->fittedText($image, $referenceLine, 496, 738 + ($index * 17), 10, $ink, true, 220, 'center');
+        }
 
     }
 

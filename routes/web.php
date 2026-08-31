@@ -126,6 +126,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/visitors/{visitor}', fn (VerifiedVisitor $visitor) => redirect()->route('admin.visitors.index'))->name('visitors.show');
         Route::patch('/visitors/{visitor}/checkin', [AdminVisitorController::class, 'toggleCheckin'])->name('visitors.checkin');
         Route::patch('/visitors/{visitor}', [AdminVisitorController::class, 'update'])->name('visitors.update');
+        Route::post('/visitors/{visitor}/payment-confirmation/resend', [AdminVisitorController::class, 'resendPaymentConfirmation'])->name('visitors.payment_confirmation.resend');
         Route::delete('/visitors/{visitor}', [AdminVisitorController::class, 'destroy'])->name('visitors.destroy');
         Route::get('/visitors/{visitor}/photo', [AdminVisitorController::class, 'photo'])->name('visitors.photo');
         Route::get('/visitors/{visitor}/badge', [AdminVisitorController::class, 'badge'])->name('visitors.badge');

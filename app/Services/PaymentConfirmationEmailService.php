@@ -23,17 +23,29 @@ class PaymentConfirmationEmailService
      */
     public function sendIfNeeded(VerifiedVisitor $visitor, ?DirectPayPayment $payment = null): bool
     {
+        return $this->send($visitor, $payment, false);
+    }
+
+    /** Explicitly resend a paid visitor's confirmation from the admin directory. */
+    public function resend(VerifiedVisitor $visitor, ?DirectPayPayment $payment = null): bool
+    {
+        return $this->send($visitor, $payment, true);
+    }
+
+    private function send(VerifiedVisitor $visitor, ?DirectPayPayment $payment, bool $force): bool
+    {
         if (! filter_var($visitor->email, FILTER_VALIDATE_EMAIL)) {
             return false;
         }
 
-        return DB::transaction(function () use ($visitor, $payment) {
+        return DB::transaction(function () use ($visitor, $payment, $force) {
             $lockedVisitor = VerifiedVisitor::query()
                 ->with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile', 'visitorCategory'])
                 ->lockForUpdate()
                 ->findOrFail($visitor->id);
 
-            if ($lockedVisitor->payment_status !== 'paid' || $lockedVisitor->payment_confirmation_emailed_at) {
+            if ($lockedVisitor->payment_status !== 'paid'
+                || (! $force && $lockedVisitor->payment_confirmation_emailed_at)) {
                 return false;
             }
 
