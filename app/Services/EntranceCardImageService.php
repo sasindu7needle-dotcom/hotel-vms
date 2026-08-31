@@ -23,6 +23,10 @@ class EntranceCardImageService
 
     private const PIXELS_PER_METRE = 11800;
 
+    public function __construct(private VisitorCategoryCardService $categoryCards)
+    {
+    }
+
     /** Render the downloadable visitor card as a real, portable PNG image. */
     public function render(
         VerifiedVisitor $visitor,
@@ -37,6 +41,7 @@ class EntranceCardImageService
         }
 
         imageantialias($image, true);
+        $category = $this->categoryCards->categoryFor($visitor);
         $white = $this->color($image, '#ffffff');
         $ink = $this->color($image, '#18202b');
         $black = $this->color($image, '#171a18');
@@ -47,10 +52,21 @@ class EntranceCardImageService
         $photoBackground = $this->color($image, '#edf1e8');
         $line = $this->color($image, '#d8ded0');
 
+        $categoryArtwork = $this->imageFromBytes($this->categoryCards->bytes($category));
+        if ($categoryArtwork) {
+            $this->drawCoverImage($image, $categoryArtwork, 0, 0, self::WIDTH, self::HEIGHT);
+            imagedestroy($categoryArtwork);
+
+            $this->drawCategoryCardDetails($image, $visitor, $qrPayload, $photoDataUri);
+
+            return $this->encodeOutput($image);
+        }
+
         imagefill($image, 0, 0, $white);
         imagefilledellipse($image, 670, 1180, 420, 420, $this->color($image, '#f4f8df'));
         imagefilledrectangle($image, 0, 0, self::WIDTH, 92, $black);
-        $this->text($image, 'ENTRANCE ID', 40, 58, 20, $white, true);
+        $passLabel = mb_strtoupper(($category?->name ?: $visitor->category ?: 'Entrance').' PASS');
+        $this->fittedText($image, $passLabel, 40, 58, 20, $white, true, 340);
 
         $statusWidth = $cardStatus === 'VERIFIED' ? 122 : 206;
         $statusX = self::WIDTH - $statusWidth - 38;
@@ -114,6 +130,70 @@ class EntranceCardImageService
         $this->text($image, 'PARTICIPANT REFERENCE NUMBER', self::WIDTH / 2, 1110, 13, $label, true, 'center');
         $this->fittedText($image, $qrPayload, self::WIDTH / 2, 1134, 13, $ink, true, 600, 'center');
 
+        return $this->encodeOutput($image);
+    }
+
+    /**
+     * Category artwork is the complete card template. Only the visitor identity
+     * and scannable QR data are added; none of the legacy card chrome is drawn.
+     */
+    private function drawCategoryCardDetails(
+        GdImage $image,
+        VerifiedVisitor $visitor,
+        string $qrPayload,
+        ?string $photoDataUri,
+    ): void {
+        $white = $this->color($image, '#ffffff');
+        $ink = $this->color($image, '#18202b');
+        $muted = $this->color($image, '#667085');
+        $photoBackground = $this->color($image, '#edf1e8');
+
+        // Place the visitor name above the photo and QR row.
+        $identityPanel = imagecolorallocatealpha($image, 255, 255, 255, 18);
+        $this->roundedRectangle($image, 45, 325, 635, 450, 24, $identityPanel);
+        $this->text($image, 'VISITOR NAME', self::WIDTH / 2, 365, 14, $muted, true, 'center');
+        $this->wrappedText(
+            $image,
+            $visitor->full_name ?: 'Verified Visitor',
+            69,
+            380,
+            542,
+            27,
+            2,
+            $ink,
+            true,
+            'center',
+        );
+
+        // Keep the two scannable identity elements in one balanced row below it.
+        $this->roundedRectangle($image, 55, 475, 313, 761, 36, $white);
+        $this->roundedRectangle($image, 70, 490, 298, 746, 28, $photoBackground);
+        $photo = $this->imageFromDataUri($photoDataUri);
+        if ($photo) {
+            $this->drawCoverImage($image, $photo, 70, 490, 228, 256);
+            imagedestroy($photo);
+        } else {
+            imageellipse($image, 184, 586, 96, 96, $muted);
+            imagearc($image, 184, 714, 174, 150, 190, 350, $muted);
+        }
+
+        $this->roundedRectangle($image, 367, 475, 625, 761, 28, $white);
+        $qrPng = (new Writer(new GDLibRenderer(184, 2, 'png', 9)))
+            ->writeString($qrPayload, ecLevel: ErrorCorrectionLevel::H());
+        $qrImage = imagecreatefromstring($qrPng);
+        if (! $qrImage) {
+            throw new RuntimeException('The entrance card QR code could not be created.');
+        }
+        imagecopy($image, $qrImage, 404, 501, 0, 0, 184, 184);
+        imagedestroy($qrImage);
+
+        $this->text($image, 'REFERENCE', 496, 715, 12, $muted, true, 'center');
+        $this->fittedText($image, $qrPayload, 496, 741, 11, $ink, true, 220, 'center');
+
+    }
+
+    private function encodeOutput(GdImage $image): string
+    {
         $output = imagecreatetruecolor(self::OUTPUT_WIDTH, self::OUTPUT_HEIGHT);
         if (! $output) {
             imagedestroy($image);
@@ -234,6 +314,11 @@ class EntranceCardImageService
         $bytes = base64_decode(substr($dataUri, strpos($dataUri, ',') + 1), true);
 
         return is_string($bytes) ? @imagecreatefromstring($bytes) : false;
+    }
+
+    private function imageFromBytes(?string $bytes): GdImage|false
+    {
+        return filled($bytes) ? @imagecreatefromstring($bytes) : false;
     }
 
     private function text(

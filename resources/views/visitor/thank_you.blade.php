@@ -27,8 +27,16 @@
                 <h1 id="thank-you-title" class="headline">Thank you for registering<span class="dot">.</span></h1>
             </div>
 
+            @if($cardArtworkAvailable)
+            <div class="category-entrance-card-preview">
+                <img
+                    src="{{ route('visitor.card.preview', ['v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}"
+                    alt="Generated {{ $visitor->visitorCategory?->name ?: $visitor->category }} card for {{ $visitor->full_name }}"
+                >
+            </div>
+            @else
             <article class="entrance-badge" aria-label="Visitor entrance badge">
-                <div class="badge-topbar"><span>ENTRANCE ID</span><span class="badge-status">VERIFIED</span></div>
+                <div class="badge-topbar"><span>{{ mb_strtoupper(($visitor->visitorCategory?->name ?: $visitor->category ?: 'Entrance').' Pass') }}</span><span class="badge-status">VERIFIED</span></div>
                 <header class="badge-event">
                     <img class="badge-logo" src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">
                     @if(data_get($details, 'registration_date'))
@@ -60,6 +68,7 @@
                     <div><span>PARTICIPANT REFERENCE</span><strong>{{ $qrPayload }}</strong></div>
                 </div>
             </article>
+            @endif
 
             @include('visitor.partials.card-download-button', ['class' => 'thank-you-download'])
 

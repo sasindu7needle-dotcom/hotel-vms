@@ -41,7 +41,9 @@ Route::post('/visitor/confirm', [VisitorController::class, 'confirm'])->name('vi
 Route::post('/visitor/payment-method', [VisitorController::class, 'selectPaymentMethod'])->name('visitor.payment-method');
 Route::get('/visitor/payment/card', [DirectPayPaymentController::class, 'showStart'])->name('visitor.payment.card');
 Route::get('/visitor/payment/cash', [VisitorController::class, 'cashConfirmation'])->name('visitor.payment.cash');
+Route::get('/visitor/card/preview', [VisitorController::class, 'downloadCard'])->name('visitor.card.preview');
 Route::get('/visitor/card/download', [VisitorController::class, 'downloadCard'])->name('visitor.card.download');
+Route::get('/visitor/card/artwork', [VisitorController::class, 'cardArtwork'])->name('visitor.card.artwork');
 Route::post('/visitor/payment/confirm', [DirectPayPaymentController::class, 'legacyConfirmation'])->name('visitor.payment.confirm');
 Route::post('/visitor/payment/directpay/{visitor}', [DirectPayPaymentController::class, 'start'])->name('visitor.payment.directpay.start');
 Route::get('/visitor/payment/directpay/{reference}', [DirectPayPaymentController::class, 'checkout'])->name('visitor.payment.directpay.checkout');
@@ -101,6 +103,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/configurations/categories', [AdminVisitorCategoryController::class, 'index'])->name('configurations.categories.index');
         Route::post('/configurations/categories', [AdminVisitorCategoryController::class, 'store'])->name('configurations.categories.store');
         Route::put('/configurations/categories/{category}', [AdminVisitorCategoryController::class, 'update'])->name('configurations.categories.update');
+        Route::get('/configurations/categories/{category}/card-image', [AdminVisitorCategoryController::class, 'cardImage'])->name('configurations.categories.card_image');
+        Route::post('/configurations/categories/{category}/card-image', [AdminVisitorCategoryController::class, 'updateCardImage'])->name('configurations.categories.card_image.update');
+        Route::delete('/configurations/categories/{category}/card-image', [AdminVisitorCategoryController::class, 'destroyCardImage'])->name('configurations.categories.card_image.destroy');
         Route::patch('/configurations/categories/{category}/toggle', [AdminVisitorCategoryController::class, 'toggleActive'])->name('configurations.categories.toggle');
         Route::delete('/configurations/categories/{category}', [AdminVisitorCategoryController::class, 'destroy'])->name('configurations.categories.destroy');
         Route::post('/configurations/categories/{category}/members', [AdminVisitorCategoryController::class, 'storeMember'])->name('configurations.categories.members.store');
@@ -124,13 +129,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/visitors/{visitor}', [AdminVisitorController::class, 'destroy'])->name('visitors.destroy');
         Route::get('/visitors/{visitor}/photo', [AdminVisitorController::class, 'photo'])->name('visitors.photo');
         Route::get('/visitors/{visitor}/badge', [AdminVisitorController::class, 'badge'])->name('visitors.badge');
+        Route::get('/visitors/{visitor}/card/artwork', [AdminVisitorController::class, 'cardArtwork'])->name('visitors.card_artwork');
+        Route::get('/visitors/{visitor}/card/preview', [AdminVisitorController::class, 'downloadCard'])->name('visitors.card.preview');
+        Route::get('/visitors/{visitor}/card/download', [AdminVisitorController::class, 'downloadCard'])->name('visitors.card.download');
         Route::get('/visitors/{visitor}/back-photo', [AdminVisitorController::class, 'backPhoto'])->name('visitors.back_photo');
         Route::get('/visitors/{visitor}/selfie', [AdminVisitorController::class, 'selfie'])->name('visitors.selfie');
         Route::get('/visitors/{visitor}/payment-slip', [AdminVisitorController::class, 'paymentSlip'])->name('visitors.payment_slip');
     });
 
-    // Logout must remain reachable even when an old or mixed session fails
-    // the access middleware; it always invalidates the whole browser session.
+
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 });
 

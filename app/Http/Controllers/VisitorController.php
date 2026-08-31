@@ -18,6 +18,7 @@ use App\Services\VisitorMediaService;
 use App\Services\VisitorRegistrationResumeService;
 use App\Services\GeminiDocumentService;
 use App\Services\EntranceCardImageService;
+use App\Services\VisitorCategoryCardService;
 use F9WebLtd\QrCode\Facades\QrCode;
 
 class VisitorController extends Controller
@@ -769,7 +770,7 @@ class VisitorController extends Controller
             return redirect()->route('visitor.create');
         }
 
-        $visitor = VerifiedVisitor::with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile'])
+        $visitor = VerifiedVisitor::with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile', 'visitorCategory'])
             ->find(data_get($details, 'record_id'));
         if (! $visitor) {
             return redirect()->route('visitor.create');
@@ -787,10 +788,27 @@ class VisitorController extends Controller
 
         return response($png, 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'attachment; filename="'.$safeName.'-entrance-card.png"',
+            'Content-Disposition' => ($request->routeIs('visitor.card.preview') ? 'inline' : 'attachment')
+                .'; filename="'.$safeName.'-entrance-card.png"',
             'Cache-Control' => 'no-store, private',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /** Serve only the active visitor's category artwork for the success-card preview. */
+    public function cardArtwork(Request $request, VisitorCategoryCardService $categoryCards)
+    {
+        $recordId = data_get($request->session()->get('visitor_registration'), 'record_id');
+        if (blank($recordId)) {
+            abort(404);
+        }
+
+        $visitor = VerifiedVisitor::with('visitorCategory')->find($recordId);
+        abort_unless($visitor, 404);
+        $category = $categoryCards->categoryFor($visitor);
+        abort_unless($category?->card_image_path, 404);
+
+        return $categoryCards->response($category);
     }
 
     /**
@@ -830,7 +848,7 @@ class VisitorController extends Controller
     }
 
     /** Display the final visitor badge after payment confirmation. */
-    public function thankYou(Request $request)
+    public function thankYou(Request $request, VisitorCategoryCardService $categoryCards)
     {
         $details = $request->session()->get('visitor_registration');
         $isManualRegistration = data_get($details, 'manual_registration') === true;
@@ -839,7 +857,8 @@ class VisitorController extends Controller
             return redirect()->route('visitor.create');
         }
 
-        $visitor = VerifiedVisitor::find(data_get($details, 'record_id'));
+        $visitor = VerifiedVisitor::with(['visitorCategory', 'eventRegistrationDay.eventConfiguration', 'exhibitorProfile'])
+            ->find(data_get($details, 'record_id'));
         if (! $visitor || (! $isManualRegistration && $visitor->payment_status !== 'paid')) {
             return redirect()->route('visitor.create');
         }
@@ -854,6 +873,8 @@ class VisitorController extends Controller
             ->generate($qrPayload);
         $profilePhotoAvailable = filled($visitor->selfie_path)
             && app(VisitorMediaService::class)->exists($visitor->selfie_path);
+        $cardCategory = $categoryCards->categoryFor($visitor);
+        $cardArtworkAvailable = $categoryCards->hasArtwork($cardCategory);
 
         return view('visitor.thank_you', compact(
             'details',
@@ -861,7 +882,8 @@ class VisitorController extends Controller
             'eventName',
             'qrCode',
             'qrPayload',
-            'profilePhotoAvailable'
+            'profilePhotoAvailable',
+            'cardArtworkAvailable'
         ));
     }
 
@@ -1097,8 +1119,7 @@ class VisitorController extends Controller
         string $documentType,
         string $documentNumber,
         ?string $exceptVerificationId = null,
-    ): bool
-    {
+    ): bool {
         return app(VisitorRegistrationResumeService::class)
             ->findByIdentity($documentType, $documentNumber, $exceptVerificationId) !== null;
     }
@@ -1171,7 +1192,8 @@ class VisitorController extends Controller
             ->get();
         $configuredCode = Str::slug((string) config('vms.participant_category_code', 'participant'));
 
-        $configuredCategory = $categories->first(fn (VisitorCategory $category): bool =>
+        $configuredCategory = $categories->first(
+            fn (VisitorCategory $category): bool =>
             Str::slug((string) $category->code) === $configuredCode
             || Str::slug($category->name) === $configuredCode
         );
@@ -1179,7 +1201,8 @@ class VisitorController extends Controller
             return $configuredCategory;
         }
 
-        $participantCategory = $categories->first(fn (VisitorCategory $category): bool =>
+        $participantCategory = $categories->first(
+            fn (VisitorCategory $category): bool =>
             str_contains(Str::slug((string) $category->code), 'participant')
             || str_contains(Str::slug($category->name), 'participant')
         );

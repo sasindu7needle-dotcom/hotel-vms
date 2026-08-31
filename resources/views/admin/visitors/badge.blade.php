@@ -67,6 +67,17 @@
             box-shadow: 0 22px 60px rgba(24,32,43,.18);
             isolation: isolate;
         }
+        .generated-card-preview {
+            display: block;
+            width: 80mm;
+            height: 140mm;
+            margin: auto;
+            object-fit: fill;
+            background: #fff;
+            border: 1px solid rgba(24,32,43,.1);
+            border-radius: 6mm;
+            box-shadow: 0 22px 60px rgba(24,32,43,.18);
+        }
         .visitor-card::after {
             position: absolute;
             z-index: -1;
@@ -78,6 +89,20 @@
             border-radius: 50%;
             content: '';
             opacity: .18;
+        }
+        .visitor-card.has-category-artwork::before {
+            position: absolute;
+            z-index: -2;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,.58), rgba(255,255,255,.58)), var(--category-card-artwork);
+            background-position: center;
+            background-size: cover;
+            content: '';
+        }
+        .visitor-card.has-category-artwork .card-event,
+        .visitor-card.has-category-artwork .card-name,
+        .visitor-card.has-category-artwork .card-qr {
+            background: rgba(255,255,255,.52);
         }
         .card-topbar {
             display: flex;
@@ -260,7 +285,8 @@
             html,
             body,
             .visitor-card,
-            .visitor-card * {
+            .visitor-card *,
+            .generated-card-preview {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -281,6 +307,18 @@
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
+            .generated-card-preview {
+                width: 40mm !important;
+                min-width: 40mm !important;
+                max-width: 40mm !important;
+                height: 70mm !important;
+                min-height: 70mm !important;
+                max-height: 70mm !important;
+                margin: 0 auto !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+            }
         }
         @media screen and (max-width: 480px) {
             body {
@@ -289,17 +327,47 @@
             .visitor-card {
                 width: min(90mm, 100%);
             }
+            .generated-card-preview {
+                width: min(80mm, 100%);
+                height: auto;
+                aspect-ratio: 4 / 7;
+            }
         }
+        @if($cardArtworkAvailable)
+        @page {
+            size: 40mm 70mm;
+            margin: 0;
+        }
+        @media print {
+            html,
+            body {
+                width: 40mm !important;
+                min-width: 40mm !important;
+                max-width: 40mm !important;
+                height: 70mm !important;
+                min-height: 70mm !important;
+                max-height: 70mm !important;
+            }
+        }
+        @endif
     </style>
 </head>
 <body>
     <nav class="print-toolbar" aria-label="Print controls">
         <a href="{{ route('admin.visitors.index') }}">Back to Visitors</a>
+        <a href="{{ route('admin.visitors.card.download', $visitor) }}">Download PNG</a>
         <button type="button" onclick="printCard()">Print Card</button>
     </nav>
 
+    @if($cardArtworkAvailable)
+    <img
+        class="generated-card-preview"
+        src="{{ route('admin.visitors.card.preview', ['visitor' => $visitor, 'v' => $visitor->updated_at?->format('Uu') ?: $visitor->id]) }}"
+        alt="Generated {{ $visitor->visitorCategory?->name ?: $visitor->category }} card for {{ $visitor->full_name }}"
+    >
+    @else
     <article class="visitor-card" aria-label="Printable visitor card">
-        <div class="card-topbar"><span>ENTRANCE ID</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
+        <div class="card-topbar"><span>{{ mb_strtoupper(($visitor->visitorCategory?->name ?: $visitor->category ?: 'Entrance').' Pass') }}</span><span>{{ $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED' }}</span></div>
         <header class="card-event"><img src="{{ asset('img/logo.png') }}" alt="Institute of Hospitality">@if($visitor->eventRegistrationDay)<small>{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</header>
         <div class="card-photo">
             @if($visitor->selfie_path)
@@ -322,6 +390,7 @@
             <strong>{{ $qrPayload }}</strong>
         </div>
     </article>
+    @endif
     <script>
         async function printCard() {
             if (document.fonts && document.fonts.ready) {

@@ -4673,6 +4673,32 @@ body.thank-you-page .entrance-badge {
     border-radius: 22px;
     box-shadow: 0 26px 70px rgba(28, 38, 22, .18);
 }
+body.thank-you-page .category-entrance-card-preview {
+    width: min(100%, 350px);
+    margin: 0 auto;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(24, 32, 43, .2);
+}
+body.thank-you-page .category-entrance-card-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 7;
+}
+
+body.thank-you-page .entrance-badge.has-category-artwork {
+    background-image: linear-gradient(rgba(255, 255, 255, .58), rgba(255, 255, 255, .58)), var(--category-card-artwork);
+    background-position: center;
+    background-size: cover;
+}
+
+body.thank-you-page .entrance-badge.has-category-artwork .badge-event,
+body.thank-you-page .entrance-badge.has-category-artwork .badge-identity,
+body.thank-you-page .entrance-badge.has-category-artwork .badge-qr {
+    background: rgba(255, 255, 255, .52);
+}
 
 body.thank-you-page .entrance-badge::after {
     position: absolute;

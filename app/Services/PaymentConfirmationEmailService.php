@@ -29,7 +29,7 @@ class PaymentConfirmationEmailService
 
         return DB::transaction(function () use ($visitor, $payment) {
             $lockedVisitor = VerifiedVisitor::query()
-                ->with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile'])
+                ->with(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile', 'visitorCategory'])
                 ->lockForUpdate()
                 ->findOrFail($visitor->id);
 

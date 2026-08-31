@@ -9,10 +9,13 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Services\GateLogService;
+use App\Services\EntranceCardImageService;
 use App\Services\PaymentConfirmationEmailService;
+use App\Services\VisitorCategoryCardService;
 use App\Services\VisitorMediaService;
 use F9WebLtd\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AdminVisitorController extends Controller
 {
@@ -82,8 +85,7 @@ class AdminVisitorController extends Controller
         Request $request,
         VerifiedVisitor $visitor,
         PaymentConfirmationEmailService $paymentEmail,
-    )
-    {
+    ) {
         $validated = $request->validate([
             'full_name' => 'nullable|string|max:180',
             'document_type' => 'nullable|in:nic,driving_license,passport',
@@ -205,9 +207,10 @@ class AdminVisitorController extends Controller
         return $this->currentPrivateImage($visitor->photo_path, $visitor->photo_mime);
     }
 
-    public function badge(VerifiedVisitor $visitor)
+    public function badge(VerifiedVisitor $visitor, VisitorCategoryCardService $categoryCards)
     {
-        $visitor->loadMissing('exhibitorProfile');
+        $visitor->loadMissing(['exhibitorProfile', 'visitorCategory', 'eventRegistrationDay.eventConfiguration']);
+        $cardCategory = $categoryCards->categoryFor($visitor);
         $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
         $qrCode = QrCode::format('svg')
             ->size(260)
@@ -221,6 +224,39 @@ class AdminVisitorController extends Controller
                 ?: config('vms.event_name'),
             'qrPayload' => $qrPayload,
             'qrCode' => $qrCode,
+            'cardArtworkAvailable' => $categoryCards->hasArtwork($cardCategory),
+        ]);
+    }
+
+    public function cardArtwork(VerifiedVisitor $visitor, VisitorCategoryCardService $categoryCards)
+    {
+        $visitor->loadMissing('visitorCategory');
+        $category = $categoryCards->categoryFor($visitor);
+        abort_unless($category?->card_image_path, 404);
+
+        return $categoryCards->response($category);
+    }
+
+    /** Download the same category-aware PNG used by visitor confirmation emails. */
+    public function downloadCard(Request $request, VerifiedVisitor $visitor, EntranceCardImageService $cardImage)
+    {
+        $visitor->loadMissing(['eventRegistrationDay.eventConfiguration', 'exhibitorProfile', 'visitorCategory']);
+        $eventName = $visitor->eventRegistrationDay?->eventConfiguration?->event_name
+            ?: config('vms.event_name');
+        $qrPayload = (string) ($visitor->verification_id ?: $visitor->id);
+        $photoDataUri = filled($visitor->selfie_path)
+            ? app(VisitorMediaService::class)->dataUri($visitor->selfie_path, $visitor->selfie_mime)
+            : null;
+        $status = $visitor->is_blocked ? 'BLOCKED' : 'VERIFIED';
+        $png = $cardImage->render($visitor, $eventName, $qrPayload, $status, $photoDataUri);
+        $safeName = Str::slug($visitor->full_name ?: 'visitor') ?: 'visitor';
+
+        return response($png, 200, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => ($request->routeIs('admin.visitors.card.preview') ? 'inline' : 'attachment')
+                .'; filename="'.$safeName.'-entrance-card.png"',
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 
