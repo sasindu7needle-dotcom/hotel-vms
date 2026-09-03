@@ -344,7 +344,7 @@ class VisitorCheckinController extends Controller
         ];
     }
 
-    /** Store the visitor photo captured by the camera. */
+    /** Store the visitor photo supplied by the camera or gallery. */
     public function capturePhoto(Request $request)
     {
         $verification = $request->session()->get('verification', []);

@@ -35,6 +35,10 @@
                 <p class="face-error" id="faceError" role="alert"></p>
                 <button type="button" id="cameraBtn" class="btn btn-secondary btn-large form-width-100">Start camera</button>
                 <button type="button" id="captureBtn" class="btn btn-primary btn-large form-width-100" disabled>Capture photo</button>
+                <div class="face-choice" id="faceChoice"><span>or</span></div>
+                <input type="file" id="galleryInput" accept="image/jpeg,image/png,image/webp" aria-describedby="galleryHelp" hidden>
+                <button type="button" id="galleryBtn" class="btn btn-secondary btn-large form-width-100">Upload from gallery</button>
+                <small class="gallery-help" id="galleryHelp">JPG, PNG or WebP, up to 6 MB.</small>
                 <button type="button" id="retakeBtn" class="btn btn-secondary btn-large form-width-100" hidden>Retake / replace photo</button>
                 <button type="button" id="continueBtn" class="btn btn-primary btn-large form-width-100" hidden>Use photo &amp; proceed</button>
                 <p class="face-disclaimer">This photo is stored with your visitor record. No biometric analysis is performed.</p>
@@ -63,6 +67,10 @@
         body.landing-page.live-face-page .face-error { min-height:18px; margin:0 0 8px; color:#c43d3d; font-size:12px; line-height:1.4; }
         body.landing-page.live-face-page .face-card .btn { margin-top:9px; }
         body.landing-page.live-face-page .face-card .btn[hidden] { display:none !important; }
+        body.landing-page.live-face-page .face-choice { display:flex; align-items:center; gap:10px; margin:12px 0 3px; color:#9ca3af; font-size:11px; font-weight:700; text-transform:uppercase; }
+        body.landing-page.live-face-page .face-choice::before, body.landing-page.live-face-page .face-choice::after { height:1px; flex:1; background:#e2e8f0; content:""; }
+        body.landing-page.live-face-page .gallery-help { display:block; margin-top:7px; color:#777; font-size:10px; text-align:center; }
+        body.landing-page.live-face-page .gallery-help[hidden], body.landing-page.live-face-page .face-choice[hidden] { display:none; }
         body.landing-page.live-face-page .face-disclaimer { margin:13px 0 0; color:#777; font-size:10px; line-height:1.45; text-align:center; }
         @media (max-width:700px) { body.landing-page.live-face-page .face-card { padding:16px; } }
     </style>
@@ -73,6 +81,10 @@
         const capturedPreview = document.getElementById('capturedPreview');
         const cameraBtn = document.getElementById('cameraBtn');
         const captureBtn = document.getElementById('captureBtn');
+        const galleryInput = document.getElementById('galleryInput');
+        const galleryBtn = document.getElementById('galleryBtn');
+        const galleryHelp = document.getElementById('galleryHelp');
+        const faceChoice = document.getElementById('faceChoice');
         const retakeBtn = document.getElementById('retakeBtn');
         const continueBtn = document.getElementById('continueBtn');
         const placeholder = document.getElementById('cameraPlaceholder');
@@ -82,6 +94,8 @@
         const errorBox = document.getElementById('faceError');
         let stream;
         let capturedBlob;
+        let capturedFileName = 'visitor-photo.jpg';
+        let photoSource;
         let previewUrl;
 
         function stopCamera() {
@@ -94,8 +108,34 @@
             if (previewUrl) URL.revokeObjectURL(previewUrl);
             previewUrl = undefined;
             capturedBlob = undefined;
+            capturedFileName = 'visitor-photo.jpg';
+            photoSource = undefined;
             capturedPreview.removeAttribute('src');
             capturedPreview.hidden = true;
+        }
+
+        function showPhotoPreview(file, source) {
+            stopCamera();
+            video.style.display = 'none';
+            placeholder.style.display = 'none';
+            guide.style.display = 'none';
+            status.classList.remove('is-live');
+
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            capturedBlob = file;
+            capturedFileName = file.name || 'visitor-photo.jpg';
+            photoSource = source;
+            previewUrl = URL.createObjectURL(file);
+            capturedPreview.src = previewUrl;
+            capturedPreview.hidden = false;
+            statusText.textContent = source === 'gallery' ? 'Gallery photo ready to review' : 'Photo ready to review';
+            cameraBtn.style.display = 'none';
+            captureBtn.style.display = 'none';
+            galleryBtn.hidden = true;
+            galleryHelp.hidden = true;
+            faceChoice.hidden = true;
+            retakeBtn.hidden = false;
+            continueBtn.hidden = false;
         }
 
         cameraBtn.addEventListener('click', async () => {
@@ -105,6 +145,9 @@
             cameraBtn.textContent = 'Starting camera...';
             retakeBtn.hidden = true;
             continueBtn.hidden = true;
+            galleryBtn.hidden = false;
+            galleryHelp.hidden = false;
+            faceChoice.hidden = false;
             captureBtn.style.display = 'none';
             status.classList.remove('is-live');
             statusText.textContent = 'Starting camera';
@@ -151,7 +194,40 @@
             }
         });
 
-        retakeBtn.addEventListener('click', () => cameraBtn.click());
+        galleryBtn.addEventListener('click', () => {
+            galleryInput.value = '';
+            galleryInput.click();
+        });
+
+        galleryInput.addEventListener('change', () => {
+            const file = galleryInput.files?.[0];
+            if (!file) return;
+
+            errorBox.textContent = '';
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                errorBox.textContent = 'Choose a JPG, PNG or WebP image.';
+                galleryInput.value = '';
+                return;
+            }
+            if (file.size > 6 * 1024 * 1024) {
+                errorBox.textContent = 'Choose an image that is 6 MB or smaller.';
+                galleryInput.value = '';
+                return;
+            }
+
+            showPhotoPreview(file, 'gallery');
+        });
+
+        retakeBtn.addEventListener('click', () => {
+            if (photoSource === 'gallery') {
+                galleryInput.value = '';
+                galleryInput.click();
+                return;
+            }
+
+            cameraBtn.click();
+        });
 
         captureBtn.addEventListener('click', () => {
             if (!stream || !video.videoWidth || !video.videoHeight) {
@@ -181,19 +257,8 @@
                     return;
                 }
 
-                capturedBlob = blob;
-                previewUrl = URL.createObjectURL(blob);
-                capturedPreview.src = previewUrl;
-                capturedPreview.hidden = false;
-                video.style.display = 'none';
-                guide.style.display = 'none';
-                stopCamera();
-                status.classList.remove('is-live');
-                statusText.textContent = 'Photo ready to review';
-                captureBtn.style.display = 'none';
+                showPhotoPreview(blob, 'camera');
                 captureBtn.textContent = 'Capture photo';
-                retakeBtn.hidden = false;
-                continueBtn.hidden = false;
             }, 'image/jpeg', .9);
         });
 
@@ -208,7 +273,7 @@
             continueBtn.textContent = 'Saving photo...';
             errorBox.textContent = '';
             const form = new FormData();
-            form.append('selfie', capturedBlob, 'visitor-photo.jpg');
+            form.append('selfie', capturedBlob, capturedFileName);
 
             try {
                 const response = await fetch("{{ route('visitor.capture_photo') }}", {method:'POST', headers:{'X-CSRF-TOKEN':"{{ csrf_token() }}", 'Accept':'application/json'}, body:form});

@@ -807,8 +807,28 @@ class VisitorVerificationTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Captured visitor photo preview')
+            ->assertSee('Upload from gallery')
+            ->assertSee('id="galleryInput"', false)
+            ->assertSee('accept="image/jpeg,image/png,image/webp"', false)
             ->assertSee('Retake / replace photo')
             ->assertSee('Use photo &amp; proceed', false);
+    }
+
+    public function test_it_stores_a_gallery_photo_using_the_existing_photo_pipeline(): void
+    {
+        Storage::disk('visitor-media')->put('verified-visitors/document.jpg', 'document');
+        $response = $this->withSession(['verification' => [
+            'session_id' => '11111111-2222-4333-8444-555555555555',
+            'verification_id' => '11111111-2222-4333-8444-555555555555',
+            'document_type' => 'nic',
+            'photo_path' => 'verified-visitors/document.jpg',
+        ]])->postJson(route('visitor.capture_photo'), [
+            'selfie' => UploadedFile::fake()->image('gallery-photo.png', 900, 1200),
+        ]);
+
+        $response->assertOk()->assertJson(['success' => true]);
+        $this->assertEquals('image/png', session('verification.selfie_mime'));
+        Storage::disk('visitor-media')->assertExists('verified-visitors/11111111-2222-4333-8444-555555555555-photo.png');
     }
 
     public function test_it_rejects_an_invalid_camera_photo(): void
