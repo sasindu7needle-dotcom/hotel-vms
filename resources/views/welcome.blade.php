@@ -20,7 +20,12 @@
                 Shaping the Future Performance of the Hospitality Industry.
             </p>
             <div class="cta-buttons">
-                <a href="{{ route('visitor.start') }}" class="btn btn-primary btn-large">Register</a>
+                <a
+                    href="{{ route('visitor.start') }}"
+                    class="btn btn-primary btn-large privacy-consent-required"
+                    data-cookie-consent-required
+                    aria-disabled="true"
+                >Register</a>
             </div>
         </div>
 
@@ -42,6 +47,8 @@
             </ul>
         </div>
     </section>
+
+    @include('partials.cookie-consent')
 
     <script>
         (() => {
