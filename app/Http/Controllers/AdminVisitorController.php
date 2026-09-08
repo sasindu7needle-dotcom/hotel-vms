@@ -16,6 +16,7 @@ use App\Services\VisitorMediaService;
 use F9WebLtd\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AdminVisitorController extends Controller
 {
@@ -39,6 +40,7 @@ class AdminVisitorController extends Controller
                     $query->where('full_name', 'like', "%{$search}%")
                         ->orWhere('full_name_latin', 'like', "%{$search}%")
                         ->orWhere('document_number', 'like', "%{$search}%")
+                        ->orWhere('ticket_number', 'like', "%{$search}%")
                         ->orWhere('mobile_number', 'like', "%{$search}%")
                         ->orWhere('company', 'like', "%{$search}%");
                 });
@@ -90,6 +92,7 @@ class AdminVisitorController extends Controller
             'full_name' => 'nullable|string|max:180',
             'document_type' => 'nullable|in:nic,driving_license,passport',
             'document_number' => 'nullable|string|max:30',
+            'ticket_number' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9][A-Za-z0-9\/_\-.]*$/', Rule::unique('verified_visitors', 'ticket_number')->ignore($visitor->id)],
             'address' => 'nullable|string|max:500',
             'mobile_number' => 'nullable|string|max:20',
             'whatsapp_number' => 'nullable|string|max:20',
@@ -104,6 +107,9 @@ class AdminVisitorController extends Controller
 
         if (! empty($validated['document_number'])) {
             $validated['document_number'] = strtoupper(preg_replace('/\s+/', '', $validated['document_number']));
+        }
+        if (! empty($validated['ticket_number'])) {
+            $validated['ticket_number'] = Str::upper(trim($validated['ticket_number']));
         }
         $validated['full_name_latin'] = $validated['full_name'] ?? null;
         $validated['address_latin'] = $validated['address'] ?? null;

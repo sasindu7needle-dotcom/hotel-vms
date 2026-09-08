@@ -177,7 +177,7 @@
 
             <section class="admin-panel admin-visitors-panel">
                 <form method="GET" action="{{ route('admin.visitors.index') }}" class="admin-visitor-filters">
-                    <div class="admin-search-field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg><input name="search" value="{{ data_get($filters, 'search') }}" placeholder="Search name, NIC, phone or company…" aria-label="Search visitors"></div>
+                    <div class="admin-search-field"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg><input name="search" value="{{ data_get($filters, 'search') }}" placeholder="Search name, ticket, NIC, phone or company…" aria-label="Search visitors"></div>
                     <select name="payment_status" aria-label="Filter by payment"><option value="">All payments</option>@foreach(['pending' => 'Pending', 'paid' => 'Paid'] as $value => $label)<option value="{{ $value }}" @selected(data_get($filters, 'payment_status') === $value)>{{ $label }}</option>@endforeach</select>
                     <select name="checkin_status" aria-label="Filter by check-in"><option value="">All locations</option><option value="inside" @selected(data_get($filters, 'checkin_status') === 'inside')>Currently inside</option><option value="outside" @selected(data_get($filters, 'checkin_status') === 'outside')>Not inside</option></select>
                     <button class="btn btn-primary" type="submit">Filter</button>
@@ -201,7 +201,7 @@
                                     <td class="admin-record-index">{{ ($visitors->firstItem() ?: 1) + $loop->index }}</td>
                                     <td><div class="admin-visitor-cell">
                                         @if($visitor->selfie_path)<img src="{{ route('admin.visitors.selfie', ['visitor' => $visitor, 'v' => $mediaVersion]) }}" alt="">@elseif($visitor->photo_url)<img src="{{ $visitor->photo_url }}" alt="">@else<span>{{ mb_strtoupper(mb_substr($visitor->full_name ?: '?', 0, 1)) }}</span>@endif
-                                        <div><strong>{{ $visitor->full_name ?: 'Unnamed visitor' }}</strong><small>{{ strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Document')) }} · {{ $visitor->document_number ?: '—' }}</small></div>
+                                        <div><strong>{{ $visitor->full_name ?: 'Unnamed visitor' }}</strong><small>{{ $visitor->ticket_number ? 'TICKET · '.$visitor->ticket_number : strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Document')).' · '.($visitor->document_number ?: '—') }}</small></div>
                                     </div></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->mobile_number ?: '—' }}</strong><small class="admin-cell-secondary">{{ $visitor->company ?: $visitor->occupation ?: 'No company' }}</small></td>
                                     <td><strong class="admin-cell-primary">{{ $visitor->category ?: 'Not assigned' }}</strong><small class="admin-cell-secondary">{{ $visitor->entrance_fee !== null ? 'LKR '.number_format((float)$visitor->entrance_fee, 2) : 'No fee' }}</small>@if($visitor->eventRegistrationDay)<small class="admin-cell-secondary">{{ $visitor->eventRegistrationDay->label }} · {{ $visitor->eventRegistrationDay->event_date->format('d M Y') }}</small>@endif</td>
@@ -230,6 +230,7 @@
                                     'Sinhala / Preferred Name' => $visitor->full_name,
                                     'Document Type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: '')),
                                     'NIC / Passport' => $visitor->document_number,
+                                    'Ticket Number' => $visitor->ticket_number,
                                     'Email Address' => $visitor->email,
                                     'Mobile Number' => $visitor->mobile_number,
                                     'WhatsApp Number' => $visitor->whatsapp_number,
@@ -305,6 +306,7 @@
                                 <label>Full name<input name="full_name" value="{{ $visitor->full_name }}"></label>
                                 <label>Document type<select name="document_type"><option value="">Not specified</option>@foreach(['nic'=>'NIC','driving_license'=>'Driving Licence','passport'=>'Passport'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->document_type===$value)>{{ $label }}</option>@endforeach</select></label>
                                 <label>Document number<input name="document_number" value="{{ $visitor->document_number }}"></label>
+                                <label>Ticket number<input name="ticket_number" value="{{ $visitor->ticket_number }}"></label>
                                 <label class="wide">Address<textarea name="address">{{ $visitor->address }}</textarea></label>
                                 <label>Mobile number<input name="mobile_number" value="{{ $visitor->mobile_number }}"></label>
                                 <label>WhatsApp number<input name="whatsapp_number" value="{{ $visitor->whatsapp_number }}"></label>

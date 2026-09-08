@@ -102,10 +102,12 @@ class GateTerminalController extends Controller
                 ? URL::temporarySignedRoute('gate.photo', now()->addMinutes(5), ['visitor' => $visitor])
                 : $visitor->photo_url,
             'category' => $visitor->category ?: 'Visitor',
-            'document_type' => strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Identity document')),
-            'document_number' => $visitor->document_number ?: 'Not provided',
+            'document_type' => $visitor->ticket_number
+                ? 'TICKET'
+                : strtoupper(str_replace('_', ' ', $visitor->document_type ?: 'Identity document')),
+            'document_number' => $visitor->ticket_number ?: ($visitor->document_number ?: 'Not provided'),
             'company' => $visitor->company ?: ($visitor->occupation ?: 'Not provided'),
-            'reference' => $visitor->verification_id ?: (string) $visitor->id,
+            'reference' => $visitor->ticket_number ?: ($visitor->verification_id ?: (string) $visitor->id),
             'event_day' => $visitor->eventRegistrationDay?->event_date?->format('d M Y'),
         ];
     }

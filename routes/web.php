@@ -22,10 +22,13 @@ use App\Http\Controllers\ExhibitorRegistrationController;
 use App\Http\Controllers\SuperAdminAuthController;
 use App\Http\Controllers\SuperAdminDashboardController;
 use App\Http\Controllers\DirectPayPaymentController;
+use App\Http\Controllers\TicketRegistrationController;
 
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/ticket-registration', [TicketRegistrationController::class, 'create'])->name('ticket-registration.create');
+Route::post('/ticket-registration', [TicketRegistrationController::class, 'store'])->middleware('throttle:20,1')->name('ticket-registration.store');
 Route::get('/visitor/new', [VisitorController::class, 'startNew'])->name('visitor.start');
 Route::get('/visitor/registration-days', [VisitorController::class, 'registrationDays'])->name('visitor.registration-days');
 Route::post('/visitor/registration-days/select', [VisitorController::class, 'selectRegistrationDay'])->name('visitor.registration-days.select');

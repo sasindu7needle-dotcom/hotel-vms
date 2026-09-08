@@ -386,8 +386,8 @@
         </div>
         <div class="card-qr">
             <div role="img" aria-label="QR code for visitor ID {{ $qrPayload }}">{!! $qrCode !!}</div>
-            <span>PARTICIPANT REFERENCE NUMBER</span>
-            <strong>{{ $qrPayload }}</strong>
+            <span>{{ $visitor->ticket_number ? 'TICKET NUMBER' : 'PARTICIPANT REFERENCE NUMBER' }}</span>
+            <strong>{{ $visitor->ticket_number ?: $qrPayload }}</strong>
         </div>
     </article>
     @endif

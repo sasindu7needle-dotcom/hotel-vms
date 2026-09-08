@@ -35,6 +35,7 @@ class EntranceCardImageService
         string $cardStatus,
         ?string $photoDataUri = null,
     ): string {
+        $displayReference = $visitor->ticket_number ?: $qrPayload;
         $image = imagecreatetruecolor(self::WIDTH, self::HEIGHT);
         if (! $image) {
             throw new RuntimeException('The entrance card image could not be created.');
@@ -57,7 +58,7 @@ class EntranceCardImageService
             $this->drawCoverImage($image, $categoryArtwork, 0, 0, self::WIDTH, self::HEIGHT);
             imagedestroy($categoryArtwork);
 
-            $this->drawCategoryCardDetails($image, $visitor, $qrPayload, $photoDataUri);
+            $this->drawCategoryCardDetails($image, $visitor, $qrPayload, $displayReference, $photoDataUri);
 
             return $this->encodeOutput($image);
         }
@@ -127,8 +128,9 @@ class EntranceCardImageService
         imagecopy($image, $qrImage, 248, 892, 0, 0, 184, 184);
         imagedestroy($qrImage);
 
-        $this->text($image, 'PARTICIPANT REFERENCE NUMBER', self::WIDTH / 2, 1110, 13, $label, true, 'center');
-        $this->fittedText($image, $qrPayload, self::WIDTH / 2, 1134, 13, $ink, true, 600, 'center');
+        $referenceLabel = $visitor->ticket_number ? 'TICKET NUMBER' : 'PARTICIPANT REFERENCE NUMBER';
+        $this->text($image, $referenceLabel, self::WIDTH / 2, 1110, 13, $label, true, 'center');
+        $this->fittedText($image, $displayReference, self::WIDTH / 2, 1134, 13, $ink, true, 600, 'center');
 
         return $this->encodeOutput($image);
     }
@@ -141,6 +143,7 @@ class EntranceCardImageService
         GdImage $image,
         VerifiedVisitor $visitor,
         string $qrPayload,
+        string $displayReference,
         ?string $photoDataUri,
     ): void {
         $white = $this->color($image, '#ffffff');
@@ -188,7 +191,7 @@ class EntranceCardImageService
         imagedestroy($qrImage);
 
         $this->text($image, 'REFERENCE', 496, 715, 12, $muted, true, 'center');
-        $referenceLines = array_slice(str_split($qrPayload, 18), 0, 2);
+        $referenceLines = array_slice(str_split($displayReference, 18), 0, 2);
         foreach ($referenceLines as $index => $referenceLine) {
             $this->fittedText($image, $referenceLine, 496, 738 + ($index * 17), 10, $ink, true, 220, 'center');
         }
