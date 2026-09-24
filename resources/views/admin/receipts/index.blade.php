@@ -157,6 +157,7 @@
                             <option value="cash" @selected(old('payment_method', $visitor->payment_method) === 'cash')>Cash</option>
                             <option value="visa_master" @selected(old('payment_method', $visitor->payment_method) === 'visa_master')>Visa / MasterCard</option>
                             <option value="amex" @selected(old('payment_method', $visitor->payment_method) === 'amex')>American Express</option>
+                            <option value="ticket" @selected(old('payment_method', $visitor->payment_method) === 'ticket')>Ticket</option>
                         </select>
                     </label>
                     <button type="submit" class="btn btn-primary">Confirm payment <span>→</span></button>

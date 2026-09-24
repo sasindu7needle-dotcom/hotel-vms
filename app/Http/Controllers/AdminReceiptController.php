@@ -65,7 +65,7 @@ class AdminReceiptController extends Controller
 
         $validated = $request->validate([
             'entrance_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'],
-            'payment_method' => ['required', 'in:cash,visa_master,amex'],
+            'payment_method' => ['required', 'in:cash,visa_master,amex,ticket'],
         ]);
 
         $visitor->update([

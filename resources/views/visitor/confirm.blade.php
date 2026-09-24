@@ -85,6 +85,16 @@
                             <span class="payment-option-copy"><strong>Visa / Master / Amex</strong><small>Credit or debit card</small></span>
                             <span class="card-marks"><b>VISA</b><b>MC</b><b>AMEX</b></span>
                         </label>
+                        <label class="payment-option">
+                            <input type="radio" name="payment_method" value="cash" required>
+                            <span class="payment-option-indicator"></span>
+                            <span class="payment-option-copy"><strong>Cash</strong><small>Pay at the entrance counter</small></span>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="payment_method" value="ticket" required>
+                            <span class="payment-option-indicator"></span>
+                            <span class="payment-option-copy"><strong>Ticket</strong><small>Register using a ticket</small></span>
+                        </label>
                     </div>
                     @error('payment_method')<span class="form-error-msg">{{ $message }}</span>@enderror
                 </fieldset>

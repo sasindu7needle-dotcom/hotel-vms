@@ -23,7 +23,7 @@
             <label>Time from<input type="time" name="time_from" value="{{ $filters['time_from'] }}"></label>
             <label>Time to<input type="time" name="time_to" value="{{ $filters['time_to'] }}"></label>
             <label>Gate in<select name="gate"><option value="">All gates</option>@foreach($gates as $gate)<option value="{{ $gate }}" @selected($filters['gate'] === $gate)>{{ $gate }}</option>@endforeach</select></label>
-            <label>Payment method<select name="payment_method"><option value="">All methods</option><option value="cash" @selected($filters['payment_method'] === 'cash')>Cash</option><option value="visa_master" @selected($filters['payment_method'] === 'visa_master')>Visa / MasterCard</option><option value="amex" @selected($filters['payment_method'] === 'amex')>American Express</option></select></label>
+            <label>Payment method<select name="payment_method"><option value="">All methods</option><option value="cash" @selected($filters['payment_method'] === 'cash')>Cash</option><option value="visa_master" @selected($filters['payment_method'] === 'visa_master')>Visa / MasterCard</option><option value="amex" @selected($filters['payment_method'] === 'amex')>American Express</option><option value="ticket" @selected($filters['payment_method'] === 'ticket')>Ticket</option></select></label>
             <div class="admin-revenue-filter-actions"><button class="btn btn-primary" type="submit">Apply filters</button><a href="{{ url()->current() }}">Clear</a></div>
         </form>
     </section>

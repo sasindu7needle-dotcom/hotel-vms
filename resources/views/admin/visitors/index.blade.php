@@ -314,7 +314,7 @@
                                 <label>Company<input name="company" value="{{ $visitor->company }}"></label>
                                 <label>Category<input name="category" value="{{ $visitor->category }}"></label>
                                 <label>Entrance fee<input name="entrance_fee" type="number" min="0" step="0.01" value="{{ $visitor->entrance_fee }}"></label>
-                                <label>Payment method<select name="payment_method"><option value="">Not selected</option>@foreach(['cash'=>'Cash','visa_master'=>'Visa / MasterCard','amex'=>'American Express'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_method===$value)>{{ $label }}</option>@endforeach</select></label>
+                                <label>Payment method<select name="payment_method"><option value="">Not selected</option>@foreach(['cash'=>'Cash','visa_master'=>'Visa / MasterCard','amex'=>'American Express','ticket'=>'Ticket'] as $value=>$label)<option value="{{ $value }}" @selected($visitor->payment_method===$value)>{{ $label }}</option>@endforeach</select></label>
                                 <label>Payment status<select name="payment_status" required>@foreach(['pending'=>'Pending','paid'=>'Paid'] as $value=>$label)<option value="{{ $value }}" @selected(($value === 'pending' && in_array($visitor->payment_status, ['pending', 'cash_pending', 'card_pending'], true)) || $visitor->payment_status === $value)>{{ $label }}</option>@endforeach</select></label>
                                 <label>Access status<select name="is_blocked" required><option value="0" @selected(!$visitor->is_blocked)>Allowed</option><option value="1" @selected($visitor->is_blocked)>Blocked</option></select></label>
                             </div>

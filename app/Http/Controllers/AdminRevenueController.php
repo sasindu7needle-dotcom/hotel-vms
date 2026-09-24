@@ -68,7 +68,7 @@ class AdminRevenueController extends Controller
             'time_from' => ['nullable', 'date_format:H:i'],
             'time_to' => ['nullable', 'date_format:H:i', 'after_or_equal:time_from'],
             'gate' => ['nullable', 'string', 'max:30'],
-            'payment_method' => ['nullable', 'in:cash,visa_master,amex'],
+            'payment_method' => ['nullable', 'in:cash,visa_master,amex,ticket'],
         ]);
 
         return array_map(static fn ($value) => is_string($value) ? trim($value) : $value, array_merge([

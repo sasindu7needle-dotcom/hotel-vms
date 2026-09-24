@@ -100,7 +100,7 @@ class AdminVisitorController extends Controller
             'company' => 'nullable|string|max:150',
             'category' => 'nullable|string|max:100',
             'entrance_fee' => 'nullable|numeric|min:0|max:9999999999',
-            'payment_method' => 'nullable|in:visa_master,amex,cash',
+            'payment_method' => 'nullable|in:visa_master,amex,cash,ticket',
             'payment_status' => 'required|in:pending,paid',
             'is_blocked' => 'required|boolean',
         ]);

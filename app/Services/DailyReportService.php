@@ -117,7 +117,7 @@ class DailyReportService
 
     private function paymentMethod(?string $method): string
     {
-        return match ($method) { 'visa_master' => 'Visa / MasterCard', 'amex' => 'American Express', 'cash' => 'Cash', default => 'Not recorded' };
+        return match ($method) { 'visa_master' => 'Visa / MasterCard', 'amex' => 'American Express', 'cash' => 'Cash', 'ticket' => 'Ticket', default => 'Not recorded' };
     }
 
     private function dateTime($dateTime): string

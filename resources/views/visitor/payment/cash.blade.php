@@ -2,7 +2,7 @@
 <html lang="en" class="visitor-journey">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cash Payment Confirmation — Traction Guest</title>
+    <title>{{ data_get($details, 'payment_method') === 'ticket' ? 'Ticket Registration' : 'Cash Payment Confirmation' }} — Traction Guest</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <style>
@@ -20,11 +20,11 @@
             <div class="payment-status-icon payment-status-icon-cash">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle><path d="M6 9H5v1M18 15h1v-1"></path></svg>
             </div>
-            <span class="tagline no-margin">CASH SELECTED</span>
-            <h1 id="cash-payment-title" class="headline">Pay at the counter<span class="dot">.</span></h1>
+            <span class="tagline no-margin">{{ data_get($details, 'payment_method') === 'ticket' ? 'TICKET SELECTED' : 'CASH SELECTED' }}</span>
+            <h1 id="cash-payment-title" class="headline">{{ data_get($details, 'payment_method') === 'ticket' ? 'Ticket registration' : 'Pay at the counter' }}<span class="dot">.</span></h1>
             @if(data_get($details, 'registration_date'))<p><strong>{{ data_get($details, 'registration_day_label') }} · {{ \Illuminate\Support\Carbon::parse(data_get($details, 'registration_date'))->format('d F Y') }}</strong></p>@endif
-            <p>Your details are confirmed. Please present this screen at the entrance counter and make the cash payment to complete check-in.</p>
-            <div class="payment-amount"><span>Cash amount due</span><strong>{{ data_get($details, 'entrance_fee') !== null ? 'LKR '.number_format((float) data_get($details, 'entrance_fee'), 2) : 'Confirm at counter' }}</strong></div>
+            <p>{{ data_get($details, 'payment_method') === 'ticket' ? 'Your details are confirmed. Please present your ticket and this screen at the entrance counter.' : 'Your details are confirmed. Please present this screen at the entrance counter and make the cash payment to complete check-in.' }}</p>
+            @if(data_get($details, 'payment_method') !== 'ticket')<div class="payment-amount"><span>Cash amount due</span><strong>{{ data_get($details, 'entrance_fee') !== null ? 'LKR '.number_format((float) data_get($details, 'entrance_fee'), 2) : 'Confirm at counter' }}</strong></div>@endif
             <div class="cash-reference"><span>Visitor</span><strong>{{ data_get($details, 'full_name') ?: 'Verified visitor' }}</strong></div>
             <div class="cash-pending-notice" role="status">
                 <strong>Waiting for payment confirmation</strong>
@@ -33,7 +33,7 @@
             @include('visitor.partials.card-download-button', ['class' => 'cash-card-download'])
             <small class="card-download-help">Your downloaded card will show payment as pending until reception confirms it.</small>
         </section>
-        <footer class="registration-trust">Please collect an official receipt after making your payment.</footer>
+        <footer class="registration-trust">{{ data_get($details, 'payment_method') === 'ticket' ? 'Keep your ticket available for entrance verification.' : 'Please collect an official receipt after making your payment.' }}</footer>
     </main>
     <script>
         window.setTimeout(() => window.location.reload(), 10000);

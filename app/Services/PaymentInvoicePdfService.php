@@ -58,6 +58,7 @@ class PaymentInvoicePdfService
             'visa_master' => 'Visa / Mastercard',
             'amex' => 'American Express',
             'cash' => 'Cash',
+            'ticket' => 'Ticket',
             default => ucfirst(str_replace('_', ' ', $method ?: 'Not specified')),
         };
     }
